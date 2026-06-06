@@ -34,12 +34,17 @@ It applies a profile by writing its environment variables into Claude Code's
 - 🔌 **Status bar indicator** — shows the active provider; hidden when no providers exist.
 - ∞ **Unlimited profiles** (hotkeys cover the first 10 slots; the rest are switched via the sidebar/menu).
 
+> See the Marketplace listing for screenshots.
+
 ### Quick start
 
 1. Install this extension and the [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) extension.
 2. Open the **Claude Providers** view from the Activity Bar (the dotted icon) and click **+ Add
-   provider**. Fill in the fields (see [Profile fields](#profile-fields)). An empty Base URL = native
-   subscription.
+   provider**. Pick a **template** — *Custom* (blank), *Claude Subscription*, *Claude API*, a
+   built-in **Anthropic-compatible provider** (DeepSeek, Kimi, MiniMax, Qwen, Z.ai, …), or a **local
+   server** (Ollama, LM Studio, llama.cpp, vLLM): the Base URL (and model mapping, where fixed) is
+   pre-filled. Then just add your API key. Every field stays editable (see
+   [Profile fields](#profile-fields)); an empty Base URL = native subscription.
 3. Switch with the profile's **hotkey**, the **menu**, or the sidebar ▶ button.
 4. **Start a new Claude Code session** (new chat / Reload Window) so it picks up the change — Claude
    Code reads the environment when a session starts, not live.
@@ -48,7 +53,7 @@ It applies a profile by writing its environment variables into Claude Code's
 
 | Action | Where |
 | --- | --- |
-| **Add** | view title-bar `+` (auto-assigns the next free hotkey) |
+| **Add** | view title-bar `+` → pick a template (Custom / Claude Subscription / Claude API / a built-in provider), then add your key; auto-assigns the next free hotkey |
 | **Switch to** | row ▶ (inline) |
 | **Edit** | row ✎ (inline) or right-click → *Edit* |
 | **Delete** | row 🗑 (inline) or right-click → *Delete* (deleting the active one switches to the first remaining; deleting the last resets to the subscription) |
@@ -69,7 +74,7 @@ repeat, then *Done*. **Color** and **Hotkey** are chosen from a dropdown — no 
 | Field | Meaning |
 | --- | --- |
 | **Name** | Shown in the menu, sidebar, and status bar. |
-| **Badge** | Optional color dot (🟢🔵🟣🟡🟠…) picked from a list. |
+| **Badge** | A color shape (🟢🔵🟣🟡🟠🟩🟦🔷…) picked from a list; auto-assigned on Add. (The provider **logo** shows in the Add menu and the hover tooltip.) |
 | **Hotkey** | Optional `Ctrl+Alt+<n>` shortcut, auto-assigned on Add. |
 | `ANTHROPIC_BASE_URL` | Anthropic-compatible endpoint. **Empty = native subscription.** |
 | `ANTHROPIC_AUTH_TOKEN` | API key for third-party endpoints (sent as a **Bearer** token). |
@@ -169,6 +174,9 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - **Restart the session after switching.** Claude Code reads `claudeCode.environmentVariables` when a
   session starts — switch, then open a new chat or reload the window.
 - Prefer **`ANTHROPIC_AUTH_TOKEN`** over `ANTHROPIC_API_KEY` for third-party endpoints (Bearer header).
+- **Local servers** (Ollama, LM Studio, llama.cpp, vLLM): the preset fills the Base URL and a
+  throwaway token — set the **model** to your loaded model id. For **llama.cpp**, start `llama-server`
+  with **`--jinja`**, otherwise tool calls won't work and Claude Code stops acting like an agent.
 - Reasoning models may return an empty final message when `max_tokens` is too low (tokens go into
   reasoning) — provider behavior, not the switcher.
 
@@ -198,11 +206,21 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - ∞ **Без лимита на число профилей** (хоткеи покрывают первые 10 слотов; остальные — через
   сайдбар/меню).
 
+### Скриншоты
+
+| Сайдбар | Добавление провайдера | Подсказка |
+| --- | --- | --- |
+| _Скриншоты — в карточке Marketplace._ |
+
 ### Быстрый старт
 
 1. Установи это расширение и [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code).
-2. Открой панель **Claude Providers** в Activity Bar (иконка из точек) → **+ Add provider**. Заполни
-   поля (см. [Поля профиля](#поля-профиля)). Пустой Base URL = нативная подписка.
+2. Открой панель **Claude Providers** в Activity Bar (иконка из точек) → **+ Add provider**. Выбери
+   **шаблон** — *Custom* (пусто), *Claude Subscription*, *Claude API*, встроенный
+   **Anthropic-совместимый провайдер** (DeepSeek, Kimi, MiniMax, Qwen, Z.ai, …) или **локальный
+   сервер** (Ollama, LM Studio, llama.cpp, vLLM): Base URL (и маппинг моделей, где он фиксирован)
+   подставится сам. Останется только вписать свой API-ключ. Все поля остаются редактируемыми
+   (см. [Поля профиля](#поля-профиля)); пустой Base URL = нативная подписка.
 3. Переключайся **хоткеем** профиля, через **меню** или кнопкой ▶ в сайдбаре.
 4. **Запусти новую сессию Claude Code** (новый чат / Reload Window) — переменные читаются при старте
    сессии, не на лету.
@@ -211,7 +229,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 
 | Действие | Где |
 | --- | --- |
-| **Add** | кнопка `+` в шапке панели (сразу выдаёт ближайший свободный хоткей) |
+| **Add** | кнопка `+` в шапке → выбор шаблона (Custom / Claude Subscription / Claude API / встроенный провайдер), затем впиши ключ; сразу выдаёт ближайший свободный хоткей |
 | **Switch to** | ▶ в строке |
 | **Edit** | ✎ в строке или ПКМ → *Edit* |
 | **Delete** | 🗑 в строке или ПКМ → *Delete* (удаление активного → переключение на первого оставшегося; удаление последнего → сброс на подписку) |
@@ -232,7 +250,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | Поле | Смысл |
 | --- | --- |
 | **Name** | Имя в меню, сайдбаре и статус-баре. |
-| **Badge** | Необязательный цветной кружок (🟢🔵🟣🟡🟠…) из списка. |
+| **Badge** | Цветная фигурка (🟢🔵🟣🟡🟠🟩🟦🔷…) из списка; авто-назначается при Add. (**Логотип** провайдера показывается в меню Add и во всплывающей подсказке.) |
 | **Hotkey** | Необязательный `Ctrl+Alt+<n>`, авто-назначается при Add. |
 | `ANTHROPIC_BASE_URL` | Anthropic-совместимый эндпоинт. **Пусто = нативная подписка.** |
 | `ANTHROPIC_AUTH_TOKEN` | Ключ для сторонних эндпоинтов (отправляется как **Bearer**). |
@@ -269,6 +287,10 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - **После переключения перезапусти сессию.** Claude Code читает `claudeCode.environmentVariables` при
   старте сессии — переключись, затем открой новый чат или перезагрузи окно.
 - Для сторонних эндпоинтов используй **`ANTHROPIC_AUTH_TOKEN`**, не `ANTHROPIC_API_KEY` (заголовок Bearer).
+- **Локальные серверы** (Ollama, LM Studio, llama.cpp, vLLM): пресет подставляет Base URL и
+  токен-заглушку — задай **модель** = id своей загруженной модели. Для **llama.cpp** запускай
+  `llama-server` с флагом **`--jinja`**, иначе не работают вызовы инструментов и Claude Code
+  перестаёт вести себя как агент.
 - Reasoning-модели при малом `max_tokens` могут вернуть пустой финальный ответ — это поведение
   провайдера, не переключателя.
 
@@ -295,11 +317,20 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - 🔌 **状态栏指示器** —— 显示当前服务商；无配置时隐藏。
 - ∞ **配置数量不限**（快捷键覆盖前 10 个槽位，其余通过侧边栏/菜单切换）。
 
+### 截图
+
+| 侧边栏 | 添加服务商 | 悬停提示 |
+| --- | --- | --- |
+| _截图见 Marketplace 页面._ |
+
 ### 快速开始
 
 1. 安装本扩展和 [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) 扩展。
-2. 从活动栏打开 **Claude Providers** 视图（圆点图标），点击 **+ Add provider**，填写字段（见下方
-   [配置字段](#配置字段)）。Base URL 留空 = 原生订阅。
+2. 从活动栏打开 **Claude Providers** 视图（圆点图标），点击 **+ Add provider**，选择一个**模板** ——
+   *Custom*（空白）、*Claude Subscription*、*Claude API*、内置的 **Anthropic 兼容服务商**（DeepSeek、
+   Kimi、MiniMax、Qwen、Z.ai 等）或**本地服务**（Ollama、LM Studio、llama.cpp、vLLM）：Base URL（以及
+   固定的模型映射）会自动填好，你只需填入自己的 API 密钥。所有字段仍可编辑（见下方
+   [配置字段](#配置字段)）；Base URL 留空 = 原生订阅。
 3. 用配置的**快捷键**、**菜单**或侧边栏 ▶ 按钮切换。
 4. **启动新的 Claude Code 会话**（新对话 / 重载窗口）使其生效 —— Claude Code 在会话启动时读取环境变量，
    不会实时刷新。
@@ -308,7 +339,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 
 | 操作 | 位置 |
 | --- | --- |
-| **添加** | 视图标题栏的 `+`（自动分配下一个空闲快捷键） |
+| **添加** | 视图标题栏的 `+` → 选择模板（Custom / Claude Subscription / Claude API / 内置服务商），再填入密钥；自动分配下一个空闲快捷键 |
 | **切换到** | 行内 ▶ |
 | **编辑** | 行内 ✎ 或右键 → *Edit* |
 | **删除** | 行内 🗑 或右键 → *Delete*（删除当前项会切到第一个剩余项；删除最后一个会重置为订阅） |
@@ -328,7 +359,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | 字段 | 含义 |
 | --- | --- |
 | **Name** | 显示在菜单、侧边栏和状态栏。 |
-| **Badge** | 可选的彩色圆点（🟢🔵🟣🟡🟠…），从列表选择。 |
+| **Badge** | 彩色图形（🟢🔵🟣🟡🟠🟩🟦🔷…），从列表选择；添加时自动分配。（服务商**标志**显示在 Add 菜单和悬停提示中。） |
 | **Hotkey** | 可选的 `Ctrl+Alt+<n>` 快捷键，添加时自动分配。 |
 | `ANTHROPIC_BASE_URL` | Anthropic 兼容端点。**留空 = 原生订阅。** |
 | `ANTHROPIC_AUTH_TOKEN` | 第三方端点的 API 密钥（以 **Bearer** 令牌发送）。 |
@@ -360,6 +391,9 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - **切换后请重启会话。** Claude Code 在会话启动时读取 `claudeCode.environmentVariables` —— 切换后新建
   对话或重载窗口。
 - 第三方端点优先用 **`ANTHROPIC_AUTH_TOKEN`** 而非 `ANTHROPIC_API_KEY`（Bearer 头）。
+- **本地服务**（Ollama、LM Studio、llama.cpp、vLLM）：预设会填好 Base URL 和一个占位令牌 —— 请把**模型**
+  设为你已加载模型的 id。对于 **llama.cpp**，启动 `llama-server` 时要加 **`--jinja`**，否则工具调用无法
+  工作，Claude Code 会不再像智能体一样运行。
 - 推理类模型在 `max_tokens` 过小时可能返回空的最终消息（token 都用于推理）—— 这是服务商行为，与本扩展无关。
 
 ---
@@ -372,6 +406,17 @@ entries in your `keybindings.json`. · Расширение ничего не х
 читает `claudeProviderSwitcher.profiles`, пишет `claudeCode.environmentVariables` и ведёт свои записи
 в `keybindings.json`. · 本扩展不在远端存储任何内容，也不附带凭据。它读取 `claudeProviderSwitcher.profiles`、
 写入 `claudeCode.environmentVariables`，并维护 `keybindings.json` 中属于自己的条目。
+
+## Trademarks / Товарные знаки / 商标
+
+Provider names and logos (DeepSeek, MiniMax, Qwen, Z.ai, Vercel, Poe, …) are trademarks of their
+respective owners and are used here **for identification only**. This extension is **independent and
+not affiliated with, endorsed by, or sponsored by** any of these providers. ·
+Названия и логотипы провайдеров (DeepSeek, MiniMax, Qwen, Z.ai, Vercel, Poe и др.) — товарные знаки
+их владельцев и используются **только для идентификации**. Расширение **независимо и не
+аффилировано** ни с одним из провайдеров, не одобрено и не спонсируется ими. ·
+各服务商名称与标志（DeepSeek、MiniMax、Qwen、Z.ai、Vercel、Poe 等）为其各自所有者的商标，此处**仅用于
+标识**。本扩展**独立运作，与上述任何服务商无隶属、背书或赞助关系**。
 
 ## License
 

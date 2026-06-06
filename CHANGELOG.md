@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0
+
+- **Add provider** now opens a template menu (with provider logos) instead of only asking for a
+  name. Pick **Custom** (blank, manual), **Claude Subscription**, **Claude API**, or one of 14
+  built-in **Anthropic-compatible providers**: DeepInfra, DeepSeek, Fireworks AI, Kimi (Moonshot),
+  MiniMax, MiniMax (China), ModelScope, Novita, OpenRouter, Poe, Qwen (Alibaba), SiliconFlow, Vercel AI Gateway,
+  Z.ai (GLM), Zhipu GLM (China). The Base URL — and, where the provider uses fixed model names, the
+  model mapping — are pre-filled. You still add your own API key, and every field stays editable
+  afterwards.
+- Also lists **local servers** with a native Anthropic-compatible endpoint and a known default
+  port: llama.cpp, LM Studio, Ollama, vLLM (Base URL pre-filled; set your loaded model id after).
+- Picking the same provider twice auto-numbers the name (`DeepSeek`, `DeepSeek2`, …).
+- New profiles get the next free **badge** auto-assigned (a colored shape, like the hotkey); the
+  palette is expanded with squares and diamonds (circles → squares → diamonds) for more distinct
+  colors. Provider **logos** appear in the **Add provider** menu and in the **hover tooltip** of each
+  profile (sidebar and status bar), matched by endpoint.
+- Marketplace screenshots in `media/screenshots/` (re-render with `media/screenshots/render.ps1`).
+- Bumps the minimum VS Code to 1.83 (needed for per-item icons in the picker).
+
 ## 0.1.1
 
 - Added a Chinese (Simplified) README section alongside English and Russian.

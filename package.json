@@ -2,16 +2,34 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "http://cratos:3000/lobanov/claude-provider-switcher.git"
+  },
   "icon": "icon.png",
   "galleryBanner": {
     "color": "#181825",
     "theme": "dark"
   },
+  "screenshots": [
+    {
+      "path": "media/screenshots/01-sidebar.png",
+      "alt": "Claude Providers sidebar with active profile and badges"
+    },
+    {
+      "path": "media/screenshots/02-add-provider.png",
+      "alt": "Add provider menu with built-in Anthropic-compatible providers and local servers"
+    },
+    {
+      "path": "media/screenshots/03-tooltip.png",
+      "alt": "Provider hover tooltip showing logo, hotkey, Base URL and model mapping"
+    }
+  ],
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.83.0"
   },
   "categories": [
     "Other"
