@@ -1,0 +1,128 @@
+{
+  "name": "claude-provider-switcher",
+  "displayName": "Claude Provider Switcher",
+  "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
+  "version": "0.1.1",
+  "publisher": "AlekseiLobanov",
+  "license": "MIT",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#181825",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "anthropic",
+    "provider",
+    "litellm"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "claudeProviderSwitcher",
+          "title": "Claude Providers",
+          "icon": "media/sidebar.svg"
+        }
+      ]
+    },
+    "views": {
+      "claudeProviderSwitcher": [
+        {
+          "id": "claudeProviderSwitcher.view",
+          "name": "Providers"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "claudeProviderSwitcher.view",
+        "contents": "No providers yet.\n[Add provider](command:claudeProviderSwitcher.add)\n\nProfiles are stored in your settings (`claudeProviderSwitcher.profiles`)."
+      }
+    ],
+    "configuration": {
+      "title": "Claude Provider Switcher",
+      "properties": {
+        "claudeProviderSwitcher.profiles": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Provider profiles (1–10). Managed via the **Claude Providers** sidebar, or edited here. Selecting a profile writes its `env` to `#claudeCode.environmentVariables#`. **Do not commit real API keys.**",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "color": {
+                "type": "string"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "claudeProviderSwitcher.showStatusBarItem": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the active-provider indicator in the status bar."
+        }
+      }
+    },
+    "commands": [
+      { "command": "claudeProviderSwitcher.select", "title": "Select provider…", "category": "Claude Provider" },
+      { "command": "claudeProviderSwitcher.add", "title": "Add provider", "category": "Claude Provider", "icon": "$(add)" },
+      { "command": "claudeProviderSwitcher.refresh", "title": "Refresh", "category": "Claude Provider", "icon": "$(refresh)" },
+      { "command": "claudeProviderSwitcher.switchTo", "title": "Switch to this provider", "category": "Claude Provider", "icon": "$(play)" },
+      { "command": "claudeProviderSwitcher.edit", "title": "Edit provider", "category": "Claude Provider", "icon": "$(pencil)" },
+      { "command": "claudeProviderSwitcher.delete", "title": "Delete provider", "category": "Claude Provider", "icon": "$(trash)" },
+      { "command": "claudeProviderSwitcher.duplicate", "title": "Duplicate provider", "category": "Claude Provider", "icon": "$(copy)" },
+      { "command": "claudeProviderSwitcher.moveUp", "title": "Move up", "category": "Claude Provider", "icon": "$(arrow-up)" },
+      { "command": "claudeProviderSwitcher.moveDown", "title": "Move down", "category": "Claude Provider", "icon": "$(arrow-down)" },
+      { "command": "claudeProviderSwitcher.switchToIndex", "title": "Switch to provider (by index)", "category": "Claude Provider" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "claudeProviderSwitcher.add", "when": "view == claudeProviderSwitcher.view", "group": "navigation@1" },
+        { "command": "claudeProviderSwitcher.refresh", "when": "view == claudeProviderSwitcher.view", "group": "navigation@2" }
+      ],
+      "view/item/context": [
+        { "command": "claudeProviderSwitcher.switchTo", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@1" },
+        { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@2" },
+        { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@3" },
+        { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@1" },
+        { "command": "claudeProviderSwitcher.duplicate", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@2" },
+        { "command": "claudeProviderSwitcher.moveUp", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@1" },
+        { "command": "claudeProviderSwitcher.moveDown", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@2" },
+        { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "3_danger@1" }
+      ],
+      "commandPalette": [
+        { "command": "claudeProviderSwitcher.switchTo", "when": "false" },
+        { "command": "claudeProviderSwitcher.edit", "when": "false" },
+        { "command": "claudeProviderSwitcher.delete", "when": "false" },
+        { "command": "claudeProviderSwitcher.duplicate", "when": "false" },
+        { "command": "claudeProviderSwitcher.moveUp", "when": "false" },
+        { "command": "claudeProviderSwitcher.moveDown", "when": "false" },
+        { "command": "claudeProviderSwitcher.refresh", "when": "false" }
+      ]
+    },
+    "keybindings": []
+  }
+}
