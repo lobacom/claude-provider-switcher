@@ -1,5 +1,6 @@
 # Build artifacts
 *.vsix
+dist/
 
 # Dependencies
 node_modules/
