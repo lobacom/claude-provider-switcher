@@ -255,8 +255,12 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 
 ### Notes
 
-- **Restart the session after switching.** Claude Code reads `claudeCode.environmentVariables` when a
-  session starts — switch, then open a new chat or reload the window.
+- **Start a new session after switching.** Claude Code reads `claudeCode.environmentVariables` when a
+  session starts, not live — so after switching, **open a new chat**. A *resumed* chat (and a window
+  reload, which restores the conversation) keeps the model and settings from its saved transcript, so a
+  reload alone may not pick up a model change. Set `claudeProviderSwitcher.switchAction` to
+  `switchAndReload`, or use the *Switch provider & reload window* command, to reload automatically — but
+  a fresh chat is the reliable way to apply a provider/model change.
 - Prefer **`ANTHROPIC_AUTH_TOKEN`** over `ANTHROPIC_API_KEY` for third-party endpoints (Bearer header).
 - **Local servers** (Ollama, LM Studio, llama.cpp, vLLM): the preset fills the Base URL and a
   throwaway token — set the **model** to your loaded model id. For **llama.cpp**, start `llama-server`
@@ -441,8 +445,12 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 
 ### Заметки
 
-- **После переключения перезапусти сессию.** Claude Code читает `claudeCode.environmentVariables` при
-  старте сессии — переключись, затем открой новый чат или перезагрузи окно.
+- **После переключения начни новую сессию.** Claude Code читает `claudeCode.environmentVariables` при
+  старте сессии, а не на лету — поэтому после переключения **открой новый чат**. *Возобновлённый* чат
+  (и перезагрузка окна, которая восстанавливает беседу) держит модель и настройки из сохранённого
+  transcript, так что один лишь reload может не подхватить смену модели. Можно включить
+  `claudeProviderSwitcher.switchAction` = `switchAndReload` или использовать команду *Переключиться и
+  перезагрузить окно* для авто-reload — но надёжно применяет смену провайдера/модели именно новый чат.
 - Для сторонних эндпоинтов используй **`ANTHROPIC_AUTH_TOKEN`**, не `ANTHROPIC_API_KEY` (заголовок Bearer).
 - **Локальные серверы** (Ollama, LM Studio, llama.cpp, vLLM): пресет подставляет Base URL и
   токен-заглушку — задай **модель** = id своей загруженной модели. Для **llama.cpp** запускай
@@ -612,8 +620,11 @@ SecretStorage 中）。
 
 ### 说明
 
-- **切换后请重启会话。** Claude Code 在会话启动时读取 `claudeCode.environmentVariables` —— 切换后新建
-  对话或重载窗口。
+- **切换后请开始新会话。** Claude Code 在会话启动时读取 `claudeCode.environmentVariables`，而非实时刷新
+  —— 因此切换后请**新建对话**。*恢复的*对话（以及会恢复对话的窗口重载）会沿用其已保存 transcript 中的
+  模型与设置，所以仅重载窗口可能无法应用模型变更。可将 `claudeProviderSwitcher.switchAction` 设为
+  `switchAndReload`，或使用 *切换服务商并重新加载窗口* 命令来自动重载 —— 但可靠地应用服务商/模型变更的方式
+  是新建对话。
 - 第三方端点优先用 **`ANTHROPIC_AUTH_TOKEN`** 而非 `ANTHROPIC_API_KEY`（Bearer 头）。
 - **本地服务**（Ollama、LM Studio、llama.cpp、vLLM）：预设会填好 Base URL 和一个占位令牌 —— 请把**模型**
   设为你已加载模型的 id。对于 **llama.cpp**，启动 `llama-server` 时要加 **`--jinja`**，否则工具调用无法
