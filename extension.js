@@ -1499,6 +1499,9 @@ class ProfilesProvider {
       if (isPinned) extra.push('', '📌 Pinned to this workspace');
       if (status !== 'unknown') extra.push('', 'Status: ' + healthLabel(status));
       it.tooltip = profileTooltip(p, extra.length ? extra : undefined);
+      // Clicking the row switches to this provider (with fallback when enabled),
+      // same as the old inline ▶ button. The circle marks the active one.
+      it.command = { command: `${SELF}.switchTo`, title: 'Switch to this provider', arguments: [i] };
       return it;
     });
   }
@@ -1557,13 +1560,14 @@ function activate(context) {
     await applyPinnedProfile();
     provider.refresh();
     updateStatus();
+    // Arm health checks only after the token cache is primed. Otherwise the
+    // first periodic probe races the (async) token load, sends no key, and marks
+    // every authed provider as unreachable until the user hits the ❤ button.
+    restartHealthTimer();
   })();
 
   // initial sync
   syncKeybindings().then(() => vscode.window.setStatusBarMessage('Claude provider hotkeys synced', 2500));
-
-  // start periodic health checks if enabled (no-op in the default manual mode)
-  restartHealthTimer();
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {

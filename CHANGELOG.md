@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2
+
+- **Click a provider to switch to it.** Clicking a row in the sidebar now activates that provider
+  directly (with fallback when `autoFallbackOnApply` is on), like a radio list. The redundant inline ▶
+  *Switch* button is gone; the filled circle still marks the active provider, and *Switch to this
+  provider* remains in the right-click menu. Edit/test/delete are still available on hover and don't
+  change the active provider.
+- **Fix: health indicators no longer flash all-red on startup.** In `periodic` mode the first probe
+  ran before the token cache finished loading, so authed providers got no API key, returned 401, and
+  showed 🔴 until you pressed the ❤ button. The periodic timer is now armed only after the token cache
+  is primed.
+
 ## 0.4.1
 
 - **Fix: model list failed (HTTP 404) for providers whose Base URL has a path**, e.g. DeepSeek and

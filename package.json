@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -149,10 +149,10 @@
         { "command": "claudeProviderSwitcher.export", "when": "view == claudeProviderSwitcher.view", "group": "1_io@2" }
       ],
       "view/item/context": [
-        { "command": "claudeProviderSwitcher.switchTo", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@1" },
         { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@2" },
         { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@3" },
         { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@4" },
+        { "command": "claudeProviderSwitcher.switchTo", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "0_switch@1" },
         { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@1" },
         { "command": "claudeProviderSwitcher.duplicate", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@2" },
         { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@3" },
