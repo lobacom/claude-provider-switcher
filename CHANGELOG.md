@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1
+
+- **Docs:** corrected the "restart the session after switching" note (EN/RU/ZH). A *resumed* chat — and a
+  window reload, which restores the conversation — keeps the model and settings from its saved transcript,
+  so a reload alone may not pick up a model change; a **new chat** is the reliable way to apply a
+  provider/model switch. The note now also points to the `switchAction` setting / *Switch & reload*
+  command for automatic reload.
+
 ## 0.7.0
 
 - **Mirror to the Claude Code CLI config.** A new `claudeProviderSwitcher.writeClaudeSettings` setting
