@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.3
+
+- **Docs:** removed the stale `row ▶ (inline)` from the *Switch to* row of the provider-management table
+  in all three languages — clicking a row has switched the provider since 0.4.2; the inline ▶ button is
+  gone. The other inline actions (Test/Edit/Delete) are kept, so they're left as-is.
+
 ## 0.7.2
 
 - **Docs:** added a *How it compares* section (EN/RU/ZH) — a category-based comparison (other in-editor
