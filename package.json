@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -57,7 +57,7 @@
         "claudeProviderSwitcher.profiles": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Provider profiles (1–10). Managed via the **Claude Providers** sidebar, or edited here. Selecting a profile writes its `env` to `#claudeCode.environmentVariables#`. **Do not commit real API keys.**",
+          "markdownDescription": "Provider profiles (no limit; hotkeys cover the first 10). Managed via the **Claude Providers** sidebar, or edited here. Selecting a profile writes its `env` to `#claudeCode.environmentVariables#`. **Do not commit real API keys.**",
           "items": {
             "type": "object",
             "required": [

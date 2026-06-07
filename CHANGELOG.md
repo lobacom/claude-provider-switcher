@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1
+
+- **Fix: model list failed (HTTP 404) for providers whose Base URL has a path**, e.g. DeepSeek and
+  MiniMax (`…/anthropic`). The model catalog lives off the host root, not under the `/anthropic`
+  messages path, so picking a model now tries several candidate URLs (`<base>/v1/models`,
+  `<base>/models`, and the same off the host root) and uses the first that returns a list. The health
+  check uses the same probe, so it's more accurate too. When a provider genuinely has no model-list
+  endpoint, the picker explains why and falls back to manual entry.
+- **Fix:** the `profiles` setting description no longer claims a 1–10 limit (there is none; hotkeys
+  just cover the first 10 slots).
+
 ## 0.4.0
 
 - **Health indicator** — each provider shows a 🟢 (reachable) / 🔴 (unreachable) tint on its tree icon

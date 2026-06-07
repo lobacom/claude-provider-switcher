@@ -880,18 +880,36 @@ async function moveProfile(arg, dir) {
 }
 
 // ---- model listing ---------------------------------------------------------
-// Fetch the model catalog from the provider's endpoint so the user can pick a
-// model id from a list instead of typing it. Anthropic and most gateways expose
-// GET /v1/models returning { data: [{ id }, …] }; some return { models: [...] }
-// or a bare array, and a few use string ids. We accept all of those shapes.
+// Fetch the model catalog so the user can pick an id instead of typing it.
+// The catch: a provider's Anthropic Base URL often carries a path (e.g.
+// `https://api.deepseek.com/anthropic`) that routes /v1/messages, but the model
+// list lives elsewhere — usually off the host root (`/v1/models` or `/models`).
+// So we try several candidate URLs and use the first that returns a list.
+// Responses come as { data: [{ id }] }, { models: [...] }, a bare array, or
+// string ids — we accept all of those shapes.
 
-function httpGetModels(baseUrl, token) {
+// Candidate model-list URLs for a Base URL, most-specific first.
+function modelListCandidates(baseUrl) {
+  const n = normalizeUrl(baseUrl);
+  const out = [n + '/v1/models', n + '/models'];
+  try {
+    const u = new (require('url').URL)(n);
+    const root = `${u.protocol}//${u.host}`;
+    if (root !== n) out.push(root + '/v1/models', root + '/models'); // strip the path
+  } catch { /* invalid URL — handled by the caller */ }
+  return [...new Set(out)];
+}
+
+// GET one model-list URL. Resolves { status, models } — status 0 means the host
+// didn't answer (DNS/connection/timeout); models is null unless we parsed a 2xx
+// body into a non-empty-capable list.
+function fetchModelsAt(modelsUrl, token) {
   return new Promise((resolve) => {
     let url;
     try {
-      url = new (require('url').URL)(normalizeUrl(baseUrl) + '/v1/models');
+      url = new (require('url').URL)(modelsUrl);
     } catch {
-      resolve({ kind: 'error', msg: 'Invalid Base URL' });
+      resolve({ status: 0, models: null });
       return;
     }
     const lib = url.protocol === 'http:' ? require('http') : require('https');
@@ -900,33 +918,49 @@ function httpGetModels(baseUrl, token) {
       headers['x-api-key'] = token;
       headers['authorization'] = `Bearer ${token}`;
     }
-    const req = lib.request(url, { method: 'GET', headers, timeout: 12000 }, (res) => {
+    const req = lib.request(url, { method: 'GET', headers, timeout: 8000 }, (res) => {
       let raw = '';
       res.on('data', (c) => { raw += c; });
       res.on('end', () => {
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          resolve({ kind: 'error', msg: `HTTP ${res.statusCode}` });
-          return;
+        const s = res.statusCode;
+        let models = null;
+        if (s >= 200 && s < 300) {
+          try {
+            const j = JSON.parse(raw);
+            const arr = Array.isArray(j) ? j
+              : Array.isArray(j.data) ? j.data
+              : Array.isArray(j.models) ? j.models
+              : [];
+            models = arr
+              .map((m) => (typeof m === 'string' ? m : (m && (m.id || m.name))))
+              .filter(Boolean);
+          } catch { /* leave models null — counts as a reachable non-list reply */ }
         }
-        try {
-          const j = JSON.parse(raw);
-          const arr = Array.isArray(j) ? j
-            : Array.isArray(j.data) ? j.data
-            : Array.isArray(j.models) ? j.models
-            : [];
-          const ids = arr
-            .map((m) => (typeof m === 'string' ? m : (m && (m.id || m.name))))
-            .filter(Boolean);
-          resolve({ kind: 'ok', models: ids });
-        } catch {
-          resolve({ kind: 'error', msg: 'Unexpected response (not JSON)' });
-        }
+        resolve({ status: s, models });
       });
     });
-    req.on('timeout', () => { req.destroy(); resolve({ kind: 'error', msg: 'Timed out after 12s' }); });
-    req.on('error', (e) => resolve({ kind: 'error', msg: e.message }));
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, models: null }); });
+    req.on('error', () => resolve({ status: 0, models: null }));
     req.end();
   });
+}
+
+// Try every candidate; return the first model list found. On failure, report
+// whether the host was reachable at all and whether auth was rejected, so
+// callers can give a useful message / health verdict.
+async function probeModelsList(baseUrl, token) {
+  let reachable = false;
+  let auth = false;
+  let serverError = false;
+  for (const u of modelListCandidates(baseUrl)) {
+    const r = await fetchModelsAt(u, token);
+    if (r.status === 0) continue; // host didn't answer at this URL
+    reachable = true;
+    if (r.models && r.models.length) return { ok: true, models: r.models, reachable: true };
+    if (r.status === 401 || r.status === 403) auth = true;
+    if (r.status >= 500) serverError = true;
+  }
+  return { ok: false, models: [], reachable, auth, serverError };
 }
 
 // Resolve a model field value: query the endpoint and let the user pick from a
@@ -949,14 +983,17 @@ async function pickModelValue(p, f) {
 
   const r = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Fetching models from "${p.name}"…` },
-    () => httpGetModels(base, cachedToken(p))
+    () => probeModelsList(base, cachedToken(p))
   );
-  if (r.kind !== 'ok' || !r.models.length) {
-    vscode.window.showWarningMessage(
-      r.kind !== 'ok'
-        ? `Couldn't list models (${r.msg}). Enter the id manually.`
-        : 'The endpoint returned no models. Enter the id manually.'
-    );
+  if (!r.ok || !r.models.length) {
+    const reason = !r.reachable
+      ? 'endpoint unreachable'
+      : r.auth
+        ? 'auth failed — check the API key'
+        : r.serverError
+          ? 'server error'
+          : "this provider doesn't expose a model list";
+    vscode.window.showWarningMessage(`Couldn't list models (${reason}). Enter the id manually.`);
     return manual();
   }
 
@@ -1159,11 +1196,12 @@ async function switchWithFallback(arg) {
 
 // ---- health indicator ------------------------------------------------------
 // Shows each provider's reachability (🟢/🔴) in the tree and the active item's
-// tooltip. The check uses GET /v1/models — a metadata call that runs NO
-// inference, so it costs zero tokens (unlike "Test connection", which fires a
-// real /v1/messages request). That's what makes the periodic mode safe to leave
-// on. Mode is controlled by `healthCheck` (manual | periodic); manual is default,
-// so nothing runs until you press the check button.
+// tooltip. The check reuses the token-free model-list probe (GET /v1/models &
+// friends) — a metadata call that runs NO inference, so it costs zero tokens
+// (unlike "Test connection", which fires a real /v1/messages request). That's
+// what makes the periodic mode safe to leave on. Mode is controlled by
+// `healthCheck` (manual | periodic); manual is default, so nothing runs until
+// you press the check button.
 
 function healthOf(p) {
   return (p && p.id && healthCache.get(p.id)) || 'unknown';
@@ -1177,47 +1215,25 @@ function healthColor(s) {
   return undefined; // unknown → theme default
 }
 
-// Token-free reachability probe: GET /v1/models. 2xx = reachable; 401/403 (auth)
-// and 5xx and connection errors = down; any other response means the host
-// answered without rejecting the key, so we count it reachable.
-function httpHealth(baseUrl, token) {
-  return new Promise((resolve) => {
-    let url;
-    try {
-      url = new (require('url').URL)(normalizeUrl(baseUrl) + '/v1/models');
-    } catch {
-      resolve('down');
-      return;
-    }
-    const lib = url.protocol === 'http:' ? require('http') : require('https');
-    const headers = { 'anthropic-version': '2023-06-01', accept: 'application/json' };
-    if (token) {
-      headers['x-api-key'] = token;
-      headers['authorization'] = `Bearer ${token}`;
-    }
-    const req = lib.request(url, { method: 'GET', headers, timeout: 10000 }, (res) => {
-      res.on('data', () => {}); // drain
-      res.on('end', () => {
-        const s = res.statusCode;
-        if (s >= 200 && s < 300) resolve('ok');
-        else if (s === 401 || s === 403 || s >= 500) resolve('down');
-        else resolve('ok'); // reachable, non-auth (404/429/400/…)
-      });
-    });
-    req.on('timeout', () => { req.destroy(); resolve('down'); });
-    req.on('error', () => resolve('down'));
-    req.end();
-  });
+// Reachability verdict for one provider, from the model-list probe. A host that
+// answers anything other than an auth rejection or a 5xx counts as reachable —
+// many providers 404 on /v1/models yet serve /v1/messages fine.
+async function checkOneHealth(p) {
+  const base = p.env && p.env.ANTHROPIC_BASE_URL;
+  if (!base) return 'ok'; // native subscription — can't probe, assume up
+  const r = await probeModelsList(base, cachedToken(p));
+  if (r.ok) return 'ok';
+  if (!r.reachable) return 'down'; // nothing answered
+  if (r.auth || r.serverError) return 'down';
+  return 'ok'; // host answered (e.g. 404 — no model list), but it's up
 }
 
-// Probe every profile concurrently and update the cache. Native-subscription
-// profiles (no Base URL) can't be probed, so they're treated as reachable.
+// Probe every profile concurrently and update the cache.
 async function checkAllHealth() {
   await Promise.all(
     getProfiles().map(async (p) => {
       if (!p.id) return;
-      const base = p.env && p.env.ANTHROPIC_BASE_URL;
-      healthCache.set(p.id, base ? await httpHealth(base, cachedToken(p)) : 'ok');
+      healthCache.set(p.id, await checkOneHealth(p));
     })
   );
 }
