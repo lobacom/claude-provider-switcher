@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0
+
+- **Health indicator** — each provider shows a 🟢 (reachable) / 🔴 (unreachable) tint on its tree icon
+  and in the active item's tooltip. Refresh it on demand with *Check provider health* (the ❤ button in
+  the view title bar, or the command palette), or set `claudeProviderSwitcher.healthCheck` to `periodic`
+  for an automatic timer (`healthCheckIntervalMinutes`, default 5). The check uses `GET /v1/models`,
+  which runs **no inference and costs no tokens** — so the periodic mode is safe to leave on. Default is
+  `manual` (nothing runs until you press the button).
+- **Auto-fallback** — a profile can name a **fallback provider** (Edit → *Fallback provider*). Run
+  *Switch with fallback* (right-click a provider, or the command palette) to probe the target and, if
+  it's unreachable, automatically switch to its fallback — following the chain until a healthy provider
+  answers (a native-subscription profile always counts as reachable, so it makes a good final
+  fallback). Turn on `claudeProviderSwitcher.autoFallbackOnApply` to make **every** switch do this
+  automatically. "Healthy" means the endpoint answers HTTP 200/400 (URL + key work).
+- **Pin a provider to a workspace** — right-click a provider → *Pin to this workspace* (or
+  `Claude Provider: Pin provider to this workspace`) to bind it to the current folder. When that
+  workspace is reopened the extension auto-switches to the pinned provider. The pinned row is marked
+  with 📌. The binding is stored per-workspace (never in `settings.json` or the repo). Auto-applying on
+  open can be turned off with the `claudeProviderSwitcher.applyPinnedOnOpen` setting.
+- **Pick models from a list** — when you edit a profile's Opus/Sonnet/Haiku model, the editor now
+  queries the provider's endpoint (`GET /v1/models`) and offers the returned model ids in a dropdown,
+  so you no longer have to know and type the exact id. *Enter manually…* and *Clear* remain available,
+  and the native-subscription / unreachable-endpoint cases fall back to a plain input box.
+
 ## 0.3.0
 
 - **API keys now live in VS Code SecretStorage**, not in `settings.json`. On first run any existing

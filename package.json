@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -91,6 +91,32 @@
           "type": "boolean",
           "default": true,
           "description": "Show the active-provider indicator in the status bar."
+        },
+        "claudeProviderSwitcher.applyPinnedOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a workspace has a pinned provider, automatically switch to it on open. Pin a provider via the sidebar (right-click → Pin to this workspace) or the command palette."
+        },
+        "claudeProviderSwitcher.autoFallbackOnApply": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When switching providers, first probe the target and, if it's unreachable, automatically fall back to its configured fallback provider (set per profile via **Edit → Fallback provider**). Adds a short network check to every switch. When off, use the **Switch with fallback** command for on-demand failover."
+        },
+        "claudeProviderSwitcher.healthCheck": {
+          "type": "string",
+          "enum": ["manual", "periodic"],
+          "enumDescriptions": [
+            "Only check reachability when you run the Check provider health command (default).",
+            "Check all providers automatically on a timer (see healthCheckIntervalMinutes)."
+          ],
+          "default": "manual",
+          "markdownDescription": "How the 🟢/🔴 reachability indicator is refreshed. The check uses `GET /v1/models`, which runs **no inference and costs no tokens**, so `periodic` is safe to leave on."
+        },
+        "claudeProviderSwitcher.healthCheckIntervalMinutes": {
+          "type": "number",
+          "minimum": 1,
+          "default": 5,
+          "markdownDescription": "How often (in minutes) to refresh provider health when `#claudeProviderSwitcher.healthCheck#` is `periodic`."
         }
       }
     },
@@ -109,12 +135,16 @@
       { "command": "claudeProviderSwitcher.previous", "title": "Switch to previous provider", "category": "Claude Provider" },
       { "command": "claudeProviderSwitcher.export", "title": "Export providers…", "category": "Claude Provider", "icon": "$(export)" },
       { "command": "claudeProviderSwitcher.import", "title": "Import providers…", "category": "Claude Provider", "icon": "$(import)" },
-      { "command": "claudeProviderSwitcher.switchToIndex", "title": "Switch to provider (by index)", "category": "Claude Provider" }
+      { "command": "claudeProviderSwitcher.switchToIndex", "title": "Switch to provider (by index)", "category": "Claude Provider" },
+      { "command": "claudeProviderSwitcher.pinToWorkspace", "title": "Pin provider to this workspace", "category": "Claude Provider", "icon": "$(pin)" },
+      { "command": "claudeProviderSwitcher.switchWithFallback", "title": "Switch with fallback", "category": "Claude Provider", "icon": "$(sync)" },
+      { "command": "claudeProviderSwitcher.checkHealth", "title": "Check provider health", "category": "Claude Provider", "icon": "$(heart)" }
     ],
     "menus": {
       "view/title": [
         { "command": "claudeProviderSwitcher.add", "when": "view == claudeProviderSwitcher.view", "group": "navigation@1" },
         { "command": "claudeProviderSwitcher.refresh", "when": "view == claudeProviderSwitcher.view", "group": "navigation@2" },
+        { "command": "claudeProviderSwitcher.checkHealth", "when": "view == claudeProviderSwitcher.view", "group": "navigation@3" },
         { "command": "claudeProviderSwitcher.import", "when": "view == claudeProviderSwitcher.view", "group": "1_io@1" },
         { "command": "claudeProviderSwitcher.export", "when": "view == claudeProviderSwitcher.view", "group": "1_io@2" }
       ],
@@ -126,6 +156,8 @@
         { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@1" },
         { "command": "claudeProviderSwitcher.duplicate", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@2" },
         { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@3" },
+        { "command": "claudeProviderSwitcher.pinToWorkspace", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@4" },
+        { "command": "claudeProviderSwitcher.switchWithFallback", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@5" },
         { "command": "claudeProviderSwitcher.moveUp", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@1" },
         { "command": "claudeProviderSwitcher.moveDown", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@2" },
         { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "3_danger@1" }

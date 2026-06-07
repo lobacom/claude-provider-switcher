@@ -5,6 +5,7 @@ const SELF = 'claudeProviderSwitcher';
 const CLAUDE_SECTION = 'claudeCode';
 const CLAUDE_KEY = 'environmentVariables';
 const KB_FILE = 'keybindings.json';
+const PIN_KEY = `${SELF}.pinnedProfileId`; // workspaceState: profile pinned to this workspace
 
 // ---- provider templates ----------------------------------------------------
 // Shown in the "Add provider" menu so the user doesn't have to hunt down each
@@ -196,7 +197,10 @@ function envEqual(a, b) {
 // unavoidable, since Claude Code reads it from there — but it's only ever the
 // one active token, not the whole list.
 let secretStorage;
+let workspaceState; // context.workspaceState — holds this workspace's pinned profile id
 let tokenCache = new Map(); // profile.id → token (string, '' when unset)
+const healthCache = new Map(); // profile.id → 'ok' | 'down' (absent = unknown/not checked)
+let healthTimer; // setInterval handle when health check mode is 'periodic'
 
 function tokenKey(id) {
   return `${SELF}.token.${id}`;
@@ -269,6 +273,16 @@ async function applyProfile(p) {
   );
 }
 
+// User-initiated switch. When `autoFallbackOnApply` is on it probes the target
+// and walks its fallback chain; otherwise it applies the profile directly.
+function switchProfile(p) {
+  if (!p) return;
+  if (vscode.workspace.getConfiguration(SELF).get('autoFallbackOnApply') === true) {
+    return applyProfileWithFallback(p);
+  }
+  return applyProfile(p);
+}
+
 async function selectProfile() {
   const profiles = getProfiles();
   if (!profiles.length) {
@@ -290,12 +304,12 @@ async function selectProfile() {
     };
   });
   const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Select a Claude Code provider' });
-  if (pick) await applyProfile(profiles[pick._idx]);
+  if (pick) await switchProfile(profiles[pick._idx]);
 }
 
 function switchToIndex(n) {
   const p = getProfiles()[n];
-  if (p) applyProfile(p);
+  if (p) switchProfile(p);
   else vscode.window.showInformationMessage(`Provider #${n + 1} is not defined.`);
 }
 
@@ -310,7 +324,93 @@ function cycleProfile(dir) {
   const cur = activeProfileIndex();
   const start = cur < 0 ? (dir > 0 ? -1 : 0) : cur;
   const next = (start + dir + profiles.length) % profiles.length;
-  applyProfile(profiles[next]);
+  switchProfile(profiles[next]);
+}
+
+// ---- workspace pinning -----------------------------------------------------
+// A workspace can pin one provider; when that workspace is (re)opened the
+// extension auto-switches to it. The mapping lives in workspaceState (a VS Code
+// Memento scoped to the workspace) so it never touches settings.json or the
+// repo. Honoring the pin on open is gated by `applyPinnedOnOpen` (default true).
+
+function getPinnedId() {
+  return workspaceState ? workspaceState.get(PIN_KEY) : undefined;
+}
+async function setPinnedId(id) {
+  if (workspaceState) await workspaceState.update(PIN_KEY, id || undefined);
+}
+function hasWorkspace() {
+  const f = vscode.workspace.workspaceFolders;
+  return !!(f && f.length);
+}
+
+// On open: if this workspace pins a provider that still exists and isn't already
+// active, switch to it. Silent no-op otherwise.
+async function applyPinnedProfile() {
+  if (!workspaceState || !hasWorkspace()) return;
+  if (vscode.workspace.getConfiguration(SELF).get('applyPinnedOnOpen') === false) return;
+  const id = getPinnedId();
+  if (!id) return;
+  const p = getProfiles().find((x) => x.id === id);
+  if (!p) return; // pinned profile was deleted
+  if (envEqual(fullEnv(p), getActiveEnv())) return; // already active
+  await switchProfile(p);
+}
+
+// Pin (or unpin) a provider for the current workspace. `arg` may be a tree item
+// (right-click) — then pin that profile directly; otherwise prompt.
+async function pinToWorkspace(arg) {
+  if (!workspaceState) return;
+  if (!hasWorkspace()) {
+    vscode.window.showInformationMessage(
+      'Open a folder or workspace first — there is nothing to pin a provider to.'
+    );
+    return;
+  }
+  const profiles = getProfiles();
+  const pinned = getPinnedId();
+  const folderName = vscode.workspace.workspaceFolders[0].name;
+
+  let chosen; // { id } | { unpin: true } | undefined (cancelled)
+  const i = resolveIndex(arg);
+  if (i >= 0 && profiles[i]) {
+    chosen = { id: profiles[i].id };
+  } else {
+    const items = [
+      {
+        label: '$(circle-slash) Don’t auto-switch (unpin)',
+        description: pinned ? '' : '● current',
+        _unpin: true,
+      },
+      { label: 'Providers', kind: vscode.QuickPickItemKind.Separator },
+      ...profiles.map((p) => ({
+        label: `${badgeTextPrefix(p.color)}${p.name}`,
+        description:
+          (p.id === pinned ? '● pinned   ' : '') +
+          ((p.env && p.env.ANTHROPIC_BASE_URL) || '(native subscription)'),
+        _id: p.id,
+      })),
+    ];
+    const pick = await vscode.window.showQuickPick(items, {
+      placeHolder: `Auto-switch to which provider when "${folderName}" opens?`,
+      ignoreFocusOut: true,
+    });
+    if (!pick) return;
+    chosen = pick._unpin ? { unpin: true } : { id: pick._id };
+  }
+
+  if (chosen.unpin) {
+    await setPinnedId(undefined);
+    vscode.window.showInformationMessage(`Provider unpinned from "${folderName}".`);
+  } else {
+    await setPinnedId(chosen.id);
+    const p = profiles.find((x) => x.id === chosen.id);
+    if (p) await applyProfile(p);
+    vscode.window.showInformationMessage(
+      `"${p ? p.name : 'Provider'}" pinned to "${folderName}" — it will auto-apply on open.`
+    );
+  }
+  vscode.commands.executeCommand(`${SELF}.refresh`);
 }
 
 // ---- CRUD ------------------------------------------------------------------
@@ -386,11 +486,12 @@ const FIELDS = [
   { key: '__name', label: 'Name' },
   { key: '__color', label: 'Badge (color dot, optional)' },
   { key: '__hotkey', label: 'Hotkey (optional, auto-picks next free)' },
+  { key: '__fallback', label: 'Fallback provider (when unreachable)' },
   { key: 'ANTHROPIC_BASE_URL', label: 'Base URL (empty = native subscription)' },
   { key: 'ANTHROPIC_AUTH_TOKEN', label: 'Auth token (API key)', secret: true },
-  { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', label: 'Opus model' },
-  { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', label: 'Sonnet model' },
-  { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', label: 'Haiku model' },
+  { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', label: 'Opus model', model: true },
+  { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', label: 'Sonnet model', model: true },
+  { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', label: 'Haiku model', model: true },
   { key: 'API_TIMEOUT_MS', label: 'API timeout (ms, optional)' },
 ];
 
@@ -398,6 +499,11 @@ function fieldValue(p, key) {
   if (key === '__name') return p.name || '';
   if (key === '__color') return p.color || '';
   if (key === '__hotkey') return p.hotkey || '';
+  if (key === '__fallback') {
+    if (!p.fallbackId) return '';
+    const t = getProfiles().find((x) => x.id === p.fallbackId);
+    return t ? t.name : '(missing)';
+  }
   // token lives in SecretStorage — only ever surface a masked placeholder
   if (key === 'ANTHROPIC_AUTH_TOKEN') return cachedToken(p) ? '••••••••' : '';
   return (p.env && p.env[key]) || '';
@@ -473,6 +579,27 @@ async function editProfileFields(index) {
       });
       if (!picked) continue;
       input = picked._value;
+    } else if (f.key === '__fallback') {
+      const cur = p.fallbackId;
+      const choices = [
+        { label: '$(close) None', _value: '' },
+        { label: 'Providers', kind: vscode.QuickPickItemKind.Separator },
+        ...list
+          .filter((x) => x.id !== p.id) // can't fall back to itself
+          .map((x) => ({
+            label: `${badgeTextPrefix(x.color)}${x.name}`,
+            description:
+              (x.id === cur ? '● current   ' : '') +
+              ((x.env && x.env.ANTHROPIC_BASE_URL) || '(native subscription)'),
+            _value: x.id,
+          })),
+      ];
+      const picked = await vscode.window.showQuickPick(choices, {
+        placeHolder: 'Fall back to which provider when this one is unreachable?',
+        ignoreFocusOut: true,
+      });
+      if (!picked) continue;
+      input = picked._value;
     } else if (f.secret) {
       // Edit the token directly in SecretStorage; never round-trip it through
       // the profile JSON. Pre-fill with the real value so edits don't wipe it.
@@ -487,6 +614,12 @@ async function editProfileFields(index) {
       if (wasActive) await applyProfile(getProfiles()[index]);
       vscode.commands.executeCommand(`${SELF}.refresh`);
       continue;
+    } else if (f.model) {
+      // Offer a dropdown of models fetched from the endpoint (GET /v1/models),
+      // falling back to manual entry. Returns null on cancel.
+      const res = await pickModelValue(p, f);
+      if (!res) continue;
+      input = res.value; // may be '' to clear
     } else {
       input = await vscode.window.showInputBox({
         prompt: f.label,
@@ -512,6 +645,9 @@ async function editProfileFields(index) {
         const valid = buildHotkeyChoices().some((c) => c.value === input);
         if (valid) dp.hotkey = input;
       }
+    } else if (f.key === '__fallback') {
+      if (input) dp.fallbackId = input;
+      else delete dp.fallbackId;
     } else if (input === '') {
       delete dp.env[f.key];
     } else {
@@ -596,6 +732,10 @@ function profileTooltip(p, extraLines) {
   if (env.ANTHROPIC_DEFAULT_OPUS_MODEL) lines.push('opus → ' + env.ANTHROPIC_DEFAULT_OPUS_MODEL);
   if (env.ANTHROPIC_DEFAULT_SONNET_MODEL) lines.push('sonnet → ' + env.ANTHROPIC_DEFAULT_SONNET_MODEL);
   if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL) lines.push('haiku → ' + env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
+  if (p.fallbackId) {
+    const t = getProfiles().find((x) => x.id === p.fallbackId);
+    if (t) lines.push('Fallback: ' + t.name);
+  }
   if (extraLines) lines.push(...extraLines);
 
   const md = new vscode.MarkdownString();
@@ -697,8 +837,11 @@ async function deleteProfile(arg) {
   const removedId = list[i].id;
   const draft = cloneProfiles();
   draft.splice(i, 1);
+  // drop any fallback links pointing at the deleted profile
+  if (removedId) for (const x of draft) if (x.fallbackId === removedId) delete x.fallbackId;
   await saveProfiles(draft);
   if (removedId) await setToken(removedId, ''); // drop its secret
+  if (removedId && removedId === getPinnedId()) await setPinnedId(undefined); // clear stale pin
   if (wasActive) {
     if (draft.length) {
       await applyProfile(draft[0]);
@@ -734,6 +877,108 @@ async function moveProfile(arg, dir) {
   draft[i] = draft[j];
   draft[j] = tmp;
   await saveProfiles(draft);
+}
+
+// ---- model listing ---------------------------------------------------------
+// Fetch the model catalog from the provider's endpoint so the user can pick a
+// model id from a list instead of typing it. Anthropic and most gateways expose
+// GET /v1/models returning { data: [{ id }, …] }; some return { models: [...] }
+// or a bare array, and a few use string ids. We accept all of those shapes.
+
+function httpGetModels(baseUrl, token) {
+  return new Promise((resolve) => {
+    let url;
+    try {
+      url = new (require('url').URL)(normalizeUrl(baseUrl) + '/v1/models');
+    } catch {
+      resolve({ kind: 'error', msg: 'Invalid Base URL' });
+      return;
+    }
+    const lib = url.protocol === 'http:' ? require('http') : require('https');
+    const headers = { 'anthropic-version': '2023-06-01', accept: 'application/json' };
+    if (token) {
+      headers['x-api-key'] = token;
+      headers['authorization'] = `Bearer ${token}`;
+    }
+    const req = lib.request(url, { method: 'GET', headers, timeout: 12000 }, (res) => {
+      let raw = '';
+      res.on('data', (c) => { raw += c; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          resolve({ kind: 'error', msg: `HTTP ${res.statusCode}` });
+          return;
+        }
+        try {
+          const j = JSON.parse(raw);
+          const arr = Array.isArray(j) ? j
+            : Array.isArray(j.data) ? j.data
+            : Array.isArray(j.models) ? j.models
+            : [];
+          const ids = arr
+            .map((m) => (typeof m === 'string' ? m : (m && (m.id || m.name))))
+            .filter(Boolean);
+          resolve({ kind: 'ok', models: ids });
+        } catch {
+          resolve({ kind: 'error', msg: 'Unexpected response (not JSON)' });
+        }
+      });
+    });
+    req.on('timeout', () => { req.destroy(); resolve({ kind: 'error', msg: 'Timed out after 12s' }); });
+    req.on('error', (e) => resolve({ kind: 'error', msg: e.message }));
+    req.end();
+  });
+}
+
+// Resolve a model field value: query the endpoint and let the user pick from a
+// list, with "Enter manually…" and "Clear" escapes. Returns { value } (value
+// may be '' to clear) or null if the user cancelled.
+async function pickModelValue(p, f) {
+  const cur = (p.env && p.env[f.key]) || '';
+  const base = p.env && p.env.ANTHROPIC_BASE_URL;
+  const tier = f.label.toLowerCase(); // "opus model" → readable placeholder
+  const manual = async () => {
+    const v = await vscode.window.showInputBox({
+      prompt: `${f.label} — type the model id`,
+      value: cur,
+      ignoreFocusOut: true,
+    });
+    return v === undefined ? null : { value: v.trim() };
+  };
+  // Native subscription / no endpoint → nothing to query, just ask for the id.
+  if (!base) return manual();
+
+  const r = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: `Fetching models from "${p.name}"…` },
+    () => httpGetModels(base, cachedToken(p))
+  );
+  if (r.kind !== 'ok' || !r.models.length) {
+    vscode.window.showWarningMessage(
+      r.kind !== 'ok'
+        ? `Couldn't list models (${r.msg}). Enter the id manually.`
+        : 'The endpoint returned no models. Enter the id manually.'
+    );
+    return manual();
+  }
+
+  const items = [
+    { label: '$(edit) Enter manually…', _manual: true },
+    ...(cur ? [{ label: '$(close) Clear', _clear: true }] : []),
+    { label: `${r.models.length} models`, kind: vscode.QuickPickItemKind.Separator },
+    ...r.models.map((id) => ({
+      label: id,
+      description: id === cur ? '● current' : '',
+      _value: id,
+    })),
+  ];
+  const pick = await vscode.window.showQuickPick(items, {
+    placeHolder: `Pick the ${tier}`,
+    matchOnDescription: true,
+    ignoreFocusOut: true,
+  });
+  if (!pick) return null;
+  if (pick._manual) return manual();
+  if (pick._clear) return { value: '' };
+  return { value: pick._value };
 }
 
 // ---- test connection -------------------------------------------------------
@@ -816,6 +1061,206 @@ async function testProfile(arg) {
   } else {
     vscode.window.showWarningMessage(`⚠ ${p.name}: reachable — server returned HTTP ${s}.`);
   }
+}
+
+// ---- auto-fallback ---------------------------------------------------------
+// A profile may name a `fallbackId` — another profile to use when this one is
+// unreachable. On switch (via `switchWithFallback`, or any switch when
+// `autoFallbackOnApply` is on) we probe the target and, if it's down, walk the
+// fallback chain and apply the first healthy provider. "Healthy" = HTTP 200/400
+// (endpoint + key work). A native-subscription profile (no Base URL) can't be
+// probed, so it's treated as always reachable — a good chain terminator.
+
+function probeHealthy(r) {
+  if (!r || r.kind === 'error') return false;
+  return r.status === 200 || r.status === 400;
+}
+
+async function applyProfileWithFallback(startP) {
+  if (!startP) return;
+  const profiles = getProfiles();
+  // Build the chain start → fallback → … stopping on a cycle or a dead link.
+  const chain = [];
+  const seen = new Set();
+  let p = startP;
+  while (p && !seen.has(p.id)) {
+    seen.add(p.id);
+    chain.push(p);
+    p = p.fallbackId ? profiles.find((x) => x.id === p.fallbackId) : null;
+  }
+
+  const skipped = [];
+  for (const cand of chain) {
+    const base = cand.env && cand.env.ANTHROPIC_BASE_URL;
+    let healthy;
+    if (!base) {
+      healthy = true; // native subscription — assume reachable
+    } else {
+      const env = cand.env || {};
+      const model =
+        env.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
+        env.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+        env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+      const r = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Checking "${cand.name}"…` },
+        () => httpProbe(base, cachedToken(cand), model)
+      );
+      healthy = probeHealthy(r);
+    }
+    if (healthy) {
+      await applyProfile(cand);
+      if (skipped.length) {
+        vscode.window.showWarningMessage(
+          `${skipped.join(', ')} unreachable — fell back to "${cand.name}".`
+        );
+      }
+      return cand;
+    }
+    skipped.push(`"${cand.name}"`);
+  }
+
+  // Nothing in the chain answered — keep the user pointed at the original.
+  await applyProfile(startP);
+  vscode.window.showErrorMessage(
+    skipped.length > 1
+      ? `No reachable provider in the fallback chain: ${skipped.join(' → ')}. Kept "${startP.name}".`
+      : `"${startP.name}" is unreachable and has no working fallback. Applied it anyway.`
+  );
+  return startP;
+}
+
+// Explicit command — always probes + falls back, regardless of the setting.
+async function switchWithFallback(arg) {
+  const profiles = getProfiles();
+  if (!profiles.length) {
+    vscode.window.showInformationMessage('No providers configured yet.');
+    return;
+  }
+  let p;
+  const i = resolveIndex(arg);
+  if (i >= 0 && profiles[i]) {
+    p = profiles[i];
+  } else {
+    const items = profiles.map((x, idx) => ({
+      label: `${badgeTextPrefix(x.color)}${x.name}`,
+      description:
+        ((x.env && x.env.ANTHROPIC_BASE_URL) || '(native subscription)') +
+        (x.fallbackId ? '   ↪ has fallback' : ''),
+      _idx: idx,
+    }));
+    const pick = await vscode.window.showQuickPick(items, {
+      placeHolder: 'Switch to (probe first, fall back if unreachable)…',
+    });
+    if (!pick) return;
+    p = profiles[pick._idx];
+  }
+  await applyProfileWithFallback(p);
+}
+
+// ---- health indicator ------------------------------------------------------
+// Shows each provider's reachability (🟢/🔴) in the tree and the active item's
+// tooltip. The check uses GET /v1/models — a metadata call that runs NO
+// inference, so it costs zero tokens (unlike "Test connection", which fires a
+// real /v1/messages request). That's what makes the periodic mode safe to leave
+// on. Mode is controlled by `healthCheck` (manual | periodic); manual is default,
+// so nothing runs until you press the check button.
+
+function healthOf(p) {
+  return (p && p.id && healthCache.get(p.id)) || 'unknown';
+}
+function healthLabel(s) {
+  return s === 'ok' ? '🟢 reachable' : s === 'down' ? '🔴 unreachable' : '⚪ not checked';
+}
+function healthColor(s) {
+  if (s === 'ok') return new vscode.ThemeColor('charts.green');
+  if (s === 'down') return new vscode.ThemeColor('charts.red');
+  return undefined; // unknown → theme default
+}
+
+// Token-free reachability probe: GET /v1/models. 2xx = reachable; 401/403 (auth)
+// and 5xx and connection errors = down; any other response means the host
+// answered without rejecting the key, so we count it reachable.
+function httpHealth(baseUrl, token) {
+  return new Promise((resolve) => {
+    let url;
+    try {
+      url = new (require('url').URL)(normalizeUrl(baseUrl) + '/v1/models');
+    } catch {
+      resolve('down');
+      return;
+    }
+    const lib = url.protocol === 'http:' ? require('http') : require('https');
+    const headers = { 'anthropic-version': '2023-06-01', accept: 'application/json' };
+    if (token) {
+      headers['x-api-key'] = token;
+      headers['authorization'] = `Bearer ${token}`;
+    }
+    const req = lib.request(url, { method: 'GET', headers, timeout: 10000 }, (res) => {
+      res.on('data', () => {}); // drain
+      res.on('end', () => {
+        const s = res.statusCode;
+        if (s >= 200 && s < 300) resolve('ok');
+        else if (s === 401 || s === 403 || s >= 500) resolve('down');
+        else resolve('ok'); // reachable, non-auth (404/429/400/…)
+      });
+    });
+    req.on('timeout', () => { req.destroy(); resolve('down'); });
+    req.on('error', () => resolve('down'));
+    req.end();
+  });
+}
+
+// Probe every profile concurrently and update the cache. Native-subscription
+// profiles (no Base URL) can't be probed, so they're treated as reachable.
+async function checkAllHealth() {
+  await Promise.all(
+    getProfiles().map(async (p) => {
+      if (!p.id) return;
+      const base = p.env && p.env.ANTHROPIC_BASE_URL;
+      healthCache.set(p.id, base ? await httpHealth(base, cachedToken(p)) : 'ok');
+    })
+  );
+}
+
+// Manual "Check health" command — runs the probe with a progress toast and
+// reports a summary.
+async function checkHealthCommand() {
+  const profiles = getProfiles();
+  if (!profiles.length) {
+    vscode.window.showInformationMessage('No providers configured yet.');
+    return;
+  }
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: 'Checking provider health…' },
+    () => checkAllHealth()
+  );
+  vscode.commands.executeCommand(`${SELF}.refresh`);
+  const down = profiles.filter((p) => healthOf(p) === 'down').map((p) => p.name);
+  if (down.length) {
+    vscode.window.showWarningMessage(
+      `Health: ${down.length} of ${profiles.length} unreachable — ${down.join(', ')}.`
+    );
+  } else {
+    vscode.window.showInformationMessage(`Health: all ${profiles.length} provider(s) reachable.`);
+  }
+}
+
+// (Re)arm the periodic timer from settings. Clears any existing timer first, so
+// it's safe to call on activation and whenever the relevant settings change.
+function restartHealthTimer() {
+  if (healthTimer) {
+    clearInterval(healthTimer);
+    healthTimer = undefined;
+  }
+  const cfg = vscode.workspace.getConfiguration(SELF);
+  if (cfg.get('healthCheck') !== 'periodic') return;
+  const mins = Math.max(1, Number(cfg.get('healthCheckIntervalMinutes')) || 5);
+  const run = async () => {
+    await checkAllHealth();
+    vscode.commands.executeCommand(`${SELF}.refresh`);
+  };
+  run(); // check once immediately so the indicators populate
+  healthTimer = setInterval(run, mins * 60 * 1000);
 }
 
 // ---- import / export -------------------------------------------------------
@@ -993,7 +1438,11 @@ function updateStatus() {
     const p = profiles[idx];
     // status bar is text-only, so a logo badge just shows the plug + name
     statusItem.text = `$(plug) ${badgeTextPrefix(p.color)}${p.name}`;
-    statusItem.tooltip = profileTooltip(p, ['', 'Click to switch']);
+    const st = healthOf(p);
+    statusItem.tooltip = profileTooltip(
+      p,
+      st !== 'unknown' ? ['', 'Status: ' + healthLabel(st), '', 'Click to switch'] : ['', 'Click to switch']
+    );
   } else {
     const base = getActiveEnv().ANTHROPIC_BASE_URL;
     statusItem.text = `$(plug) ${base ? base : 'Claude (default)'}`;
@@ -1014,16 +1463,26 @@ class ProfilesProvider {
   getChildren() {
     const profiles = getProfiles();
     const active = activeProfileIndex();
+    const pinnedId = getPinnedId();
     return profiles.map((p, i) => {
       const env = p.env || {};
+      const isPinned = p.id && p.id === pinnedId;
       // Tree has a single icon slot — logos don't render here, only emoji
       // badges (text prefix) and the active/inactive marker.
+      const status = healthOf(p);
       const it = new vscode.TreeItem(`${badgeTextPrefix(p.color)}${p.name}`);
       it.id = String(i);
       it.contextValue = 'claudeProfile';
-      it.description = env.ANTHROPIC_BASE_URL || 'native subscription';
-      it.iconPath = new vscode.ThemeIcon(i === active ? 'pass-filled' : 'circle-large-outline');
-      it.tooltip = profileTooltip(p);
+      it.description = (isPinned ? '📌 ' : '') + (env.ANTHROPIC_BASE_URL || 'native subscription');
+      // shape marks active/inactive; color (when known) marks health
+      it.iconPath = new vscode.ThemeIcon(
+        i === active ? 'pass-filled' : 'circle-large-outline',
+        healthColor(status)
+      );
+      const extra = [];
+      if (isPinned) extra.push('', '📌 Pinned to this workspace');
+      if (status !== 'unknown') extra.push('', 'Status: ' + healthLabel(status));
+      it.tooltip = profileTooltip(p, extra.length ? extra : undefined);
       return it;
     });
   }
@@ -1034,6 +1493,7 @@ class ProfilesProvider {
 function activate(context) {
   extensionUri = context.extensionUri;
   secretStorage = context.secrets;
+  workspaceState = context.workspaceState;
   const provider = new ProfilesProvider();
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(`${SELF}.view`, provider)
@@ -1055,7 +1515,7 @@ function activate(context) {
   reg('moveDown', (arg) => moveProfile(arg, 1));
   reg('switchTo', (arg) => {
     const i = resolveIndex(arg);
-    if (i >= 0) applyProfile(getProfiles()[i]);
+    if (i >= 0) switchProfile(getProfiles()[i]);
   });
   reg('switchToIndex', (idx) => switchToIndex(typeof idx === 'number' ? idx : parseInt(idx, 10)));
   reg('next', () => cycleProfile(1));
@@ -1063,6 +1523,9 @@ function activate(context) {
   reg('test', testProfile);
   reg('export', exportProfiles);
   reg('import', importProfiles);
+  reg('pinToWorkspace', pinToWorkspace);
+  reg('switchWithFallback', switchWithFallback);
+  reg('checkHealth', checkHealthCommand);
   reg('refresh', () => {
     provider.refresh();
     updateStatus();
@@ -1073,12 +1536,18 @@ function activate(context) {
   (async () => {
     await migrateProfiles();
     await refreshTokenCache();
+    // If this workspace pins a provider, switch to it now (before a Claude Code
+    // session starts). Runs after the token cache so fullEnv() matches correctly.
+    await applyPinnedProfile();
     provider.refresh();
     updateStatus();
   })();
 
   // initial sync
   syncKeybindings().then(() => vscode.window.setStatusBarMessage('Claude provider hotkeys synced', 2500));
+
+  // start periodic health checks if enabled (no-op in the default manual mode)
+  restartHealthTimer();
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -1093,12 +1562,20 @@ function activate(context) {
           syncKeybindings();
         }
       }
+      if (
+        e.affectsConfiguration(`${SELF}.healthCheck`) ||
+        e.affectsConfiguration(`${SELF}.healthCheckIntervalMinutes`)
+      ) {
+        restartHealthTimer();
+      }
     })
   );
 
   updateStatus();
 }
 
-function deactivate() {}
+function deactivate() {
+  if (healthTimer) clearInterval(healthTimer);
+}
 
 module.exports = { activate, deactivate };

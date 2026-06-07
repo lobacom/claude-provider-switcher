@@ -34,7 +34,16 @@ It applies a profile by writing its environment variables into Claude Code's
   `keybindings.json` for you.
 - 🎛️ **Menu** — `Claude Provider: Select provider…`, or click the status bar item.
 - 🔁 **Cycle** — `Ctrl+Alt+]` / `Ctrl+Alt+[` (macOS `Cmd+Alt+…`) jump to the next / previous provider.
+- 📌 **Pin to workspace** — bind a provider to a folder; opening that workspace auto-switches to it
+  (stored per-workspace, not in `settings.json`). Right-click → *Pin to this workspace*.
 - ⚡ **Test connection** — check that an endpoint is reachable and your API key is accepted, right from the row.
+- 🟢 **Health indicator** — a 🟢/🔴 tint shows each provider's reachability. Refresh on demand (❤ button)
+  or set `healthCheck` to `periodic`. The check uses `GET /v1/models` — **no inference, zero tokens**.
+- 🔀 **Auto-fallback** — give a profile a *fallback provider*; *Switch with fallback* probes it and, if
+  it's down, switches to the fallback (following the chain). Flip on `autoFallbackOnApply` to apply this
+  to every switch.
+- 🧩 **Pick models from a list** — when setting the Opus/Sonnet/Haiku model, the editor fetches the
+  provider's model catalog (`GET /v1/models`) so you choose from a dropdown instead of typing the id.
 - 🔐 **Secure keys** — API keys are stored in VS Code **SecretStorage**, never in `settings.json`.
 - 📤 **Import / Export** — share or back up your profiles as JSON (keys excluded by default).
 - 🔌 **Status bar indicator** — shows the active provider; hidden when no providers exist.
@@ -63,6 +72,9 @@ It applies a profile by writing its environment variables into Claude Code's
 | **Edit** | row ✎ (inline) or right-click → *Edit* |
 | **Delete** | row 🗑 (inline) or right-click → *Delete* (deleting the active one switches to the first remaining; deleting the last resets to the subscription) |
 | **Duplicate / Move up / Move down** | right-click menu |
+| **Pin to this workspace** | right-click → *Pin to this workspace* (the active folder auto-switches to it on open; pick *Don’t auto-switch* to unpin) |
+| **Switch with fallback** | right-click → *Switch with fallback* (probes the provider; if it's down, switches to its fallback) |
+| **Check health** | view title-bar ❤ (refreshes the 🟢/🔴 reachability of every provider; token-free) |
 | **Import / Export** | view title-bar overflow (`…`) menu |
 
 The active provider is marked with a filled dot. Editing is field-by-field: pick a field, set its value,
@@ -82,9 +94,10 @@ repeat, then *Done*. **Color** and **Hotkey** are chosen from a dropdown — no 
 | **Name** | Shown in the menu, sidebar, and status bar. |
 | **Badge** | A color shape (🟢🔵🟣🟡🟠🟩🟦🔷…) picked from a list; auto-assigned on Add. (The provider **logo** shows in the Add menu and the hover tooltip.) |
 | **Hotkey** | Optional `Ctrl+Alt+<n>` shortcut, auto-assigned on Add. |
+| **Fallback provider** | (optional) Another profile to switch to when this one is unreachable — used by *Switch with fallback* and `autoFallbackOnApply`. |
 | `ANTHROPIC_BASE_URL` | Anthropic-compatible endpoint. **Empty = native subscription.** |
 | `ANTHROPIC_AUTH_TOKEN` | API key for third-party endpoints. **Stored in SecretStorage**, not `settings.json`; the editor shows it masked. |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | Models the Opus/Sonnet/Haiku tiers map to. |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | Models the Opus/Sonnet/Haiku tiers map to. Picking the field fetches the endpoint's model list (`GET /v1/models`) so you choose from a dropdown; *Enter manually…* is always available. |
 | `API_TIMEOUT_MS` | (optional) Request timeout in ms. |
 
 > Inside Claude Code you can still switch tiers with `/model`.
@@ -209,7 +222,16 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
   прописывается в твой `keybindings.json`.
 - 🎛️ **Меню** — `Claude Provider: Select provider…` или клик по индикатору.
 - 🔁 **Цикл** — `Ctrl+Alt+]` / `Ctrl+Alt+[` (на macOS `Cmd+Alt+…`) переключают на следующего / предыдущего провайдера.
+- 📌 **Привязка к workspace** — закрепи провайдера за папкой; при открытии этого workspace расширение
+  автоматически переключится на него (хранится по workspace, не в `settings.json`). ПКМ → *Pin to this workspace*.
 - ⚡ **Проверка соединения** — прямо из строки профиля проверить, что эндпоинт доступен и ключ принят.
+- 🟢 **Индикатор здоровья** — цвет 🟢/🔴 показывает доступность каждого провайдера. Обновляй по кнопке (❤)
+  или включи `healthCheck` = `periodic`. Проверка идёт через `GET /v1/models` — **без инференса, ноль токенов**.
+- 🔀 **Авто-фолбэк** — задай профилю *резервный провайдер*; *Switch with fallback* проверит его и, если
+  он недоступен, переключится на резервный (по цепочке). Включи `autoFallbackOnApply`, чтобы так
+  работало при каждом переключении.
+- 🧩 **Выбор модели из списка** — при задании модели Opus/Sonnet/Haiku редактор подтягивает каталог
+  моделей провайдера (`GET /v1/models`), и ты выбираешь из выпадающего списка, а не вводишь id вручную.
 - 🔐 **Безопасные ключи** — API-ключи хранятся в **SecretStorage** VS Code, а не в `settings.json`.
 - 📤 **Импорт / экспорт** — поделиться профилями или сделать бэкап в JSON (ключи по умолчанию исключаются).
 - 🔌 **Индикатор** активного провайдера в статус-баре; прячется, когда профилей нет.
@@ -321,7 +343,15 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
   快捷键会自动写入你的 `keybindings.json`。
 - 🎛️ **菜单** —— `Claude Provider: Select provider…`，或点击状态栏项。
 - 🔁 **循环切换** —— `Ctrl+Alt+]` / `Ctrl+Alt+[`（macOS 为 `Cmd+Alt+…`）切换到下一个 / 上一个服务商。
+- 📌 **绑定到工作区** —— 将服务商绑定到某个文件夹；打开该工作区时自动切换到它（按工作区存储，
+  不写入 `settings.json`）。右键 → *Pin to this workspace*。
 - ⚡ **测试连接** —— 直接在行内检查端点是否可达、API 密钥是否被接受。
+- 🟢 **健康指示器** —— 用 🟢/🔴 颜色显示每个服务商的可达性。可按需刷新（❤ 按钮），或将 `healthCheck`
+  设为 `periodic`。检测使用 `GET /v1/models` —— **不触发推理、零 token 消耗**。
+- 🔀 **自动回退** —— 为配置指定一个*回退服务商*；*Switch with fallback* 会先探测目标，若不可达则切换到
+  回退服务商（沿链依次尝试）。开启 `autoFallbackOnApply` 可让每次切换都执行此操作。
+- 🧩 **从列表选择模型** —— 设置 Opus/Sonnet/Haiku 模型时，编辑器会从服务商拉取模型目录（`GET /v1/models`），
+  让你从下拉列表中选择，而无需手动输入 id。
 - 🔐 **密钥安全** —— API 密钥存储在 VS Code **SecretStorage** 中，而非 `settings.json`。
 - 📤 **导入 / 导出** —— 以 JSON 形式分享或备份配置（默认不含密钥）。
 - 🔌 **状态栏指示器** —— 显示当前服务商；无配置时隐藏。

@@ -1,5 +1,6 @@
 .vscode/**
 .gitignore
+TODO.md
 **/*.vsix
 node_modules/**
 media/screenshot.png
