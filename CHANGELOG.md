@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- **Docs:** the README now explains how to use custom providers — a *Manage custom providers…* table
+  row in the sidebar reference, plus an "Adding a provider that isn't in the list" section (with the
+  table columns) in all three languages.
+
 ## 0.5.0
 
 - **Built-in provider catalog moved to `providers.json`.** The list of bundled providers shown in the

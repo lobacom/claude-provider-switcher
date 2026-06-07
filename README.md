@@ -29,6 +29,9 @@ It applies a profile by writing its environment variables into Claude Code's
 
 - 🗂️ **Sidebar UI** — a *Claude Providers* view in the Activity Bar to **add / edit / delete /
   duplicate / reorder / switch** providers. No hand-editing `settings.json`.
+- ➕ **Add your own providers** — the *Add provider* menu ships a built-in catalog, and a **table
+  editor** (*Manage custom providers…*) lets you add any provider that isn't on it. Custom ones then
+  appear in the menu tagged `(custom)`. Backed by the `customProviders` setting.
 - ⌨️ **Per-profile hotkey** — each profile can own a shortcut (`Ctrl+Alt+1`…`Ctrl+Alt+9`,
   `Ctrl+Alt+0`). New profiles get the next free slot automatically; the binding is written to your
   `keybindings.json` for you.
@@ -75,10 +78,31 @@ It applies a profile by writing its environment variables into Claude Code's
 | **Pin to this workspace** | right-click → *Pin to this workspace* (the active folder auto-switches to it on open; pick *Don’t auto-switch* to unpin) |
 | **Switch with fallback** | right-click → *Switch with fallback* (probes the provider; if it's down, switches to its fallback) |
 | **Check health** | view title-bar ❤ (refreshes the 🟢/🔴 reachability of every provider; token-free) |
+| **Manage custom providers** | view title-bar overflow (`…`) → *Manage custom providers…*, or the bottom entry of the *Add provider* menu (opens a table editor for providers not in the built-in list) |
 | **Import / Export** | view title-bar overflow (`…`) menu |
 
 The active provider is marked with a filled dot. Editing is field-by-field: pick a field, set its value,
 repeat, then *Done*. **Color** and **Hotkey** are chosen from a dropdown — no codes to remember.
+
+### Adding a provider that isn't in the list
+
+The **Add provider** menu ships a built-in catalog (loaded from a bundled `providers.json`), but you can
+add your own. Run **Manage custom providers…** — from the *Add provider* menu (bottom entry), the view
+title-bar `…` overflow, or the command palette — to open a small **table editor**:
+
+| Column | Meaning |
+| --- | --- |
+| **Name** | Label shown in the *Add provider* menu. |
+| **Base URL** | `ANTHROPIC_BASE_URL` of the provider's Anthropic-compatible endpoint. Leave empty for a subscription-style entry. |
+| **Local** | Lists it under *Local servers* instead of *Anthropic-compatible providers*. |
+| **Icon** | Optional: a logo file under `media/providers/`, or a VS Code codicon id (e.g. `server`). |
+| **Opus / Sonnet / Haiku model** | Optional tier→model defaults, pre-filled into new profiles. |
+
+Click **+ Add provider**, fill the row, then **Save**. Your providers then show up in the *Add provider*
+menu tagged `(custom)`, and their endpoints are matched for logos and health checks just like the
+built-ins. The table maps one-to-one onto the `claudeProviderSwitcher.customProviders` setting, so you
+can edit that JSON directly too. **API keys aren't entered here** — you add them per profile (kept in
+SecretStorage) after picking the provider.
 
 ### Hotkeys
 
@@ -218,6 +242,9 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 
 - 🗂️ **Сайдбар** — панель *Claude Providers* в Activity Bar: **добавить / изменить / удалить /
   дублировать / переместить / переключить** провайдера. Без правки `settings.json` руками.
+- ➕ **Свои провайдеры** — в меню *Add provider* есть встроенный каталог, а **табличный редактор**
+  (*Manage custom providers…*) позволяет добавить любого провайдера, которого в нём нет. Свои
+  провайдеры появляются в меню с пометкой `(custom)`. Хранится в настройке `customProviders`.
 - ⌨️ **Хоткей на профиль** — у каждого профиля своя комбинация (`Ctrl+Alt+1`…`Ctrl+Alt+9`,
   `Ctrl+Alt+0`). Новому профилю автоматически выдаётся ближайший свободный слот; биндинг сам
   прописывается в твой `keybindings.json`.
@@ -262,10 +289,31 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | **Edit** | ✎ в строке или ПКМ → *Edit* |
 | **Delete** | 🗑 в строке или ПКМ → *Delete* (удаление активного → переключение на первого оставшегося; удаление последнего → сброс на подписку) |
 | **Duplicate / Move up / Move down** | контекстное меню (ПКМ) |
+| **Manage custom providers** | меню «…» в шапке → *Manage custom providers…*, либо нижний пункт меню *Add provider* (табличный редактор для провайдеров не из встроенного списка) |
 | **Import / Export** | меню «…» в шапке панели |
 
 Активный провайдер помечен закрашенной точкой. Редактирование — по полям: выбрал поле, задал значение,
 повторил, потом *Done*. **Color** и **Hotkey** выбираются из списка — никаких кодов запоминать не надо.
+
+### Добавление провайдера, которого нет в списке
+
+Меню **Add provider** содержит встроенный каталог (грузится из вшитого `providers.json`), но можно
+добавить и своего. Запусти **Manage custom providers…** — из меню *Add provider* (нижний пункт), из
+меню «…» в шапке панели или из палитры команд — откроется **табличный редактор**:
+
+| Колонка | Смысл |
+| --- | --- |
+| **Name** | Имя в меню *Add provider*. |
+| **Base URL** | `ANTHROPIC_BASE_URL` Anthropic-совместимого эндпоинта. Пусто — вариант «как подписка». |
+| **Local** | Помещает провайдера в раздел *Local servers*, а не *Anthropic-compatible providers*. |
+| **Icon** | Необязательно: файл логотипа из `media/providers/` или id codicon (напр. `server`). |
+| **Opus / Sonnet / Haiku model** | Необязательные модели по уровням, подставляются в новый профиль. |
+
+Нажми **+ Add provider**, заполни строку, затем **Save**. Провайдеры появятся в меню *Add provider* с
+пометкой `(custom)`, а их эндпоинты так же сопоставляются с логотипами и health-check, как встроенные.
+Таблица один-в-один соответствует настройке `claudeProviderSwitcher.customProviders` — этот JSON можно
+править и напрямую. **Ключи здесь не вводятся** — их добавляешь в профиль (хранятся в SecretStorage)
+уже после выбора провайдера.
 
 ### Хоткеи
 
@@ -341,6 +389,8 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 
 - 🗂️ **侧边栏界面** —— 活动栏中的 *Claude Providers* 视图，可**添加 / 编辑 / 删除 / 复制 / 重排 / 切换**
   服务商。无需手动改 `settings.json`。
+- ➕ **添加自定义服务商** —— *Add provider* 菜单自带内置目录，**表格编辑器**（*Manage custom providers…*）
+  让你添加其中没有的任意服务商。自定义项会以 `(custom)` 标记出现在菜单中。由 `customProviders` 设置存储。
 - ⌨️ **每个配置独立快捷键**（`Ctrl+Alt+1`…`Ctrl+Alt+9`、`Ctrl+Alt+0`）。新配置自动分配下一个空闲槽位；
   快捷键会自动写入你的 `keybindings.json`。
 - 🎛️ **菜单** —— `Claude Provider: Select provider…`，或点击状态栏项。
@@ -381,10 +431,30 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | **编辑** | 行内 ✎ 或右键 → *Edit* |
 | **删除** | 行内 🗑 或右键 → *Delete*（删除当前项会切到第一个剩余项；删除最后一个会重置为订阅） |
 | **复制 / 上移 / 下移** | 右键菜单 |
+| **管理自定义服务商** | 视图标题栏「…」菜单 → *Manage custom providers…*，或 *Add provider* 菜单底部项（为不在内置列表中的服务商打开表格编辑器） |
 | **导入 / 导出** | 视图标题栏的「…」菜单 |
 
 当前服务商以实心圆点标记。编辑是逐字段进行的：选择字段、填值、重复，最后 *Done*。**颜色**与**快捷键**
 都从下拉列表选择 —— 无需记任何代码。
+
+### 添加内置列表中没有的服务商
+
+**Add provider** 菜单自带一份内置目录（从打包的 `providers.json` 加载），但你也可以添加自己的。运行
+**Manage custom providers…** —— 从 *Add provider* 菜单（底部项）、视图标题栏「…」菜单或命令面板 ——
+打开一个**表格编辑器**：
+
+| 列 | 含义 |
+| --- | --- |
+| **Name** | 在 *Add provider* 菜单中显示的名称。 |
+| **Base URL** | 服务商 Anthropic 兼容端点的 `ANTHROPIC_BASE_URL`。留空表示「订阅式」条目。 |
+| **Local** | 将其列在 *Local servers* 而非 *Anthropic-compatible providers* 下。 |
+| **Icon** | 可选：`media/providers/` 下的标志文件，或 VS Code codicon id（如 `server`）。 |
+| **Opus / Sonnet / Haiku model** | 可选的档位→模型默认值，会预填到新配置中。 |
+
+点击 **+ Add provider**，填好一行，然后 **Save**。你的服务商会以 `(custom)` 标记出现在 *Add provider*
+菜单中，其端点也会像内置项一样用于标志匹配和健康检测。该表格与 `claudeProviderSwitcher.customProviders`
+设置一一对应，你也可以直接编辑该 JSON。**这里不填密钥** —— 选择服务商后在每个配置中单独添加（保存在
+SecretStorage 中）。
 
 ### 快捷键
 
