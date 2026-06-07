@@ -103,7 +103,7 @@ the in-editor kind:
 | Action | Where |
 | --- | --- |
 | **Add** | view title-bar `+` → pick a template (Custom / Claude Subscription / Claude API / a built-in provider), then add your key; auto-assigns the next free hotkey |
-| **Switch to** | row ▶ (inline) |
+| **Switch to** | click the row (the filled circle marks the active one) |
 | **Test connection** | row ⚡ (inline) or right-click → *Test connection* |
 | **Edit** | row ✎ (inline) or right-click → *Edit* |
 | **Delete** | row 🗑 (inline) or right-click → *Delete* (deleting the active one switches to the first remaining; deleting the last resets to the subscription) |
@@ -379,7 +379,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | Действие | Где |
 | --- | --- |
 | **Add** | кнопка `+` в шапке → выбор шаблона (Custom / Claude Subscription / Claude API / встроенный провайдер), затем впиши ключ; сразу выдаёт ближайший свободный хоткей |
-| **Switch to** | ▶ в строке |
+| **Switch to** | клик по строке (закрашенный кружок — активный) |
 | **Test connection** | ⚡ в строке или ПКМ → *Test connection* |
 | **Edit** | ✎ в строке или ПКМ → *Edit* |
 | **Delete** | 🗑 в строке или ПКМ → *Delete* (удаление активного → переключение на первого оставшегося; удаление последнего → сброс на подписку) |
@@ -576,7 +576,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | 操作 | 位置 |
 | --- | --- |
 | **添加** | 视图标题栏的 `+` → 选择模板（Custom / Claude Subscription / Claude API / 内置服务商），再填入密钥；自动分配下一个空闲快捷键 |
-| **切换到** | 行内 ▶ |
+| **切换到** | 点击该行（实心圆点标记当前服务商） |
 | **测试连接** | 行内 ⚡ 或右键 → *Test connection* |
 | **编辑** | 行内 ✎ 或右键 → *Edit* |
 | **删除** | 行内 🗑 或右键 → *Delete*（删除当前项会切到第一个剩余项；删除最后一个会重置为订阅） |
