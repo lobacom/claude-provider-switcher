@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.7.0
+
+- **Mirror to the Claude Code CLI config.** A new `claudeProviderSwitcher.writeClaudeSettings` setting
+  (off by default) also writes the active provider into `~/.claude/settings.json` (under its `env` key),
+  so `claude` run in a plain terminal — not just the VS Code extension — uses the same provider. Only the
+  keys this extension manages (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, the model/timeout vars) are
+  touched; everything else in that file is preserved, and a file that doesn't parse as JSON is left
+  untouched. Turning the setting on syncs the current provider immediately.
+- **Switch action setting.** A new `claudeProviderSwitcher.switchAction` setting (default `switch`, or
+  `switchAndReload`) controls what happens on every switch (sidebar click, hotkey, cycle, menu). When set
+  to `switchAndReload`, the window reloads right after the switch so a new Claude Code session picks up
+  the provider immediately — no extra click needed.
+- **Switch & reload command.** A new *Switch provider & reload window* command (right-click a provider, or
+  the command palette) switches and then reloads the window in one step, regardless of the setting.
+- **Restart reminder in the status bar.** After switching, the status bar item gets a warning tint, a
+  reminder that the Claude Code session must restart, and a **clickable Reload Window button**. Toggle
+  with `claudeProviderSwitcher.showRestartHint` (on by default). The tint and reminder clear on reload.
+- **Gateway tip in the tooltip.** Profiles that look like an LLM gateway (non-Anthropic, non-local
+  `BASE_URL`) now show a short note in the tooltip: the active model comes from the
+  `ANTHROPIC_DEFAULT_*_MODEL` mapping (it appears in `/model` as Custom Opus/Sonnet/Haiku), and after
+  switching you should start a new chat — a resumed chat keeps its previous model. The other profiles are
+  unchanged.
+- **Extra environment variables per profile.** The profile editor has a new *Extra environment variables*
+  field — a small add/edit/clear list for any other variable Claude Code reads (e.g.
+  `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`, `ANTHROPIC_CUSTOM_HEADERS`) without hand-editing
+  `settings.json`. They're written alongside the dedicated vars (and mirrored to `~/.claude/settings.json`
+  when that's enabled). Names that have their own field (Base URL, models, timeout) are rejected to avoid
+  collisions.
+  effect; it clears on reload. Toggle with `claudeProviderSwitcher.showRestartHint` (on by default).
+
 ## 0.6.0
 
 - **UI language switch.** A new `claudeProviderSwitcher.language` setting (`auto` / `en` / `ru` / `zh`,

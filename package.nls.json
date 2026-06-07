@@ -20,6 +20,7 @@
   "cmd.switchToIndex": "Switch to provider (by index)",
   "cmd.pinToWorkspace": "Pin provider to this workspace",
   "cmd.switchWithFallback": "Switch with fallback",
+  "cmd.switchAndReload": "Switch provider & reload window",
   "cmd.checkHealth": "Check provider health",
   "cmd.manageCustomProviders": "Manage custom providers…"
 }

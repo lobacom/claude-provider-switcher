@@ -49,7 +49,22 @@ It applies a profile by writing its environment variables into Claude Code's
   provider's model catalog (`GET /v1/models`) so you choose from a dropdown instead of typing the id.
 - 🔐 **Secure keys** — API keys are stored in VS Code **SecretStorage**, never in `settings.json`.
 - 📤 **Import / Export** — share or back up your profiles as JSON (keys excluded by default).
-- 🔌 **Status bar indicator** — shows the active provider; hidden when no providers exist.
+- 🔌 **Status bar indicator** — shows the active provider; hidden when no providers exist. After a
+  switch it tints and reminds you to restart the Claude Code session (toggle with `showRestartHint`).
+- 🖥️ **Mirror to the CLI** — flip on `writeClaudeSettings` to also write the active provider into
+  `~/.claude/settings.json`, so `claude` in a plain terminal (not just the VS Code extension) uses it.
+  Only the keys this extension manages are touched; the rest of the file is preserved.
+- ⚙️ **Switch action** — a setting controls what happens on every switch: just switch (`switch`, the
+  default), or switch and immediately reload the window (`switchAndReload`) so a new Claude Code session
+  starts against the new provider right away.
+- 📝 **Gateway tip** — profiles whose `Base URL` looks like a third-party LLM gateway (non-Anthropic, non-
+  local) get a short note in the tooltip about Claude Code's `/model` and `ANTHROPIC_DEFAULT_*_MODEL`
+  behaviour for gateways. The other profiles are unchanged.
+- 🧪 **Extra environment variables** — an *Extra environment variables* field in the profile editor lets
+  you add any other variable Claude Code reads (e.g. `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`,
+  `ANTHROPIC_CUSTOM_HEADERS`) without hand-editing `settings.json`.
+- 🔄 **Switch & reload** — a dedicated *Switch provider & reload window* command (right-click a provider,
+  or the palette) always switches and reloads in one step, regardless of the setting.
 - ∞ **Unlimited profiles** (hotkeys cover the first 10 slots; the rest are switched via the sidebar/menu).
 
 ### Quick start
@@ -77,6 +92,7 @@ It applies a profile by writing its environment variables into Claude Code's
 | **Duplicate / Move up / Move down** | right-click menu |
 | **Pin to this workspace** | right-click → *Pin to this workspace* (the active folder auto-switches to it on open; pick *Don’t auto-switch* to unpin) |
 | **Switch with fallback** | right-click → *Switch with fallback* (probes the provider; if it's down, switches to its fallback) |
+| **Switch & reload window** | right-click → *Switch provider & reload window* (switches, then reloads so a new session picks it up) |
 | **Check health** | view title-bar ❤ (refreshes the 🟢/🔴 reachability of every provider; token-free) |
 | **Manage custom providers** | view title-bar overflow (`…`) → *Manage custom providers…*, or the bottom entry of the *Add provider* menu (opens a table editor for providers not in the built-in list) |
 | **Import / Export** | view title-bar overflow (`…`) menu |
@@ -123,8 +139,28 @@ SecretStorage) after picking the provider.
 | `ANTHROPIC_AUTH_TOKEN` | API key for third-party endpoints. **Stored in SecretStorage**, not `settings.json`; the editor shows it masked. |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | Models the Opus/Sonnet/Haiku tiers map to. Picking the field fetches the endpoint's model list (`GET /v1/models`) so you choose from a dropdown; *Enter manually…* is always available. |
 | `API_TIMEOUT_MS` | (optional) Request timeout in ms. |
+| **Extra environment variables** | (optional) Any other env var Claude Code reads — e.g. `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`, `ANTHROPIC_CUSTOM_HEADERS`. Add/edit/clear them in a small list; keys that have their own field above are rejected. |
 
 > Inside Claude Code you can still switch tiers with `/model`.
+
+#### When do you need extra environment variables?
+
+Most setups never need these — the dedicated fields cover the common case. The *Extra environment
+variables* field is an escape hatch for third-party endpoints and gateways that need a per-provider
+tweak Claude Code reads from the environment. Common ones:
+
+| Variable | When you need it | Why per-provider |
+| --- | --- | --- |
+| `MAX_THINKING_TOKENS` = `0` | A gateway/model rejects requests because of thinking/reasoning params (e.g. `400 thinking options type cannot be disabled when reasoning_effort is set`). Setting it to `0` turns thinking off. | Depends on the specific gateway/model |
+| `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING` = `1` | Same idea on older models (Opus 4.6 / Sonnet 4.6) — reverts to a fixed thinking budget. | Model-specific |
+| `ANTHROPIC_CUSTOM_HEADERS` | The endpoint needs extra HTTP headers (a second auth token, a tenant id, routing hints). Format: `Header-Name: value` (newline-separated for several). | Each gateway has its own |
+| `DISABLE_PROMPT_CACHING` = `1` | The endpoint doesn't understand `cache_control` and errors out on cached requests. | A property of that provider |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION` (+ `…_NAME`, `…_DESCRIPTION`) | Add a single model id to the `/model` picker that discovery wouldn't list (e.g. a non-`claude`-named gateway model). | Specific to the gateway's model ids |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME` / `…_DESCRIPTION` | Give a pinned gateway model a friendly label in the `/model` picker. | Cosmetic, per gateway |
+| `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY` = `1` | List the gateway's *other* models in `/model` from its `/v1/models`. Your three tier pins already appear in the picker as Custom Opus/Sonnet/Haiku — this is only for the rest of the catalog, and **only adds ids starting with `claude`/`anthropic`** (so it does nothing for DeepSeek/MiniMax/GLM-style names; use `ANTHROPIC_DEFAULT_*_MODEL` for those). Rarely needed. | Gateway-specific, opt-in |
+
+> These take effect on the **next** Claude Code session (start a new chat or reload the window). They
+> don't fix a *resumed* session, which keeps the model and settings from its saved transcript.
 
 ### Example provider configs
 
@@ -213,6 +249,9 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | `claudeProviderSwitcher.customProviders` | `[]` | Extra providers added to the **Add provider** menu `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Use this to add a provider that isn't built in; edit it as a table in the Settings UI. |
 | `claudeProviderSwitcher.language` | `auto` | UI language for the extension's own menus, notifications, sidebar, status bar and custom-providers table: `auto` / `en` / `ru` / `zh`. `auto` follows VS Code, falling back to English. Switches live. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Show the active-provider indicator in the status bar. |
+| `claudeProviderSwitcher.switchAction` | `switch` | What happens on every switch (sidebar click, hotkey, cycle, menu): `switch` — switch the provider, then remind to restart the session; `switchAndReload` — switch and immediately reload the window so the next session picks up the new provider. |
+| `claudeProviderSwitcher.writeClaudeSettings` | `false` | Also mirror the active provider into the Claude Code **CLI** config at `~/.claude/settings.json` (under `env`), so `claude` in a plain terminal uses the same provider. Only the keys this extension manages are touched; the rest of the file is preserved. Writes the active API key there in plain text. |
+| `claudeProviderSwitcher.showRestartHint` | `true` | After switching, tint the status bar item and remind you the Claude Code session must restart (new chat / Reload Window) to take effect. Clears on reload. |
 
 ### Notes
 
@@ -263,7 +302,22 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
   моделей провайдера (`GET /v1/models`), и ты выбираешь из выпадающего списка, а не вводишь id вручную.
 - 🔐 **Безопасные ключи** — API-ключи хранятся в **SecretStorage** VS Code, а не в `settings.json`.
 - 📤 **Импорт / экспорт** — поделиться профилями или сделать бэкап в JSON (ключи по умолчанию исключаются).
-- 🔌 **Индикатор** активного провайдера в статус-баре; прячется, когда профилей нет.
+- 🔌 **Индикатор** активного провайдера в статус-баре; прячется, когда профилей нет. После переключения
+  подсвечивается и напоминает перезапустить сессию Claude Code (отключается настройкой `showRestartHint`).
+- 🖥️ **Зеркалирование в CLI** — включи `writeClaudeSettings`, чтобы активный провайдер также писался в
+  `~/.claude/settings.json`, и `claude` в обычном терминале (а не только расширение в VS Code) использовал
+  его. Трогаются только ключи, которыми управляет расширение; остальное в файле сохраняется.
+- ⚙️ **Действие при переключении** — настройка определяет, что происходит при каждом переключении: просто
+  переключить (`switch`, по умолчанию) или переключить и сразу перезагрузить окно (`switchAndReload`),
+  чтобы новая сессия Claude Code стартовала на новом провайдере без лишних действий.
+- 📝 **Подсказка про шлюз** — у профилей с чужим `Base URL` (не Anthropic, не localhost) в тултипе
+  появляется короткая заметка о поведении Claude Code для шлюзов (`/model` и `ANTHROPIC_DEFAULT_*_MODEL`).
+  Остальные профили не меняются.
+- 🧪 **Доп. переменные окружения** — поле *Доп. переменные окружения* в редакторе профиля позволяет
+  задать любую другую переменную, которую читает Claude Code (напр. `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`,
+  `ANTHROPIC_CUSTOM_HEADERS`) без ручной правки `settings.json`.
+- 🔄 **Переключить и перезагрузить** — отдельная команда *Переключиться и перезагрузить окно* (ПКМ по
+  провайдеру или палитра) всегда переключает и перезагружает, независимо от настройки.
 - ∞ **Без лимита на число профилей** (хоткеи покрывают первые 10 слотов; остальные — через
   сайдбар/меню).
 
@@ -334,8 +388,28 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | `ANTHROPIC_AUTH_TOKEN` | Ключ для сторонних эндпоинтов. **Хранится в SecretStorage**, а не в `settings.json`; в редакторе показывается замаскированным. |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | На какие модели мапятся уровни Opus/Sonnet/Haiku. |
 | `API_TIMEOUT_MS` | (необязательно) таймаут запроса в мс. |
+| **Доп. переменные окружения** | (необязательно) любая другая переменная, которую читает Claude Code — напр. `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`, `ANTHROPIC_CUSTOM_HEADERS`. Добавляются/меняются/удаляются в списке; ключи, у которых есть своё поле выше, отклоняются. |
 
 > Внутри Claude Code уровни можно менять командой `/model`.
+
+#### Когда реально нужны доп. переменные окружения?
+
+Большинству они не нужны — штатных полей хватает для обычных случаев. Поле *Доп. переменные окружения* —
+это «отвёртка» для сторонних эндпоинтов и шлюзов, которым нужна донастройка на уровне провайдера,
+читаемая Claude Code из окружения. Частые:
+
+| Переменная | Когда нужна | Почему per-provider |
+| --- | --- | --- |
+| `MAX_THINKING_TOKENS` = `0` | Шлюз/модель отвергает запрос из-за thinking/reasoning-параметров (напр. `400 thinking options type cannot be disabled when reasoning_effort is set`). `0` отключает thinking. | Зависит от конкретного шлюза/модели |
+| `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING` = `1` | То же на старых моделях (Opus 4.6 / Sonnet 4.6) — возврат к фиксированному бюджету thinking. | Зависит от модели |
+| `ANTHROPIC_CUSTOM_HEADERS` | Эндпоинту нужны доп. HTTP-заголовки (второй токен, tenant-id, маршрутизация). Формат: `Header-Name: value` (несколько — через перенос строки). | У каждого шлюза свои |
+| `DISABLE_PROMPT_CACHING` = `1` | Эндпоинт не понимает `cache_control` и падает на кэшируемых запросах. | Свойство этого провайдера |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION` (+ `…_NAME`, `…_DESCRIPTION`) | Добавить в picker `/model` id модели, которую discovery не покажет (напр. модель шлюза не на `claude`). | Зависит от id моделей шлюза |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME` / `…_DESCRIPTION` | Дать прикреплённой модели шлюза понятное имя в picker `/model`. | Косметика, по шлюзу |
+| `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY` = `1` | Показать в `/model` *остальные* модели шлюза из его `/v1/models`. Твои три tier-модели уже в picker'е как Custom Opus/Sonnet/Haiku — это только для остального каталога, и **добавляет лишь id на `claude`/`anthropic`** (для имён вроде DeepSeek/MiniMax/GLM ничего не даёт — используй `ANTHROPIC_DEFAULT_*_MODEL`). Нужна редко. | Per-gateway, по желанию |
+
+> Применяются в **следующей** сессии Claude Code (новый чат или перезагрузка окна). Возобновлённую
+> сессию они не меняют — она тянет модель и настройки из сохранённого transcript.
 
 ### Примеры провайдеров
 
@@ -361,6 +435,9 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | `claudeProviderSwitcher.customProviders` | `[]` | Свои провайдеры для меню **Add provider** `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Добавляйте недостающего провайдера; редактируется таблицей в UI настроек. |
 | `claudeProviderSwitcher.language` | `auto` | Язык интерфейса расширения (меню, уведомления, сайдбар, статус-бар, таблица провайдеров): `auto` / `en` / `ru` / `zh`. `auto` следует языку VS Code с откатом на английский. Переключается на лету. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Показывать индикатор активного провайдера в статус-баре. |
+| `claudeProviderSwitcher.switchAction` | `switch` | Что делать при каждом переключении (клик в сайдбаре, хоткей, цикл, меню): `switch` — переключить и напомнить о перезапуске сессии; `switchAndReload` — переключить и сразу перезагрузить окно, чтобы новая сессия стартовала на новом провайдере. |
+| `claudeProviderSwitcher.writeClaudeSettings` | `false` | Дублировать активного провайдера в **CLI**-конфиг Claude Code `~/.claude/settings.json` (в ключ `env`), чтобы `claude` в обычном терминале использовал того же провайдера. Трогаются только управляемые расширением ключи; остальное в файле сохраняется. Активный API-ключ пишется туда открытым текстом. |
+| `claudeProviderSwitcher.showRestartHint` | `true` | После переключения подсвечивать индикатор в статус-баре и напоминать, что сессию Claude Code нужно перезапустить (новый чат / Reload Window). Сбрасывается при перезагрузке окна. |
 
 ### Заметки
 
@@ -408,7 +485,20 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
   让你从下拉列表中选择，而无需手动输入 id。
 - 🔐 **密钥安全** —— API 密钥存储在 VS Code **SecretStorage** 中，而非 `settings.json`。
 - 📤 **导入 / 导出** —— 以 JSON 形式分享或备份配置（默认不含密钥）。
-- 🔌 **状态栏指示器** —— 显示当前服务商；无配置时隐藏。
+- 🔌 **状态栏指示器** —— 显示当前服务商；无配置时隐藏。切换后会高亮并提醒你重启 Claude Code 会话
+  （可用 `showRestartHint` 关闭）。
+- 🖥️ **同步到 CLI** —— 开启 `writeClaudeSettings` 后，活动服务商也会写入 `~/.claude/settings.json`（其
+  `env` 键），让在普通终端运行的 `claude`（而不仅是 VS Code 扩展）使用同一服务商。仅修改本扩展管理的键，
+  文件其余内容保持不变。
+- ⚙️ **切换行为设置** —— 控制每次切换（侧边栏点击、快捷键、循环、菜单）时执行的操作：仅切换
+  （`switch`，默认），或切换并立即重新加载窗口（`switchAndReload`），使新会话立刻使用新服务商。
+- 📝 **网关提示** —— `Base URL` 看起来像第三方 LLM 网关（非 Anthropic、非 localhost）的服务商，其
+  悬停提示会附上关于 Claude Code 在网关上对 `/model` 和 `ANTHROPIC_DEFAULT_*_MODEL` 行为的简短说明。
+  其他服务商不受影响。
+- 🧪 **额外环境变量** —— 配置编辑器中的*额外环境变量*字段，可添加 Claude Code 读取的任意其他变量
+  （如 `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`、`ANTHROPIC_CUSTOM_HEADERS`），无需手动编辑 `settings.json`。
+- 🔄 **切换并重新加载** —— 专用的 *切换服务商并重新加载窗口* 命令（右键点击服务商或命令面板）始终一步
+  完成切换与重载，不受设置影响。
 - ∞ **配置数量不限**（快捷键覆盖前 10 个槽位，其余通过侧边栏/菜单切换）。
 
 ### 快速开始
@@ -475,8 +565,27 @@ SecretStorage 中）。
 | `ANTHROPIC_AUTH_TOKEN` | 第三方端点的 API 密钥。**存储在 SecretStorage** 中，而非 `settings.json`；编辑器中以掩码显示。 |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | Opus/Sonnet/Haiku 档位映射到的模型。 |
 | `API_TIMEOUT_MS` | （可选）请求超时（毫秒）。 |
+| **额外环境变量** | （可选）Claude Code 读取的任意其他变量 —— 如 `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`、`ANTHROPIC_CUSTOM_HEADERS`。在小列表中添加/编辑/删除；上方已有专门字段的键会被拒绝。 |
 
 > 在 Claude Code 内部仍可用 `/model` 切换档位。
+
+#### 什么时候真的需要额外环境变量？
+
+大多数场景都用不到 —— 专用字段已覆盖常见需求。*额外环境变量*字段是为第三方端点和网关准备的「应急口」，
+用于设置 Claude Code 从环境读取的、针对单个服务商的调整。常见的有：
+
+| 变量 | 何时需要 | 为何按服务商设置 |
+| --- | --- | --- |
+| `MAX_THINKING_TOKENS` = `0` | 网关/模型因 thinking/reasoning 参数拒绝请求（如 `400 thinking options type cannot be disabled when reasoning_effort is set`）。设为 `0` 关闭 thinking。 | 取决于具体网关/模型 |
+| `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING` = `1` | 旧模型（Opus 4.6 / Sonnet 4.6）上同理 —— 恢复固定 thinking 预算。 | 取决于模型 |
+| `ANTHROPIC_CUSTOM_HEADERS` | 端点需要额外 HTTP 头（第二个令牌、tenant id、路由提示）。格式：`Header-Name: value`（多个用换行分隔）。 | 各网关各不相同 |
+| `DISABLE_PROMPT_CACHING` = `1` | 端点不理解 `cache_control`，对缓存请求报错。 | 该服务商的特性 |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION`（+ `…_NAME`、`…_DESCRIPTION`） | 向 `/model` picker 添加 discovery 不会列出的模型 id（如非 `claude` 命名的网关模型）。 | 取决于网关的模型 id |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME` / `…_DESCRIPTION` | 给固定的网关模型在 `/model` picker 里一个友好名称。 | 外观，按网关 |
+| `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY` = `1` | 在 `/model` 中列出网关 `/v1/models` 里的*其他*模型。你的三个档位模型已作为 Custom Opus/Sonnet/Haiku 出现在 picker 中 —— 这只用于其余目录，且**只添加 id 以 `claude`/`anthropic` 开头的模型**（对 DeepSeek/MiniMax/GLM 之类的名称无效，请用 `ANTHROPIC_DEFAULT_*_MODEL`）。很少需要。 | 按网关，可选 |
+
+> 这些在**下一个** Claude Code 会话生效（新建对话或重新加载窗口）。它们不会改变*恢复的*会话 ——
+> 后者沿用其已保存 transcript 中的模型与设置。
 
 ### 服务商示例（用自己的密钥替换 `YOUR_*_KEY`）
 
@@ -497,6 +606,9 @@ SecretStorage 中）。
 | `claudeProviderSwitcher.customProviders` | `[]` | 添加到 **Add provider** 菜单的自定义服务商 `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`，用于添加内置列表中没有的服务商；可在设置界面以表格形式编辑。 |
 | `claudeProviderSwitcher.language` | `auto` | 扩展自身界面（菜单、通知、侧边栏、状态栏、自定义服务商表格）的语言：`auto` / `en` / `ru` / `zh`。`auto` 跟随 VS Code，回退到英语。实时切换。 |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | 在状态栏显示当前服务商指示器。 |
+| `claudeProviderSwitcher.switchAction` | `switch` | 每次切换（侧边栏点击、快捷键、循环、菜单）时执行的操作：`switch` —— 切换后提醒重启会话；`switchAndReload` —— 切换后立即重新加载窗口，使新会话使用新服务商。 |
+| `claudeProviderSwitcher.writeClaudeSettings` | `false` | 同时将活动服务商写入 Claude Code **CLI** 配置 `~/.claude/settings.json`（`env` 键），让普通终端中的 `claude` 使用同一服务商。仅修改本扩展管理的键，文件其余内容保持不变。活动 API 密钥会以明文写入该文件。 |
+| `claudeProviderSwitcher.showRestartHint` | `true` | 切换后高亮状态栏项并提醒 Claude Code 会话需要重启（新建对话 / 重新加载窗口）才能生效。重载窗口后清除。 |
 
 ### 说明
 

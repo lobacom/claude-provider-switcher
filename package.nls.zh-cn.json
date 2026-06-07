@@ -20,6 +20,7 @@
   "cmd.switchToIndex": "切换到服务商（按索引）",
   "cmd.pinToWorkspace": "将服务商绑定到此工作区",
   "cmd.switchWithFallback": "带回退切换",
+  "cmd.switchAndReload": "切换服务商并重新加载窗口",
   "cmd.checkHealth": "检查服务商可达性",
   "cmd.manageCustomProviders": "管理自定义服务商…"
 }

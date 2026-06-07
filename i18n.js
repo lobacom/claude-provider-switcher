@@ -17,6 +17,10 @@ const STRINGS = {
     applyMessage: 'Claude provider → {name}. Restart the Claude Code session to apply.',
     hotkeysSynced: 'Claude provider hotkeys synced',
     providerWord: 'Provider',
+    switchReloadPlaceholder: 'Switch to (then reload the window)…',
+    tip_restartPending: '⚠ Restart the Claude Code session (new chat or Reload Window) to apply.',
+    tip_restartReload: 'Reload Window',
+    claudeSettingsParseError: "Couldn't update {path} — it isn't valid JSON. Left it untouched.",
 
     // select
     selectPlaceholder: 'Select a Claude Code provider',
@@ -61,6 +65,18 @@ const STRINGS = {
     field_sonnet: 'Sonnet model',
     field_haiku: 'Haiku model',
     field_timeout: 'API timeout (ms, optional)',
+    field_extraEnv: 'Extra environment variables',
+
+    // extra (free-form) env vars
+    extraEnvCount: '{n} set',
+    extraEnvPlaceholder: 'Extra env vars for "{name}" — add, edit, or Done',
+    extraEnvAdd: 'Add variable…',
+    extraEnvExisting: 'Defined',
+    extraEnvKeyPrompt: 'Variable name (e.g. CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY)',
+    extraEnvValuePrompt: '{key} — value (empty to remove)',
+    extraEnvKeyEmpty: 'Enter a variable name.',
+    extraEnvKeyInvalid: 'Use only letters, digits and underscore; must not start with a digit.',
+    extraEnvKeyReserved: '"{key}" has its own field above — edit it there.',
 
     // colors
     color_green: 'Green',
@@ -159,6 +175,7 @@ const STRINGS = {
     tip_pinned: '📌 Pinned to this workspace',
     tip_clickToSwitch: 'Click to switch',
     tip_fallback: 'Fallback: {name}',
+    tip_gatewayNote: 'Gateway: the model comes from the `ANTHROPIC_DEFAULT_*_MODEL` mapping (it shows in `/model` as Custom Opus/Sonnet/Haiku). After switching, start a **new chat** — a resumed chat keeps its previous model.',
 
     // status bar
     statusDefault: 'Claude (default)',
@@ -188,6 +205,10 @@ const STRINGS = {
     applyMessage: 'Провайдер Claude → {name}. Перезапустите сессию Claude Code, чтобы применить.',
     hotkeysSynced: 'Хоткеи провайдеров Claude синхронизированы',
     providerWord: 'Провайдер',
+    switchReloadPlaceholder: 'Переключиться (затем перезагрузить окно)…',
+    tip_restartPending: '⚠ Перезапустите сессию Claude Code (новый чат или Reload Window), чтобы применить.',
+    tip_restartReload: 'Перезагрузить окно',
+    claudeSettingsParseError: 'Не удалось обновить {path} — это не корректный JSON. Файл оставлен без изменений.',
 
     selectPlaceholder: 'Выберите провайдера Claude Code',
     activeMarker: '● активен   ',
@@ -228,6 +249,17 @@ const STRINGS = {
     field_sonnet: 'Модель Sonnet',
     field_haiku: 'Модель Haiku',
     field_timeout: 'Таймаут API (мс, необязательно)',
+    field_extraEnv: 'Доп. переменные окружения',
+
+    extraEnvCount: 'задано: {n}',
+    extraEnvPlaceholder: 'Доп. переменные для «{name}» — добавить, изменить или Готово',
+    extraEnvAdd: 'Добавить переменную…',
+    extraEnvExisting: 'Заданные',
+    extraEnvKeyPrompt: 'Имя переменной (напр. CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY)',
+    extraEnvValuePrompt: '{key} — значение (пусто — удалить)',
+    extraEnvKeyEmpty: 'Введите имя переменной.',
+    extraEnvKeyInvalid: 'Только буквы, цифры и подчёркивание; нельзя начинать с цифры.',
+    extraEnvKeyReserved: 'Для «{key}» есть отдельное поле выше — измените там.',
 
     color_green: 'Зелёный',
     color_blue: 'Синий',
@@ -317,6 +349,7 @@ const STRINGS = {
     tip_pinned: '📌 Закреплён за этим workspace',
     tip_clickToSwitch: 'Клик — переключить',
     tip_fallback: 'Резерв: {name}',
+    tip_gatewayNote: 'Шлюз: модель берётся из маппинга `ANTHROPIC_DEFAULT_*_MODEL` (видна в `/model` как Custom Opus/Sonnet/Haiku). После переключения начни **новый чат** — возобновлённый держит прежнюю модель.',
 
     statusDefault: 'Claude (по умолчанию)',
     statusTooltipDefault: 'Провайдер Claude — клик, чтобы переключить',
@@ -344,6 +377,10 @@ const STRINGS = {
     applyMessage: 'Claude 服务商 → {name}。请重启 Claude Code 会话以生效。',
     hotkeysSynced: 'Claude 服务商快捷键已同步',
     providerWord: '服务商',
+    switchReloadPlaceholder: '切换到（然后重新加载窗口）…',
+    tip_restartPending: '⚠ 请重启 Claude Code 会话（新建对话或重新加载窗口）以生效。',
+    tip_restartReload: '重新加载窗口',
+    claudeSettingsParseError: '无法更新 {path} —— 它不是有效的 JSON。已保持原样。',
 
     selectPlaceholder: '选择一个 Claude Code 服务商',
     activeMarker: '● 当前   ',
@@ -384,6 +421,17 @@ const STRINGS = {
     field_sonnet: 'Sonnet 模型',
     field_haiku: 'Haiku 模型',
     field_timeout: 'API 超时（毫秒，可选）',
+    field_extraEnv: '额外环境变量',
+
+    extraEnvCount: '已设置 {n} 个',
+    extraEnvPlaceholder: '「{name}」的额外环境变量 —— 添加、编辑，或选「完成」',
+    extraEnvAdd: '添加变量…',
+    extraEnvExisting: '已定义',
+    extraEnvKeyPrompt: '变量名（如 CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY）',
+    extraEnvValuePrompt: '{key} —— 值（留空则删除）',
+    extraEnvKeyEmpty: '请输入变量名。',
+    extraEnvKeyInvalid: '只能使用字母、数字和下划线；不能以数字开头。',
+    extraEnvKeyReserved: '「{key}」在上方有专门字段 —— 请在那里编辑。',
 
     color_green: '绿色',
     color_blue: '蓝色',
@@ -473,6 +521,7 @@ const STRINGS = {
     tip_pinned: '📌 已绑定到此工作区',
     tip_clickToSwitch: '点击以切换',
     tip_fallback: '回退：{name}',
+    tip_gatewayNote: '网关：模型来自 `ANTHROPIC_DEFAULT_*_MODEL` 映射（在 `/model` 中显示为 Custom Opus/Sonnet/Haiku）。切换后请新建对话 —— 恢复的对话会沿用之前的模型。',
 
     statusDefault: 'Claude（默认）',
     statusTooltipDefault: 'Claude 服务商 —— 点击切换',

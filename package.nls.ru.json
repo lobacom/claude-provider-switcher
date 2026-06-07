@@ -20,6 +20,7 @@
   "cmd.switchToIndex": "Переключиться на провайдера (по индексу)",
   "cmd.pinToWorkspace": "Закрепить провайдера за этим workspace",
   "cmd.switchWithFallback": "Переключиться с резервом",
+  "cmd.switchAndReload": "Переключиться и перезагрузить окно",
   "cmd.checkHealth": "Проверить доступность провайдеров",
   "cmd.manageCustomProviders": "Управление своими провайдерами…"
 }

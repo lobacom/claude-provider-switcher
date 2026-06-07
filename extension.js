@@ -8,6 +8,30 @@ const CLAUDE_KEY = 'environmentVariables';
 const KB_FILE = 'keybindings.json';
 const PIN_KEY = `${SELF}.pinnedProfileId`; // workspaceState: profile pinned to this workspace
 
+// The env keys this extension owns. When mirroring into ~/.claude/settings.json we
+// only ever touch these — any other `env` entries the user keeps in that file are
+// left untouched. They mirror the env-bearing entries of FIELDS.
+const MANAGED_ENV_KEYS = [
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'API_TIMEOUT_MS',
+];
+
+// Every env key the extension may write — the dedicated keys above plus any
+// free-form (extra) keys any profile defines. Used by the CLI mirror to know
+// which keys it owns (and may clear) in ~/.claude/settings.json, leaving the
+// user's own hand-added keys there intact.
+function managedEnvKeys() {
+  const set = new Set(MANAGED_ENV_KEYS);
+  for (const p of getProfiles()) {
+    if (p.env) for (const k of Object.keys(p.env)) set.add(k);
+  }
+  return set;
+}
+
 // ---- language --------------------------------------------------------------
 // The UI language is driven by the `language` setting (auto | en | ru | zh) so it
 // switches live, independent of VS Code's display language. `auto` follows VS
@@ -199,22 +223,91 @@ function activeProfileIndex() {
 
 // ---- apply / select --------------------------------------------------------
 
-async function applyProfile(p) {
-  if (!p) return;
+// Set true on every switch; drives the "restart the session to apply" hint in the
+// status bar (Claude Code reads the env when a session starts, not live). Cleared
+// on window reload (the flag resets) — see updateStatus / markRestartPending.
+let restartPending = false;
+function markRestartPending() {
+  if (vscode.workspace.getConfiguration(SELF).get('showRestartHint') === false) return;
+  restartPending = true;
+  updateStatus();
+}
+
+// Mirror the active env into Claude Code's CLI config at ~/.claude/settings.json,
+// under its `env` key — so a `claude` run in a plain terminal (outside the VS Code
+// extension) picks up the same provider. We only manage MANAGED_ENV_KEYS: existing
+// values for those keys are replaced, everything else in the file is preserved. A
+// file that exists but doesn't parse as JSON is left untouched (we don't clobber
+// hand-written config). Gated by the `writeClaudeSettings` setting.
+async function writeClaudeCliSettings(env) {
+  const dir = vscode.Uri.joinPath(vscode.Uri.file(require('os').homedir()), '.claude');
+  const uri = vscode.Uri.joinPath(dir, 'settings.json');
+
+  let oldText = '';
+  try {
+    oldText = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
+  } catch { /* file doesn't exist yet — we'll create it */ }
+
+  let obj = {};
+  if (oldText.trim()) {
+    try {
+      obj = JSON.parse(oldText);
+    } catch {
+      vscode.window.showWarningMessage(t('claudeSettingsParseError', { path: uri.fsPath }));
+      return;
+    }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) obj = {};
+
+  const curEnv = obj.env && typeof obj.env === 'object' && !Array.isArray(obj.env) ? obj.env : {};
+  // Clear everything this extension might own — the dedicated keys plus any
+  // free-form (extra) env keys used by any profile — so switching away from a
+  // profile that set, say, CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY removes it
+  // too. Keys the user hand-added to settings.json that no profile uses survive.
+  for (const k of managedEnvKeys()) delete curEnv[k];
+  for (const [k, v] of Object.entries(env)) curEnv[k] = v; // apply the new env
+  obj.env = curEnv;
+
+  const newText = JSON.stringify(obj, null, 2);
+  if (newText === oldText) return;
+  try {
+    await vscode.workspace.fs.createDirectory(dir);
+  } catch { /* already exists */ }
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(newText, 'utf8'));
+}
+
+// Write the env Claude Code should use: always into the VS Code extension's
+// setting, and (when enabled) mirrored into ~/.claude/settings.json for the CLI.
+async function writeActiveEnv(env) {
   await vscode.workspace
     .getConfiguration(CLAUDE_SECTION)
-    .update(CLAUDE_KEY, fullEnv(p), vscode.ConfigurationTarget.Global);
+    .update(CLAUDE_KEY, env, vscode.ConfigurationTarget.Global);
+  if (vscode.workspace.getConfiguration(SELF).get('writeClaudeSettings') === true) {
+    await writeClaudeCliSettings(env);
+  }
+}
+
+async function applyProfile(p) {
+  if (!p) return;
+  await writeActiveEnv(fullEnv(p));
+  markRestartPending();
   vscode.window.setStatusBarMessage(t('applyMessage', { name: p.name }), 5000);
 }
 
 // User-initiated switch. When `autoFallbackOnApply` is on it probes the target
 // and walks its fallback chain; otherwise it applies the profile directly.
-function switchProfile(p) {
+// Afterwards, if the setting `switchAction` is `switchAndReload`, reload the window
+// so a new Claude Code session starts against the new env right away.
+async function switchProfile(p) {
   if (!p) return;
   if (vscode.workspace.getConfiguration(SELF).get('autoFallbackOnApply') === true) {
-    return applyProfileWithFallback(p);
+    await applyProfileWithFallback(p);
+  } else {
+    await applyProfile(p);
   }
-  return applyProfile(p);
+  if (vscode.workspace.getConfiguration(SELF).get('switchAction') === 'switchAndReload') {
+    await vscode.commands.executeCommand('workbench.action.reloadWindow');
+  }
 }
 
 async function selectProfile() {
@@ -241,15 +334,15 @@ async function selectProfile() {
   if (pick) await switchProfile(profiles[pick._idx]);
 }
 
-function switchToIndex(n) {
+async function switchToIndex(n) {
   const p = getProfiles()[n];
-  if (p) switchProfile(p);
+  if (p) await switchProfile(p);
   else vscode.window.showInformationMessage(t('providerNotDefined', { n: n + 1 }));
 }
 
 // Cycle to the next (dir=1) or previous (dir=-1) provider, wrapping around.
 // With nothing active yet, dir=1 lands on the first profile, dir=-1 on the last.
-function cycleProfile(dir) {
+async function cycleProfile(dir) {
   const profiles = getProfiles();
   if (!profiles.length) {
     vscode.window.showInformationMessage(t('noProviders'));
@@ -258,7 +351,40 @@ function cycleProfile(dir) {
   const cur = activeProfileIndex();
   const start = cur < 0 ? (dir > 0 ? -1 : 0) : cur;
   const next = (start + dir + profiles.length) % profiles.length;
-  switchProfile(profiles[next]);
+  await switchProfile(profiles[next]);
+}
+
+// Switch to a provider and immediately reload the window, so any running Claude
+// Code session is torn down and the next one starts against the new env (the env
+// is only read at session start). `arg` may be a tree item (right-click); without
+// one, prompt for the provider first.
+async function switchAndReload(arg) {
+  const profiles = getProfiles();
+  if (!profiles.length) {
+    vscode.window.showInformationMessage(t('noProviders'));
+    return;
+  }
+  let p;
+  const i = resolveIndex(arg);
+  if (i >= 0 && profiles[i]) {
+    p = profiles[i];
+  } else {
+    const active = activeProfileIndex();
+    const items = profiles.map((x, idx) => ({
+      label: `${badgeTextPrefix(x.color)}${x.name}`,
+      description:
+        (idx === active ? t('activeMarker') : '') +
+        ((x.env && x.env.ANTHROPIC_BASE_URL) || t('nativeSubscriptionParen')),
+      _idx: idx,
+    }));
+    const pick = await vscode.window.showQuickPick(items, {
+      placeHolder: t('switchReloadPlaceholder'),
+    });
+    if (!pick) return;
+    p = profiles[pick._idx];
+  }
+  await switchProfile(p);
+  await vscode.commands.executeCommand('workbench.action.reloadWindow');
 }
 
 // ---- workspace pinning -----------------------------------------------------
@@ -435,7 +561,17 @@ const FIELDS = [
   { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', labelKey: 'field_sonnet', model: true },
   { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', labelKey: 'field_haiku', model: true },
   { key: 'API_TIMEOUT_MS', labelKey: 'field_timeout' },
+  { key: '__extraEnv', labelKey: 'field_extraEnv' },
 ];
+
+// Extra (free-form) env vars on a profile: every env key that isn't one of the
+// dedicated fields above (MANAGED_ENV_KEYS). Lets a profile carry any other
+// CLAUDE_CODE_* / ANTHROPIC_* variable Claude Code understands without a bespoke
+// field — e.g. CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY, ANTHROPIC_CUSTOM_HEADERS.
+function extraEnvKeys(p) {
+  const env = (p && p.env) || {};
+  return Object.keys(env).filter((k) => !MANAGED_ENV_KEYS.includes(k)).sort();
+}
 
 // Localized label for a FIELDS entry (computed at render time so it follows the
 // active language).
@@ -452,9 +588,76 @@ function fieldValue(p, key) {
     const tgt = getProfiles().find((x) => x.id === p.fallbackId);
     return tgt ? tgt.name : t('missing');
   }
+  if (key === '__extraEnv') {
+    const n = extraEnvKeys(p).length;
+    return n ? t('extraEnvCount', { n }) : '';
+  }
   // token lives in SecretStorage — only ever surface a masked placeholder
   if (key === 'ANTHROPIC_AUTH_TOKEN') return cachedToken(p) ? '••••••••' : '';
   return (p.env && p.env[key]) || '';
+}
+
+// Reject env-var names that collide with the dedicated fields or aren't valid
+// shell identifiers. Returns an error string (blocks the input) or undefined (ok).
+function validateEnvKey(v) {
+  const k = (v || '').trim();
+  if (!k) return t('extraEnvKeyEmpty');
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) return t('extraEnvKeyInvalid');
+  if (MANAGED_ENV_KEYS.includes(k)) return t('extraEnvKeyReserved', { key: k });
+  return undefined;
+}
+
+// Sub-editor for a profile's free-form env vars. Loops add / edit / clear until
+// Done. Each change is saved immediately; the caller re-applies if the profile is
+// live. Empty value on an existing key removes it.
+async function editExtraEnv(index) {
+  for (;;) {
+    const list = getProfiles();
+    const p = list[index];
+    if (!p) return;
+    const keys = extraEnvKeys(p);
+    const items = [{ label: `$(add) ${t('extraEnvAdd')}`, _add: true }];
+    if (keys.length) {
+      items.push({ label: t('extraEnvExisting'), kind: vscode.QuickPickItemKind.Separator });
+      for (const k of keys) items.push({ label: k, description: String(p.env[k]), _key: k });
+    }
+    items.push({ label: `$(check) ${t('done')}`, _done: true });
+    const pick = await vscode.window.showQuickPick(items, {
+      placeHolder: t('extraEnvPlaceholder', { name: p.name }),
+      ignoreFocusOut: true,
+    });
+    if (!pick || pick._done) return;
+
+    let key, curVal;
+    if (pick._add) {
+      key = await vscode.window.showInputBox({
+        prompt: t('extraEnvKeyPrompt'),
+        placeHolder: 'CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY',
+        ignoreFocusOut: true,
+        validateInput: validateEnvKey,
+      });
+      if (key === undefined) continue;
+      key = key.trim();
+      curVal = '';
+    } else {
+      key = pick._key;
+      curVal = String(p.env[key]);
+    }
+
+    const value = await vscode.window.showInputBox({
+      prompt: t('extraEnvValuePrompt', { key }),
+      value: curVal,
+      ignoreFocusOut: true,
+    });
+    if (value === undefined) continue;
+
+    const draft = cloneProfiles();
+    if (!draft[index]) return;
+    draft[index].env = draft[index].env || {};
+    if (value === '' && !pick._add) delete draft[index].env[key];
+    else draft[index].env[key] = value;
+    await saveProfiles(draft);
+  }
 }
 
 // Find the first slot (1..9, 0) for the given prefix that nobody else uses (excluding `excludeIndex`).
@@ -562,6 +765,13 @@ async function editProfileFields(index) {
       if (wasActive) await applyProfile(getProfiles()[index]);
       vscode.commands.executeCommand(`${SELF}.refresh`);
       continue;
+    } else if (f.key === '__extraEnv') {
+      // Free-form env vars manage themselves (add/edit/clear in a sub-loop) and
+      // save as they go; re-apply if this is the live provider, then refresh.
+      await editExtraEnv(index);
+      if (wasActive) await applyProfile(getProfiles()[index]);
+      vscode.commands.executeCommand(`${SELF}.refresh`);
+      continue;
     } else if (f.model) {
       // Offer a dropdown of models fetched from the endpoint (GET /v1/models),
       // falling back to manual entry. Returns null on cancel.
@@ -652,6 +862,21 @@ function iconForBaseUrl(url) {
   return undefined;
 }
 
+// Heuristic for "this looks like an LLM gateway" — the Base URL is some non-Anthropic
+// remote host (so a shared API key, custom routing, model rewrites). We surface a
+// tip about Claude Code's gated behaviour for gateways (see tip_gatewayNote). Local
+// servers (localhost / 127.x) are excluded: they behave like direct API endpoints
+// to Claude Code and don't have the /model discovery caveats.
+function isGatewayProfile(p) {
+  const n = normalizeUrl(p && p.env && p.env.ANTHROPIC_BASE_URL);
+  if (!n) return false; // native subscription — not a gateway
+  if (n === normalizeUrl(CLAUDE_API_URL)) return false; // direct Anthropic API
+  // any host loopback / link-local counts as local, not gateway
+  const host = (() => { try { return new (require('url').URL)(n).hostname.toLowerCase(); } catch { return ''; } })();
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost')) return false;
+  return true;
+}
+
 // Read a bundled logo PNG once and cache it as a data: URI (so it can be
 // embedded into a Markdown tooltip, which won't load local file images).
 const _logoData = new Map();
@@ -684,9 +909,11 @@ function profileTooltip(p, extraLines) {
     const tgt = getProfiles().find((x) => x.id === p.fallbackId);
     if (tgt) lines.push(t('tip_fallback', { name: tgt.name }));
   }
+  if (isGatewayProfile(p)) lines.push(t('tip_gatewayNote'));
   if (extraLines) lines.push(...extraLines);
 
   const md = new vscode.MarkdownString();
+  md.isTrusted = true; // enables command: links in tooltips
   // empty Base URL = native Claude subscription → show the Claude logo
   const baseUrl = env.ANTHROPIC_BASE_URL;
   const logoFile = iconForBaseUrl(baseUrl) || (baseUrl ? undefined : 'claude.png');
@@ -806,9 +1033,7 @@ async function deleteProfile(arg) {
     if (draft.length) {
       await applyProfile(draft[0]);
     } else {
-      await vscode.workspace
-        .getConfiguration(CLAUDE_SECTION)
-        .update(CLAUDE_KEY, {}, vscode.ConfigurationTarget.Global);
+      await writeActiveEnv({});
     }
   }
 }
@@ -1617,23 +1842,35 @@ function updateStatus() {
     statusItem.hide();
     return;
   }
+  // A switch leaves any running Claude Code session pointed at the old provider
+  // until it restarts; flag that with a warning tint + reminder line, and a
+  // clickable Reload Window button (command: link works because isTrusted is on).
+  statusItem.backgroundColor = restartPending
+    ? new vscode.ThemeColor('statusBarItem.warningBackground')
+    : undefined;
+  const restartIcon = restartPending ? '$(warning) ' : '';
+  const restartLines = restartPending
+    ? ['', t('tip_restartPending'), '', `[🔄 ${t('tip_restartReload')}](command:workbench.action.reloadWindow)`]
+    : [];
+
   const idx = activeProfileIndex();
   if (idx >= 0) {
     const p = profiles[idx];
     // status bar is text-only, so a logo badge just shows the plug + name
-    statusItem.text = `$(plug) ${badgeTextPrefix(p.color)}${p.name}`;
+    statusItem.text = `${restartIcon}$(plug) ${badgeTextPrefix(p.color)}${p.name}`;
     const st = healthOf(p);
     const clickLine = t('tip_clickToSwitch');
     statusItem.tooltip = profileTooltip(
       p,
-      st !== 'unknown'
+      (st !== 'unknown'
         ? ['', t('tip_status', { status: healthLabel(st) }), '', clickLine]
         : ['', clickLine]
+      ).concat(restartLines)
     );
   } else {
     const base = getActiveEnv().ANTHROPIC_BASE_URL;
-    statusItem.text = `$(plug) ${base ? base : t('statusDefault')}`;
-    statusItem.tooltip = t('statusTooltipDefault');
+    statusItem.text = `${restartIcon}$(plug) ${base ? base : t('statusDefault')}`;
+    statusItem.tooltip = profileTooltip({ name: t('statusDefault'), env: { ANTHROPIC_BASE_URL: base || '' } }, restartLines);
   }
   statusItem.show();
 }
@@ -1705,18 +1942,19 @@ function activate(context) {
   reg('duplicate', duplicateProfile);
   reg('moveUp', (arg) => moveProfile(arg, -1));
   reg('moveDown', (arg) => moveProfile(arg, 1));
-  reg('switchTo', (arg) => {
+  reg('switchTo', async (arg) => {
     const i = resolveIndex(arg);
-    if (i >= 0) switchProfile(getProfiles()[i]);
+    if (i >= 0) await switchProfile(getProfiles()[i]);
   });
-  reg('switchToIndex', (idx) => switchToIndex(typeof idx === 'number' ? idx : parseInt(idx, 10)));
-  reg('next', () => cycleProfile(1));
-  reg('previous', () => cycleProfile(-1));
+  reg('switchToIndex', async (idx) => switchToIndex(typeof idx === 'number' ? idx : parseInt(idx, 10)));
+  reg('next', async () => cycleProfile(1));
+  reg('previous', async () => cycleProfile(-1));
   reg('test', testProfile);
   reg('export', exportProfiles);
   reg('import', importProfiles);
   reg('pinToWorkspace', pinToWorkspace);
   reg('switchWithFallback', switchWithFallback);
+  reg('switchAndReload', switchAndReload);
   reg('checkHealth', checkHealthCommand);
   reg('manageCustomProviders', manageCustomProviders);
   reg('refresh', () => {
@@ -1772,6 +2010,14 @@ function activate(context) {
         e.affectsConfiguration(`${SELF}.healthCheckIntervalMinutes`)
       ) {
         restartHealthTimer();
+      }
+      // Just turned on CLI mirroring → push the current active env into
+      // ~/.claude/settings.json right away, so it takes effect without a switch.
+      if (
+        e.affectsConfiguration(`${SELF}.writeClaudeSettings`) &&
+        vscode.workspace.getConfiguration(SELF).get('writeClaudeSettings') === true
+      ) {
+        writeClaudeCliSettings(getActiveEnv());
       }
     })
   );

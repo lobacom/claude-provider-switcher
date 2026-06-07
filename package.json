@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -67,6 +67,18 @@
           "default": "auto",
           "order": 0,
           "markdownDescription": "Language for the extension's own UI — menus, notifications, the sidebar, the status bar and the custom-providers table. Switches live. **Note:** command titles in the Command Palette and these setting descriptions are localized by VS Code's own display language, not this setting."
+        },
+        "claudeProviderSwitcher.switchAction": {
+          "type": "string",
+          "enum": ["switch", "switchAndReload"],
+          "enumItemLabels": ["Switch provider", "Switch provider & reload window"],
+          "enumDescriptions": [
+            "Switch the provider, then remind you to restart the session (new chat / Reload Window).",
+            "Switch the provider and immediately reload the window so the next Claude Code session starts against the new provider."
+          ],
+          "default": "switch",
+          "order": 1,
+          "markdownDescription": "What happens when you switch a provider via the sidebar click, hotkey, cycle or menu. `Switch provider` leaves the running session alone (it sees the old env until restarted). `Switch provider & reload window` restarts the window right away — any unsaved work must be saved first."
         },
         "claudeProviderSwitcher.profiles": {
           "type": "array",
@@ -149,6 +161,16 @@
           "default": true,
           "description": "Show the active-provider indicator in the status bar."
         },
+        "claudeProviderSwitcher.writeClaudeSettings": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Also mirror the active provider into the Claude Code **CLI** config at `~/.claude/settings.json` (under its `env` key), so a `claude` run in a plain terminal — not just the VS Code extension — uses the same provider. Only the keys this extension manages (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, the model/timeout vars) are touched; everything else in that file is left as-is. **Note:** this writes the active provider's API key into `~/.claude/settings.json` in plain text."
+        },
+        "claudeProviderSwitcher.showRestartHint": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "After switching, tint the status bar item and add a reminder that the Claude Code session must restart (new chat / Reload Window) for the change to take effect. Clears on window reload."
+        },
         "claudeProviderSwitcher.applyPinnedOnOpen": {
           "type": "boolean",
           "default": true,
@@ -195,6 +217,7 @@
       { "command": "claudeProviderSwitcher.switchToIndex", "title": "%cmd.switchToIndex%", "category": "%category%" },
       { "command": "claudeProviderSwitcher.pinToWorkspace", "title": "%cmd.pinToWorkspace%", "category": "%category%", "icon": "$(pin)" },
       { "command": "claudeProviderSwitcher.switchWithFallback", "title": "%cmd.switchWithFallback%", "category": "%category%", "icon": "$(sync)" },
+      { "command": "claudeProviderSwitcher.switchAndReload", "title": "%cmd.switchAndReload%", "category": "%category%", "icon": "$(debug-restart)" },
       { "command": "claudeProviderSwitcher.checkHealth", "title": "%cmd.checkHealth%", "category": "%category%", "icon": "$(heart)" },
       { "command": "claudeProviderSwitcher.manageCustomProviders", "title": "%cmd.manageCustomProviders%", "category": "%category%", "icon": "$(table)" }
     ],
@@ -212,6 +235,7 @@
         { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@3" },
         { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@4" },
         { "command": "claudeProviderSwitcher.switchTo", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "0_switch@1" },
+        { "command": "claudeProviderSwitcher.switchAndReload", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "0_switch@2" },
         { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@1" },
         { "command": "claudeProviderSwitcher.duplicate", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@2" },
         { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@3" },
