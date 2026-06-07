@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -87,6 +87,49 @@
             }
           }
         },
+        "claudeProviderSwitcher.customProviders": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Extra providers added to the **Add provider** menu, on top of the ones bundled with the extension. Use this to add a provider that isn't in the built-in list. Each row pre-fills a new profile's Base URL and (optionally) the model mapping; the API key is still entered per-profile and kept in SecretStorage.\n\nFor a table editor, run **Claude Provider: Manage custom providers…** (or the *Add provider* menu → *Manage custom providers…*) instead of editing the raw JSON here.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Display name shown in the Add provider menu (e.g. \"My Gateway\")."
+              },
+              "baseUrl": {
+                "type": "string",
+                "description": "ANTHROPIC_BASE_URL for the provider's Anthropic-compatible endpoint (e.g. https://api.example.com/anthropic). Leave empty for a native-subscription-style entry."
+              },
+              "local": {
+                "type": "boolean",
+                "default": false,
+                "description": "List this under \"Local servers\" instead of \"Anthropic-compatible providers\"."
+              },
+              "icon": {
+                "type": "string",
+                "description": "Optional logo: a PNG file name under media/providers/, or a VS Code codicon id (e.g. \"server\"). Defaults to the server codicon."
+              },
+              "opusModel": {
+                "type": "string",
+                "description": "Optional default model for the Opus tier (ANTHROPIC_DEFAULT_OPUS_MODEL)."
+              },
+              "sonnetModel": {
+                "type": "string",
+                "description": "Optional default model for the Sonnet tier (ANTHROPIC_DEFAULT_SONNET_MODEL)."
+              },
+              "haikuModel": {
+                "type": "string",
+                "description": "Optional default model for the Haiku tier (ANTHROPIC_DEFAULT_HAIKU_MODEL)."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "claudeProviderSwitcher.showStatusBarItem": {
           "type": "boolean",
           "default": true,
@@ -138,15 +181,17 @@
       { "command": "claudeProviderSwitcher.switchToIndex", "title": "Switch to provider (by index)", "category": "Claude Provider" },
       { "command": "claudeProviderSwitcher.pinToWorkspace", "title": "Pin provider to this workspace", "category": "Claude Provider", "icon": "$(pin)" },
       { "command": "claudeProviderSwitcher.switchWithFallback", "title": "Switch with fallback", "category": "Claude Provider", "icon": "$(sync)" },
-      { "command": "claudeProviderSwitcher.checkHealth", "title": "Check provider health", "category": "Claude Provider", "icon": "$(heart)" }
+      { "command": "claudeProviderSwitcher.checkHealth", "title": "Check provider health", "category": "Claude Provider", "icon": "$(heart)" },
+      { "command": "claudeProviderSwitcher.manageCustomProviders", "title": "Manage custom providers…", "category": "Claude Provider", "icon": "$(table)" }
     ],
     "menus": {
       "view/title": [
         { "command": "claudeProviderSwitcher.add", "when": "view == claudeProviderSwitcher.view", "group": "navigation@1" },
         { "command": "claudeProviderSwitcher.refresh", "when": "view == claudeProviderSwitcher.view", "group": "navigation@2" },
         { "command": "claudeProviderSwitcher.checkHealth", "when": "view == claudeProviderSwitcher.view", "group": "navigation@3" },
-        { "command": "claudeProviderSwitcher.import", "when": "view == claudeProviderSwitcher.view", "group": "1_io@1" },
-        { "command": "claudeProviderSwitcher.export", "when": "view == claudeProviderSwitcher.view", "group": "1_io@2" }
+        { "command": "claudeProviderSwitcher.manageCustomProviders", "when": "view == claudeProviderSwitcher.view", "group": "1_io@1" },
+        { "command": "claudeProviderSwitcher.import", "when": "view == claudeProviderSwitcher.view", "group": "1_io@2" },
+        { "command": "claudeProviderSwitcher.export", "when": "view == claudeProviderSwitcher.view", "group": "1_io@3" }
       ],
       "view/item/context": [
         { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@2" },

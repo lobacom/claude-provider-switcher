@@ -1,0 +1,137 @@
+{
+  "$comment": "Built-in provider catalog for the Add provider menu. Edit here to add or update a provider shipped with the extension; end users add their own via the claudeProviderSwitcher.customProviders setting instead. Each entry: name, icon (a PNG under media/providers/ or a codicon id), and env (known-good defaults — never an auth token). 'remote' = hosted Anthropic-compatible gateways; 'local' = localhost servers with a placeholder token.",
+  "remote": [
+    {
+      "name": "DeepInfra",
+      "icon": "deepinfra.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://api.deepinfra.com/anthropic" }
+    },
+    {
+      "name": "DeepSeek",
+      "icon": "deepseek.png",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-flash",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash"
+      }
+    },
+    {
+      "name": "Fireworks AI",
+      "icon": "fireworks.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://api.fireworks.ai/inference" }
+    },
+    {
+      "name": "Kimi (Moonshot)",
+      "icon": "moonshot.png",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.moonshot.ai/anthropic",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.5",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.5",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-k2.5"
+      }
+    },
+    {
+      "name": "MiniMax",
+      "icon": "minimax.png",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.minimax.io/anthropic",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3"
+      }
+    },
+    {
+      "name": "MiniMax (China)",
+      "icon": "minimax.png",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3"
+      }
+    },
+    {
+      "name": "ModelScope",
+      "icon": "modelscope.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://api-inference.modelscope.cn" }
+    },
+    {
+      "name": "Novita",
+      "icon": "novita.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://api.novita.ai/anthropic" }
+    },
+    {
+      "name": "OpenRouter",
+      "icon": "openrouter.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://openrouter.ai/api" }
+    },
+    {
+      "name": "Poe",
+      "icon": "poe.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://api.poe.com" }
+    },
+    {
+      "name": "Qwen (Alibaba)",
+      "icon": "qwen.png",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://dashscope-intl.aliyuncs.com/apps/anthropic",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3-max",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3-coder-plus",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.5-flash"
+      }
+    },
+    {
+      "name": "SiliconFlow",
+      "icon": "siliconflow.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://api.siliconflow.com" }
+    },
+    {
+      "name": "Vercel AI Gateway",
+      "icon": "vercel.png",
+      "env": { "ANTHROPIC_BASE_URL": "https://ai-gateway.vercel.sh" }
+    },
+    {
+      "name": "Z.ai (GLM)",
+      "icon": "zai.png",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air"
+      }
+    },
+    {
+      "name": "Zhipu GLM (China)",
+      "icon": "zhipu.png",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air"
+      }
+    }
+  ],
+  "local": [
+    {
+      "name": "llama.cpp",
+      "icon": "server",
+      "env": { "ANTHROPIC_BASE_URL": "http://localhost:8080", "ANTHROPIC_AUTH_TOKEN": "local" }
+    },
+    {
+      "name": "LM Studio",
+      "icon": "lmstudio.png",
+      "env": { "ANTHROPIC_BASE_URL": "http://localhost:1234", "ANTHROPIC_AUTH_TOKEN": "lmstudio" }
+    },
+    {
+      "name": "Ollama",
+      "icon": "ollama.png",
+      "env": { "ANTHROPIC_BASE_URL": "http://localhost:11434", "ANTHROPIC_AUTH_TOKEN": "local" }
+    },
+    {
+      "name": "vLLM",
+      "icon": "vllm.png",
+      "env": { "ANTHROPIC_BASE_URL": "http://localhost:8000", "ANTHROPIC_AUTH_TOKEN": "local" }
+    }
+  ]
+}

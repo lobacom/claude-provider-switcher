@@ -14,154 +14,73 @@ const PIN_KEY = `${SELF}.pinnedProfileId`; // workspaceState: profile pinned to 
 // The auth token is never bundled — the user adds it afterwards, and every field
 // stays editable in the profile editor. Endpoints are stable; model names change
 // more often, so treat the model defaults as a starting point.
+//
+// The catalog itself lives in the bundled `providers.json` (loaded at activation
+// by loadBundledProviders) rather than being hard-coded here, so it can be
+// extended without touching this file. End users add missing providers via the
+// `claudeProviderSwitcher.customProviders` setting (merged in by allRemotePresets
+// / allLocalPresets) — see package.json for that setting's table editor.
 
 const CLAUDE_API_URL = 'https://api.anthropic.com';
 
-// Each entry's `icon` names a PNG under media/providers/ (provider logo).
-// Aggregators (Fireworks, Novita, OpenRouter, …) host many models, so we ship
-// only the Base URL and let the user pick the model (full slug); single-model
-// providers also get a sensible tier→model mapping.
-// Listed alphabetically (case-insensitive); the menu shows them in this order.
-const PROVIDER_PRESETS = [
-  {
-    name: 'DeepInfra',
-    icon: 'deepinfra.png',
-    env: { ANTHROPIC_BASE_URL: 'https://api.deepinfra.com/anthropic' },
-  },
-  {
-    name: 'DeepSeek',
-    icon: 'deepseek.png',
-    env: {
-      ANTHROPIC_BASE_URL: 'https://api.deepseek.com/anthropic',
-      ANTHROPIC_DEFAULT_OPUS_MODEL: 'deepseek-v4-pro',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'deepseek-v4-flash',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'deepseek-v4-flash',
-    },
-  },
-  {
-    name: 'Fireworks AI',
-    icon: 'fireworks.png',
-    env: { ANTHROPIC_BASE_URL: 'https://api.fireworks.ai/inference' },
-  },
-  {
-    name: 'Kimi (Moonshot)',
-    icon: 'moonshot.png',
-    env: {
-      ANTHROPIC_BASE_URL: 'https://api.moonshot.ai/anthropic',
-      ANTHROPIC_DEFAULT_OPUS_MODEL: 'kimi-k2.5',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'kimi-k2.5',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'kimi-k2.5',
-    },
-  },
-  {
-    name: 'MiniMax',
-    icon: 'minimax.png',
-    env: {
-      ANTHROPIC_BASE_URL: 'https://api.minimax.io/anthropic',
-      ANTHROPIC_DEFAULT_OPUS_MODEL: 'MiniMax-M3',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'MiniMax-M3',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'MiniMax-M3',
-    },
-  },
-  {
-    name: 'MiniMax (China)',
-    icon: 'minimax.png',
-    env: {
-      ANTHROPIC_BASE_URL: 'https://api.minimaxi.com/anthropic',
-      ANTHROPIC_DEFAULT_OPUS_MODEL: 'MiniMax-M3',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'MiniMax-M3',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'MiniMax-M3',
-    },
-  },
-  {
-    name: 'ModelScope',
-    icon: 'modelscope.png',
-    env: { ANTHROPIC_BASE_URL: 'https://api-inference.modelscope.cn' },
-  },
-  {
-    name: 'Novita',
-    icon: 'novita.png',
-    env: { ANTHROPIC_BASE_URL: 'https://api.novita.ai/anthropic' },
-  },
-  {
-    name: 'OpenRouter',
-    icon: 'openrouter.png',
-    env: { ANTHROPIC_BASE_URL: 'https://openrouter.ai/api' },
-  },
-  {
-    // Routes to the official Anthropic bots, so the native claude-* names work.
-    name: 'Poe',
-    icon: 'poe.png',
-    env: { ANTHROPIC_BASE_URL: 'https://api.poe.com' },
-  },
-  {
-    name: 'Qwen (Alibaba)',
-    icon: 'qwen.png',
-    env: {
-      ANTHROPIC_BASE_URL: 'https://dashscope-intl.aliyuncs.com/apps/anthropic',
-      ANTHROPIC_DEFAULT_OPUS_MODEL: 'qwen3-max',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'qwen3-coder-plus',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'qwen3.5-flash',
-    },
-  },
-  {
-    name: 'SiliconFlow',
-    icon: 'siliconflow.png',
-    env: { ANTHROPIC_BASE_URL: 'https://api.siliconflow.com' },
-  },
-  {
-    name: 'Vercel AI Gateway',
-    icon: 'vercel.png',
-    env: { ANTHROPIC_BASE_URL: 'https://ai-gateway.vercel.sh' },
-  },
-  {
-    name: 'Z.ai (GLM)',
-    icon: 'zai.png',
-    env: {
-      ANTHROPIC_BASE_URL: 'https://api.z.ai/api/anthropic',
-      ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-5.1',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'glm-4.7',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'glm-4.5-air',
-    },
-  },
-  {
-    name: 'Zhipu GLM (China)',
-    icon: 'zhipu.png',
-    env: {
-      ANTHROPIC_BASE_URL: 'https://open.bigmodel.cn/api/anthropic',
-      ANTHROPIC_DEFAULT_OPUS_MODEL: 'glm-5.1',
-      ANTHROPIC_DEFAULT_SONNET_MODEL: 'glm-4.7',
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'glm-4.5-air',
-    },
-  },
-];
+// Populated by loadBundledProviders() from providers.json. Each entry's `icon`
+// names a PNG under media/providers/ (provider logo) or a codicon id. Aggregators
+// (Fireworks, Novita, OpenRouter, …) host many models, so they ship only the Base
+// URL and let the user pick the model; single-model providers also get a tier→model
+// mapping. They stay empty until activation if the file can't be read.
+let PROVIDER_PRESETS = []; // hosted Anthropic-compatible gateways
+let LOCAL_PRESETS = [];    // localhost servers (placeholder token baked in)
 
-// Local servers with a native Anthropic-compatible /v1/messages endpoint and a
-// well-known default port. The token is a throwaway placeholder (these ignore it,
-// but Claude Code needs a non-empty one); set your loaded model id after picking.
-const LOCAL_PRESETS = [
-  {
-    // llama-server; tool use needs the server started with --jinja.
-    name: 'llama.cpp',
-    icon: 'server', // codicon — no brand logo
-    env: { ANTHROPIC_BASE_URL: 'http://localhost:8080', ANTHROPIC_AUTH_TOKEN: 'local' },
-  },
-  {
-    name: 'LM Studio',
-    icon: 'lmstudio.png',
-    env: { ANTHROPIC_BASE_URL: 'http://localhost:1234', ANTHROPIC_AUTH_TOKEN: 'lmstudio' },
-  },
-  {
-    name: 'Ollama',
-    icon: 'ollama.png',
-    env: { ANTHROPIC_BASE_URL: 'http://localhost:11434', ANTHROPIC_AUTH_TOKEN: 'local' },
-  },
-  {
-    name: 'vLLM',
-    icon: 'vllm.png',
-    env: { ANTHROPIC_BASE_URL: 'http://localhost:8000', ANTHROPIC_AUTH_TOKEN: 'local' },
-  },
-];
+// Read the bundled catalog once at activation. readFileSync keeps it synchronous
+// so the presets are ready before the first menu/tooltip renders. A malformed or
+// missing file leaves the arrays empty — the Custom / Claude entries and any
+// user-defined customProviders still work.
+function loadBundledProviders() {
+  if (!extensionUri) return;
+  try {
+    const fsPath = vscode.Uri.joinPath(extensionUri, 'providers.json').fsPath;
+    const json = JSON.parse(require('fs').readFileSync(fsPath, 'utf8'));
+    PROVIDER_PRESETS = Array.isArray(json.remote) ? json.remote : [];
+    LOCAL_PRESETS = Array.isArray(json.local) ? json.local : [];
+  } catch (e) {
+    console.warn('claude-provider-switcher: could not load providers.json —', e.message);
+  }
+}
+
+// Turn a `customProviders` setting entry into the { name, icon, env } template
+// shape the rest of the code uses. Returns null for entries missing a name.
+function customEntryToPreset(c) {
+  if (!c || typeof c.name !== 'string' || !c.name.trim()) return null;
+  const env = {};
+  if (c.baseUrl && String(c.baseUrl).trim()) env.ANTHROPIC_BASE_URL = String(c.baseUrl).trim();
+  if (c.opusModel) env.ANTHROPIC_DEFAULT_OPUS_MODEL = String(c.opusModel);
+  if (c.sonnetModel) env.ANTHROPIC_DEFAULT_SONNET_MODEL = String(c.sonnetModel);
+  if (c.haikuModel) env.ANTHROPIC_DEFAULT_HAIKU_MODEL = String(c.haikuModel);
+  return { name: c.name.trim(), icon: c.icon || 'server', env, custom: true };
+}
+
+// User-defined providers from the settings table, split into remote / local by
+// their `local` flag so they slot into the right section of the Add menu.
+function getCustomPresets() {
+  const list = vscode.workspace.getConfiguration(SELF).get('customProviders');
+  if (!Array.isArray(list)) return { remote: [], local: [] };
+  const remote = [];
+  const local = [];
+  for (const c of list) {
+    const tpl = customEntryToPreset(c);
+    if (tpl) (c.local ? local : remote).push(tpl);
+  }
+  return { remote, local };
+}
+
+// The full preset lists used everywhere (menu, icon matching): bundled catalog
+// plus the user's custom providers.
+function allRemotePresets() {
+  return [...PROVIDER_PRESETS, ...getCustomPresets().remote];
+}
+function allLocalPresets() {
+  return [...LOCAL_PRESETS, ...getCustomPresets().local];
+}
 
 // ---- config helpers --------------------------------------------------------
 
@@ -698,8 +617,8 @@ function iconForBaseUrl(url) {
   const n = normalizeUrl(url);
   if (!n) return undefined;
   if (n === normalizeUrl(CLAUDE_API_URL)) return 'claude.png';
-  for (const pr of [...PROVIDER_PRESETS, ...LOCAL_PRESETS]) {
-    if (normalizeUrl(pr.env.ANTHROPIC_BASE_URL) === n) return pr.icon;
+  for (const pr of [...allRemotePresets(), ...allLocalPresets()]) {
+    if (pr.env && normalizeUrl(pr.env.ANTHROPIC_BASE_URL) === n) return pr.icon;
   }
   return undefined;
 }
@@ -773,24 +692,34 @@ async function pickProviderTemplate() {
       _tpl: { name: 'Claude API', env: { ANTHROPIC_BASE_URL: CLAUDE_API_URL }, icon: 'claude.png' },
     },
     sep('Anthropic-compatible providers'),
-    ...PROVIDER_PRESETS.map((pr) => ({
+    ...allRemotePresets().map((pr) => ({
       label: pr.name,
-      description: pr.env.ANTHROPIC_BASE_URL || '',
+      description: (pr.env.ANTHROPIC_BASE_URL || '') + (pr.custom ? '   (custom)' : ''),
       iconPath: providerIcon(pr.icon),
       _tpl: { name: pr.name, env: pr.env, icon: pr.icon },
     })),
     sep('Local servers'),
-    ...LOCAL_PRESETS.map((pr) => ({
+    ...allLocalPresets().map((pr) => ({
       label: pr.name,
-      description: pr.env.ANTHROPIC_BASE_URL || '',
+      description: (pr.env.ANTHROPIC_BASE_URL || '') + (pr.custom ? '   (custom)' : ''),
       iconPath: providerIcon(pr.icon),
       _tpl: { name: pr.name, env: pr.env, icon: pr.icon },
     })),
+    sep(''),
+    {
+      label: '$(gear) Manage custom providers…',
+      description: 'Add a provider that isn’t in this list (opens an editable table)',
+      _manage: true,
+    },
   ];
   const pick = await vscode.window.showQuickPick(items, {
     placeHolder: 'Pick a provider — fields are pre-filled and stay editable (add your API key)',
     ignoreFocusOut: true,
   });
+  if (pick && pick._manage) {
+    vscode.commands.executeCommand(`${SELF}.manageCustomProviders`);
+    return undefined;
+  }
   return pick ? pick._tpl : undefined;
 }
 
@@ -1369,6 +1298,206 @@ async function importProfiles() {
   );
 }
 
+// ---- custom providers table (webview) --------------------------------------
+// VS Code's Settings UI only offers "Edit in settings.json" for an array-of-
+// objects setting, so we ship a small webview that renders `customProviders` as
+// an editable table. It reads and writes the exact same setting — the table maps
+// one-to-one onto the JSON — so users can manage providers either way.
+
+// Keep only the known keys, drop nameless rows, trim strings. This is what gets
+// written back to the setting (and read by getCustomPresets).
+function sanitizeCustomProviders(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const c of list) {
+    if (!c || typeof c.name !== 'string' || !c.name.trim()) continue;
+    const o = { name: c.name.trim() };
+    const str = (v) => (v == null ? '' : String(v).trim());
+    if (str(c.baseUrl)) o.baseUrl = str(c.baseUrl);
+    if (c.local) o.local = true;
+    if (str(c.icon)) o.icon = str(c.icon);
+    if (str(c.opusModel)) o.opusModel = str(c.opusModel);
+    if (str(c.sonnetModel)) o.sonnetModel = str(c.sonnetModel);
+    if (str(c.haikuModel)) o.haikuModel = str(c.haikuModel);
+    out.push(o);
+  }
+  return out;
+}
+
+let customProvidersPanel; // singleton WebviewPanel (reused while open)
+
+function manageCustomProviders() {
+  if (customProvidersPanel) {
+    customProvidersPanel.reveal();
+    return;
+  }
+  const panel = vscode.window.createWebviewPanel(
+    `${SELF}.customProvidersTable`,
+    'Custom Providers',
+    vscode.ViewColumn.Active,
+    { enableScripts: true, retainContextWhenHidden: true }
+  );
+  customProvidersPanel = panel;
+  panel.webview.html = customProvidersHtml(panel.webview);
+
+  const post = () =>
+    panel.webview.postMessage({
+      type: 'load',
+      providers: vscode.workspace.getConfiguration(SELF).get('customProviders') || [],
+    });
+
+  panel.webview.onDidReceiveMessage(async (msg) => {
+    if (!msg) return;
+    if (msg.type === 'ready') {
+      post();
+    } else if (msg.type === 'save') {
+      const clean = sanitizeCustomProviders(msg.providers);
+      await vscode.workspace
+        .getConfiguration(SELF)
+        .update('customProviders', clean, vscode.ConfigurationTarget.Global);
+      panel.webview.postMessage({ type: 'saved', count: clean.length });
+    }
+  });
+
+  // Reflect edits made directly in settings.json back into the open table.
+  const sub = vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration(`${SELF}.customProviders`)) post();
+  });
+  panel.onDidDispose(() => {
+    sub.dispose();
+    customProvidersPanel = undefined;
+  });
+}
+
+function customProvidersHtml(webview) {
+  const n = crypto.randomBytes(16).toString('base64');
+  const csp =
+    `default-src 'none'; style-src 'nonce-${n}'; script-src 'nonce-${n}';`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style nonce="${n}">
+  body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
+         padding: 12px 16px; font-size: var(--vscode-font-size); }
+  h2 { margin: 0 0 4px; }
+  .muted { color: var(--vscode-descriptionForeground); }
+  p.muted { margin: 0 0 14px; max-width: 70ch; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 4px 6px; vertical-align: middle; }
+  th { font-weight: 600; border-bottom: 1px solid var(--vscode-panel-border);
+       color: var(--vscode-descriptionForeground); font-size: 0.92em; white-space: nowrap; }
+  td.center, th.center { text-align: center; }
+  tbody tr:hover { background: var(--vscode-list-hoverBackground); }
+  input[type=text] { width: 100%; box-sizing: border-box;
+        background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+        border: 1px solid var(--vscode-input-border, transparent); border-radius: 2px;
+        padding: 3px 5px; font-family: inherit; font-size: inherit; }
+  input[type=text]:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+  input::placeholder { color: var(--vscode-input-placeholderForeground); }
+  .actions { margin-top: 14px; display: flex; align-items: center; gap: 8px; }
+  button { font-family: inherit; font-size: inherit; cursor: pointer;
+        border: none; border-radius: 2px; padding: 5px 12px;
+        background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+  button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+  button.primary:hover { background: var(--vscode-button-hoverBackground); }
+  button.rm { padding: 2px 8px; background: transparent; color: var(--vscode-descriptionForeground); }
+  button.rm:hover { background: var(--vscode-toolbar-hoverBackground); color: var(--vscode-foreground); }
+  .col-narrow { width: 64px; }
+</style>
+</head>
+<body>
+  <h2>Custom providers</h2>
+  <p class="muted">These appear in the <b>Add provider</b> menu next to the built-in list. Each row pre-fills a new profile's Base URL and model mapping — the API key is entered per profile and kept in SecretStorage, not here. This table edits the <code>claudeProviderSwitcher.customProviders</code> setting.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Base URL</th>
+        <th class="center col-narrow">Local</th>
+        <th>Icon</th>
+        <th>Opus model</th>
+        <th>Sonnet model</th>
+        <th>Haiku model</th>
+        <th class="center col-narrow"></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="actions">
+    <button id="add">+ Add provider</button>
+    <button id="save" class="primary">Save</button>
+    <span id="status" class="muted"></span>
+  </div>
+<script nonce="${n}">
+  const vscode = acquireVsCodeApi();
+  const tbody = document.getElementById('rows');
+  let state = [];
+
+  function txt(row, field, ph) {
+    const td = document.createElement('td');
+    const i = document.createElement('input');
+    i.type = 'text'; i.value = row[field] || ''; i.placeholder = ph || '';
+    i.addEventListener('input', (e) => { row[field] = e.target.value; });
+    td.appendChild(i); return td;
+  }
+
+  function render() {
+    tbody.textContent = '';
+    if (!state.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 8; td.className = 'muted center';
+      td.style.padding = '14px';
+      td.textContent = 'No custom providers yet — click "Add provider".';
+      tr.appendChild(td); tbody.appendChild(tr); return;
+    }
+    state.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.appendChild(txt(row, 'name', 'My Gateway'));
+      tr.appendChild(txt(row, 'baseUrl', 'https://api.example.com/anthropic'));
+      const tdL = document.createElement('td'); tdL.className = 'center';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!row.local;
+      cb.addEventListener('change', (e) => { row.local = e.target.checked; });
+      tdL.appendChild(cb); tr.appendChild(tdL);
+      tr.appendChild(txt(row, 'icon', 'server'));
+      tr.appendChild(txt(row, 'opusModel', ''));
+      tr.appendChild(txt(row, 'sonnetModel', ''));
+      tr.appendChild(txt(row, 'haikuModel', ''));
+      const tdR = document.createElement('td'); tdR.className = 'center';
+      const b = document.createElement('button'); b.className = 'rm'; b.textContent = '✕'; b.title = 'Remove';
+      b.addEventListener('click', () => { state.splice(state.indexOf(row), 1); render(); });
+      tdR.appendChild(b); tr.appendChild(tdR);
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('add').addEventListener('click', () => { state.push({ name: '' }); render(); });
+  document.getElementById('save').addEventListener('click', () => {
+    vscode.postMessage({ type: 'save', providers: state });
+  });
+
+  window.addEventListener('message', (ev) => {
+    const m = ev.data || {};
+    if (m.type === 'load') {
+      state = Array.isArray(m.providers) ? m.providers.map((x) => Object.assign({}, x)) : [];
+      render();
+    } else if (m.type === 'saved') {
+      const s = document.getElementById('status');
+      s.textContent = 'Saved ' + m.count + ' provider(s).';
+      setTimeout(() => { s.textContent = ''; }, 3000);
+    }
+  });
+
+  vscode.postMessage({ type: 'ready' });
+</script>
+</body>
+</html>`;
+}
+
 // ---- dynamic keybindings ----------------------------------------------------
 // We can't add user keybindings from an extension directly, but VS Code offers
 // `vscode.commands.registerCommand` + the user can attach shortcuts via
@@ -1513,6 +1642,7 @@ function activate(context) {
   extensionUri = context.extensionUri;
   secretStorage = context.secrets;
   workspaceState = context.workspaceState;
+  loadBundledProviders(); // populate PROVIDER_PRESETS / LOCAL_PRESETS from providers.json
   const provider = new ProfilesProvider();
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(`${SELF}.view`, provider)
@@ -1545,6 +1675,7 @@ function activate(context) {
   reg('pinToWorkspace', pinToWorkspace);
   reg('switchWithFallback', switchWithFallback);
   reg('checkHealth', checkHealthCommand);
+  reg('manageCustomProviders', manageCustomProviders);
   reg('refresh', () => {
     provider.refresh();
     updateStatus();
@@ -1574,6 +1705,7 @@ function activate(context) {
       if (
         e.affectsConfiguration(`${CLAUDE_SECTION}.${CLAUDE_KEY}`) ||
         e.affectsConfiguration(`${SELF}.profiles`) ||
+        e.affectsConfiguration(`${SELF}.customProviders`) ||
         e.affectsConfiguration(`${SELF}.showStatusBarItem`)
       ) {
         provider.refresh();

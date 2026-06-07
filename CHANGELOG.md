@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+- **Built-in provider catalog moved to `providers.json`.** The list of bundled providers shown in the
+  *Add provider* menu now lives in a separate, packaged `providers.json` instead of being hard-coded,
+  so it can be extended without changing the extension code.
+- **Add your own providers.** A new `claudeProviderSwitcher.customProviders` setting holds providers
+  that aren't in the built-in list (name, Base URL, optional logo and per-tier models, and a *local*
+  flag). Edit them in a **table editor** — run *Manage custom providers…* (the *Add provider* menu, the
+  view title-bar `…` overflow, or the command palette) — which maps one-to-one onto the setting's JSON.
+  Custom providers show up in the *Add provider* menu (tagged `(custom)`) alongside the bundled ones,
+  and their endpoints are matched for logos and health checks just like the built-ins. API keys are
+  still entered per-profile and kept in SecretStorage.
+
 ## 0.4.2
 
 - **Click a provider to switch to it.** Clicking a row in the sidebar now activates that provider

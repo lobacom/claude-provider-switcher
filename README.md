@@ -186,6 +186,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | Setting | Default | Description |
 | --- | --- | --- |
 | `claudeProviderSwitcher.profiles` | `[]` | Provider profiles `{ name, color?, hotkey?, env }`. Managed via the sidebar. |
+| `claudeProviderSwitcher.customProviders` | `[]` | Extra providers added to the **Add provider** menu `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Use this to add a provider that isn't built in; edit it as a table in the Settings UI. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Show the active-provider indicator in the status bar. |
 
 ### Notes
@@ -308,6 +309,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | Настройка | По умолчанию | Описание |
 | --- | --- | --- |
 | `claudeProviderSwitcher.profiles` | `[]` | Профили `{ name, color?, hotkey?, env }`. Управляются через сайдбар. |
+| `claudeProviderSwitcher.customProviders` | `[]` | Свои провайдеры для меню **Add provider** `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Добавляйте недостающего провайдера; редактируется таблицей в UI настроек. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Показывать индикатор активного провайдера в статус-баре. |
 
 ### Заметки
@@ -420,6 +422,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | 设置 | 默认 | 说明 |
 | --- | --- | --- |
 | `claudeProviderSwitcher.profiles` | `[]` | 服务商配置 `{ name, color?, hotkey?, env }`，通过侧边栏管理。 |
+| `claudeProviderSwitcher.customProviders` | `[]` | 添加到 **Add provider** 菜单的自定义服务商 `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`，用于添加内置列表中没有的服务商；可在设置界面以表格形式编辑。 |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | 在状态栏显示当前服务商指示器。 |
 
 ### 说明
