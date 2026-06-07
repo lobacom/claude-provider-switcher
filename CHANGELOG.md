@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- **UI language switch.** A new `claudeProviderSwitcher.language` setting (`auto` / `en` / `ru` / `zh`,
+  default `auto`) localizes the extension's own UI — menus, notifications, the sidebar, the status bar and
+  the custom-providers table — into **English, Russian and Chinese**. It switches live, independent of
+  VS Code's display language; `auto` follows VS Code and falls back to English.
+- **Localized command titles** (and therefore the sidebar button tooltips — *Test connection*, *Edit*,
+  *Delete*, …) via VS Code NLS files (`package.nls.{ru,zh-cn}.json`). These follow VS Code's **display
+  language** (Command Palette → *Configure Display Language*), not the `language` setting above — VS Code
+  resolves static command titles at load time, so an extension can't rebind them to a custom setting.
+
 ## 0.5.1
 
 - **Docs:** the README now explains how to use custom providers — a *Manage custom providers…* table

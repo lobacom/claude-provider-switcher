@@ -1,0 +1,519 @@
+// Lightweight runtime i18n for the strings the extension renders itself
+// (menus, notifications, the tree, the status bar, the custom-providers webview).
+// Driven by the `claudeProviderSwitcher.language` setting via setLang(), so it
+// switches live — independent of VS Code's own display language. Static
+// `contributes` (command titles, setting descriptions) are localized by VS Code's
+// display language only and are not covered here.
+//
+// t(key, params) looks up the current language, falls back to English, then to the
+// key itself. `params` interpolates `{name}`-style placeholders. Keep English text
+// identical to the original literals so behavior doesn't drift.
+
+const STRINGS = {
+  en: {
+    // generic / empty states
+    noProviders: 'No providers configured yet.',
+    addProvider: 'Add provider',
+    applyMessage: 'Claude provider → {name}. Restart the Claude Code session to apply.',
+    hotkeysSynced: 'Claude provider hotkeys synced',
+    providerWord: 'Provider',
+
+    // select
+    selectPlaceholder: 'Select a Claude Code provider',
+    activeMarker: '● active   ',
+    nativeSubscriptionParen: '(native subscription)',
+    hotkeyDetail: '⌨ {hotkey}',
+    noHotkey: 'no hotkey',
+    providerNotDefined: 'Provider #{n} is not defined.',
+
+    // pin to workspace
+    pinPlaceholder: 'Auto-switch to which provider when "{folder}" opens?',
+    dontAutoSwitch: '$(circle-slash) Don’t auto-switch (unpin)',
+    current: '● current',
+    providersSep: 'Providers',
+    pinnedMarker: '● pinned   ',
+    unpinnedMsg: 'Provider unpinned from "{folder}".',
+    pinnedMsg: '"{name}" pinned to "{folder}" — it will auto-apply on open.',
+    openFolderFirst: 'Open a folder or workspace first — there is nothing to pin a provider to.',
+
+    // edit fields
+    editingPlaceholder: 'Editing "{name}" — pick a field, or Done',
+    done: 'Done',
+    noneLabel: 'None',
+    empty: '(empty)',
+    missing: '(missing)',
+    pickBadge: 'Pick a badge color (shown next to the name)',
+    pickHotkey: 'Pick a hotkey, or None to clear',
+    free: 'free',
+    inUse: 'in use',
+    pickFallback: 'Fall back to which provider when this one is unreachable?',
+    secretPrompt: '{label} (stored securely, not in settings.json)',
+    manualModelPrompt: '{label} — type the model id',
+
+    // field labels
+    field_name: 'Name',
+    field_badge: 'Badge (color dot, optional)',
+    field_hotkey: 'Hotkey (optional, auto-picks next free)',
+    field_fallback: 'Fallback provider (when unreachable)',
+    field_baseUrl: 'Base URL (empty = native subscription)',
+    field_token: 'Auth token (API key)',
+    field_opus: 'Opus model',
+    field_sonnet: 'Sonnet model',
+    field_haiku: 'Haiku model',
+    field_timeout: 'API timeout (ms, optional)',
+
+    // colors
+    color_green: 'Green',
+    color_blue: 'Blue',
+    color_purple: 'Purple',
+    color_yellow: 'Yellow',
+    color_orange: 'Orange',
+    color_red: 'Red',
+    color_white: 'White',
+    color_brown: 'Brown',
+    color_black: 'Black',
+    shape_square: 'square',
+    shape_diamond: 'diamond',
+    color_join: ' ', // separator between color and shape name
+
+    // add-provider menu
+    addMenuPlaceholder: 'Pick a provider — fields are pre-filled and stay editable (add your API key)',
+    customLabel: 'Custom',
+    customDesc: 'Start blank and fill every field yourself',
+    claudeSub: 'Claude Subscription',
+    claudeSubDesc: 'Native Claude Code login — no API key, no Base URL',
+    claudeApi: 'Claude API',
+    claudeApiDesc: '{url} — pay-per-token API key',
+    sepAnthropic: 'Anthropic',
+    sepCompatible: 'Anthropic-compatible providers',
+    sepLocal: 'Local servers',
+    customTag: '(custom)',
+    manageCustom: 'Manage custom providers…',
+    manageCustomDesc: 'Add a provider that isn’t in this list (opens an editable table)',
+
+    // delete
+    deleteConfirm: 'Delete provider "{name}"?',
+    deleteBtn: 'Delete',
+
+    // model listing
+    fetchingModels: 'Fetching models from "{name}"…',
+    enterManually: 'Enter manually…',
+    clear: 'Clear',
+    modelsCount: '{n} models',
+    pickTier: 'Pick the {tier}',
+    couldntListModels: "Couldn't list models ({reason}). Enter the id manually.",
+    reason_unreachable: 'endpoint unreachable',
+    reason_auth: 'auth failed — check the API key',
+    reason_serverError: 'server error',
+    reason_noList: "this provider doesn't expose a model list",
+
+    // test connection
+    nativeNothingToTest: '"{name}" uses the native Claude subscription — nothing to test.',
+    testing: 'Testing "{name}"…',
+    testUnreachable: '✗ {name}: unreachable — {msg}',
+    testConnected: '✓ {name}: connected (HTTP 200).',
+    testAuthFailed: '✗ {name}: reachable, but auth failed (HTTP {s}) — check the API key.',
+    testNotFound: '✗ {name}: endpoint not found (HTTP 404) — check the Base URL.',
+    test400: '✓ {name}: reachable and authorized (HTTP 400 — likely the test model name; the endpoint and key are fine).',
+    test429: '⚠ {name}: reachable, but rate-limited (HTTP 429).',
+    testOther: '⚠ {name}: reachable — server returned HTTP {s}.',
+
+    // fallback
+    checking: 'Checking "{name}"…',
+    fellBack: '{skipped} unreachable — fell back to "{name}".',
+    noReachableChain: 'No reachable provider in the fallback chain: {chain}. Kept "{name}".',
+    unreachableNoFallback: '"{name}" is unreachable and has no working fallback. Applied it anyway.',
+    switchFallbackPlaceholder: 'Switch to (probe first, fall back if unreachable)…',
+    hasFallback: '   ↪ has fallback',
+
+    // health
+    health_reachable: '🟢 reachable',
+    health_unreachable: '🔴 unreachable',
+    health_notChecked: '⚪ not checked',
+    checkingHealth: 'Checking provider health…',
+    healthSomeDown: 'Health: {n} of {total} unreachable — {list}.',
+    healthAllOk: 'Health: all {total} provider(s) reachable.',
+
+    // import / export
+    noExport: 'No providers to export.',
+    exportWithout: '$(shield) Without API keys',
+    exportWithoutDesc: 'Recommended — safe to share or commit',
+    exportInclude: '$(key) Include API keys',
+    exportIncludeDesc: 'Sensitive! Keys will be written in plain text',
+    exportPlaceholder: 'Export API keys as well?',
+    exportLabel: 'Export',
+    exportedMsg: 'Exported {n} provider(s){withKeys}.',
+    withKeysSuffix: ' with API keys',
+    importLabel: 'Import',
+    importReadError: 'Could not read the file as JSON: {msg}',
+    importExpectArray: 'Expected a JSON array of provider profiles.',
+    importNoValid: 'No valid profiles found in the file.',
+    importedMsg: 'Imported {n} provider(s){withKeys}.',
+    importedKeysSuffix: ' ({n} with an API key)',
+
+    // tree / tooltip
+    nativeSubscriptionPlain: 'native subscription',
+    tip_hotkey: 'Hotkey: {hotkey}',
+    tip_baseUrl: 'Base URL: {url}',
+    tip_status: 'Status: {status}',
+    tip_pinned: '📌 Pinned to this workspace',
+    tip_clickToSwitch: 'Click to switch',
+    tip_fallback: 'Fallback: {name}',
+
+    // status bar
+    statusDefault: 'Claude (default)',
+    statusTooltipDefault: 'Claude provider — click to switch',
+
+    // custom-providers webview
+    cp_title: 'Custom Providers',
+    cp_heading: 'Custom providers',
+    cp_intro: "These appear in the <b>Add provider</b> menu next to the built-in list. Each row pre-fills a new profile's Base URL and model mapping — the API key is entered per profile and kept in SecretStorage, not here. This table edits the <code>claudeProviderSwitcher.customProviders</code> setting.",
+    cp_col_name: 'Name',
+    cp_col_baseUrl: 'Base URL',
+    cp_col_local: 'Local',
+    cp_col_icon: 'Icon',
+    cp_col_opus: 'Opus model',
+    cp_col_sonnet: 'Sonnet model',
+    cp_col_haiku: 'Haiku model',
+    cp_add: '+ Add provider',
+    cp_save: 'Save',
+    cp_empty: 'No custom providers yet — click "Add provider".',
+    cp_saved: 'Saved {count} provider(s).',
+    cp_remove: 'Remove',
+  },
+
+  ru: {
+    noProviders: 'Провайдеры ещё не настроены.',
+    addProvider: 'Добавить провайдера',
+    applyMessage: 'Провайдер Claude → {name}. Перезапустите сессию Claude Code, чтобы применить.',
+    hotkeysSynced: 'Хоткеи провайдеров Claude синхронизированы',
+    providerWord: 'Провайдер',
+
+    selectPlaceholder: 'Выберите провайдера Claude Code',
+    activeMarker: '● активен   ',
+    nativeSubscriptionParen: '(нативная подписка)',
+    hotkeyDetail: '⌨ {hotkey}',
+    noHotkey: 'без хоткея',
+    providerNotDefined: 'Провайдер №{n} не задан.',
+
+    pinPlaceholder: 'На какого провайдера переключаться при открытии «{folder}»?',
+    dontAutoSwitch: '$(circle-slash) Не переключаться автоматически (открепить)',
+    current: '● текущий',
+    providersSep: 'Провайдеры',
+    pinnedMarker: '● закреплён   ',
+    unpinnedMsg: 'Провайдер откреплён от «{folder}».',
+    pinnedMsg: '«{name}» закреплён за «{folder}» — применится автоматически при открытии.',
+    openFolderFirst: 'Сначала откройте папку или workspace — закреплять провайдера не к чему.',
+
+    editingPlaceholder: 'Редактирование «{name}» — выберите поле или Готово',
+    done: 'Готово',
+    noneLabel: 'Нет',
+    empty: '(пусто)',
+    missing: '(отсутствует)',
+    pickBadge: 'Выберите цвет значка (показывается рядом с именем)',
+    pickHotkey: 'Выберите хоткей или «Нет», чтобы очистить',
+    free: 'свободен',
+    inUse: 'занят',
+    pickFallback: 'На какого провайдера переключиться, когда этот недоступен?',
+    secretPrompt: '{label} (хранится безопасно, не в settings.json)',
+    manualModelPrompt: '{label} — введите id модели',
+
+    field_name: 'Имя',
+    field_badge: 'Значок (цветная точка, необязательно)',
+    field_hotkey: 'Хоткей (необязательно, берётся ближайший свободный)',
+    field_fallback: 'Резервный провайдер (когда недоступен)',
+    field_baseUrl: 'Base URL (пусто = нативная подписка)',
+    field_token: 'Токен авторизации (API-ключ)',
+    field_opus: 'Модель Opus',
+    field_sonnet: 'Модель Sonnet',
+    field_haiku: 'Модель Haiku',
+    field_timeout: 'Таймаут API (мс, необязательно)',
+
+    color_green: 'Зелёный',
+    color_blue: 'Синий',
+    color_purple: 'Фиолетовый',
+    color_yellow: 'Жёлтый',
+    color_orange: 'Оранжевый',
+    color_red: 'Красный',
+    color_white: 'Белый',
+    color_brown: 'Коричневый',
+    color_black: 'Чёрный',
+    shape_square: 'квадрат',
+    shape_diamond: 'ромб',
+    color_join: ' ',
+
+    addMenuPlaceholder: 'Выберите провайдера — поля предзаполнены и остаются редактируемыми (добавьте API-ключ)',
+    customLabel: 'Свой',
+    customDesc: 'Начать с пустого и заполнить все поля вручную',
+    claudeSub: 'Подписка Claude',
+    claudeSubDesc: 'Нативный вход Claude Code — без API-ключа и Base URL',
+    claudeApi: 'Claude API',
+    claudeApiDesc: '{url} — API-ключ с оплатой по токенам',
+    sepAnthropic: 'Anthropic',
+    sepCompatible: 'Anthropic-совместимые провайдеры',
+    sepLocal: 'Локальные серверы',
+    customTag: '(свой)',
+    manageCustom: 'Управление своими провайдерами…',
+    manageCustomDesc: 'Добавить провайдера, которого нет в списке (откроется редактируемая таблица)',
+
+    deleteConfirm: 'Удалить провайдера «{name}»?',
+    deleteBtn: 'Удалить',
+
+    fetchingModels: 'Загрузка моделей из «{name}»…',
+    enterManually: 'Ввести вручную…',
+    clear: 'Очистить',
+    modelsCount: 'моделей: {n}',
+    pickTier: 'Выберите: {tier}',
+    couldntListModels: 'Не удалось получить список моделей ({reason}). Введите id вручную.',
+    reason_unreachable: 'эндпоинт недоступен',
+    reason_auth: 'ошибка авторизации — проверьте API-ключ',
+    reason_serverError: 'ошибка сервера',
+    reason_noList: 'этот провайдер не отдаёт список моделей',
+
+    nativeNothingToTest: '«{name}» использует нативную подписку Claude — проверять нечего.',
+    testing: 'Проверка «{name}»…',
+    testUnreachable: '✗ {name}: недоступен — {msg}',
+    testConnected: '✓ {name}: подключено (HTTP 200).',
+    testAuthFailed: '✗ {name}: доступен, но ошибка авторизации (HTTP {s}) — проверьте API-ключ.',
+    testNotFound: '✗ {name}: эндпоинт не найден (HTTP 404) — проверьте Base URL.',
+    test400: '✓ {name}: доступен и авторизован (HTTP 400 — вероятно, тестовое имя модели; эндпоинт и ключ в порядке).',
+    test429: '⚠ {name}: доступен, но превышен лимит запросов (HTTP 429).',
+    testOther: '⚠ {name}: доступен — сервер вернул HTTP {s}.',
+
+    checking: 'Проверка «{name}»…',
+    fellBack: '{skipped} недоступен — переключение на «{name}».',
+    noReachableChain: 'В цепочке резервов нет доступного провайдера: {chain}. Оставлен «{name}».',
+    unreachableNoFallback: '«{name}» недоступен и не имеет рабочего резерва. Применён всё равно.',
+    switchFallbackPlaceholder: 'Переключиться (сначала проверка, при недоступности — резерв)…',
+    hasFallback: '   ↪ есть резерв',
+
+    health_reachable: '🟢 доступен',
+    health_unreachable: '🔴 недоступен',
+    health_notChecked: '⚪ не проверен',
+    checkingHealth: 'Проверка доступности провайдеров…',
+    healthSomeDown: 'Доступность: {n} из {total} недоступны — {list}.',
+    healthAllOk: 'Доступность: все провайдеры ({total}) доступны.',
+
+    noExport: 'Нет провайдеров для экспорта.',
+    exportWithout: '$(shield) Без API-ключей',
+    exportWithoutDesc: 'Рекомендуется — безопасно делиться и коммитить',
+    exportInclude: '$(key) С API-ключами',
+    exportIncludeDesc: 'Осторожно! Ключи будут записаны в открытом виде',
+    exportPlaceholder: 'Экспортировать и API-ключи?',
+    exportLabel: 'Экспорт',
+    exportedMsg: 'Экспортировано провайдеров: {n}{withKeys}.',
+    withKeysSuffix: ' (с API-ключами)',
+    importLabel: 'Импорт',
+    importReadError: 'Не удалось прочитать файл как JSON: {msg}',
+    importExpectArray: 'Ожидался JSON-массив профилей провайдеров.',
+    importNoValid: 'В файле не найдено корректных профилей.',
+    importedMsg: 'Импортировано провайдеров: {n}{withKeys}.',
+    importedKeysSuffix: ' (из них с API-ключом: {n})',
+
+    nativeSubscriptionPlain: 'нативная подписка',
+    tip_hotkey: 'Хоткей: {hotkey}',
+    tip_baseUrl: 'Base URL: {url}',
+    tip_status: 'Статус: {status}',
+    tip_pinned: '📌 Закреплён за этим workspace',
+    tip_clickToSwitch: 'Клик — переключить',
+    tip_fallback: 'Резерв: {name}',
+
+    statusDefault: 'Claude (по умолчанию)',
+    statusTooltipDefault: 'Провайдер Claude — клик, чтобы переключить',
+
+    cp_title: 'Свои провайдеры',
+    cp_heading: 'Свои провайдеры',
+    cp_intro: 'Они появятся в меню <b>Add provider</b> рядом со встроенным списком. Каждая строка предзаполняет Base URL и маппинг моделей нового профиля — API-ключ вводится в профиле и хранится в SecretStorage, а не здесь. Эта таблица редактирует настройку <code>claudeProviderSwitcher.customProviders</code>.',
+    cp_col_name: 'Имя',
+    cp_col_baseUrl: 'Base URL',
+    cp_col_local: 'Локальный',
+    cp_col_icon: 'Иконка',
+    cp_col_opus: 'Модель Opus',
+    cp_col_sonnet: 'Модель Sonnet',
+    cp_col_haiku: 'Модель Haiku',
+    cp_add: '+ Добавить провайдера',
+    cp_save: 'Сохранить',
+    cp_empty: 'Своих провайдеров пока нет — нажмите «Добавить провайдера».',
+    cp_saved: 'Сохранено провайдеров: {count}.',
+    cp_remove: 'Удалить',
+  },
+
+  zh: {
+    noProviders: '尚未配置任何服务商。',
+    addProvider: '添加服务商',
+    applyMessage: 'Claude 服务商 → {name}。请重启 Claude Code 会话以生效。',
+    hotkeysSynced: 'Claude 服务商快捷键已同步',
+    providerWord: '服务商',
+
+    selectPlaceholder: '选择一个 Claude Code 服务商',
+    activeMarker: '● 当前   ',
+    nativeSubscriptionParen: '（原生订阅）',
+    hotkeyDetail: '⌨ {hotkey}',
+    noHotkey: '无快捷键',
+    providerNotDefined: '服务商 #{n} 未定义。',
+
+    pinPlaceholder: '打开「{folder}」时自动切换到哪个服务商？',
+    dontAutoSwitch: '$(circle-slash) 不自动切换（取消绑定）',
+    current: '● 当前',
+    providersSep: '服务商',
+    pinnedMarker: '● 已绑定   ',
+    unpinnedMsg: '已从「{folder}」取消绑定服务商。',
+    pinnedMsg: '「{name}」已绑定到「{folder}」—— 打开时将自动应用。',
+    openFolderFirst: '请先打开一个文件夹或工作区 —— 没有可绑定服务商的对象。',
+
+    editingPlaceholder: '正在编辑「{name}」—— 选择字段，或选「完成」',
+    done: '完成',
+    noneLabel: '无',
+    empty: '（空）',
+    missing: '（缺失）',
+    pickBadge: '选择徽标颜色（显示在名称旁）',
+    pickHotkey: '选择快捷键，或选「无」以清除',
+    free: '空闲',
+    inUse: '已占用',
+    pickFallback: '当此服务商不可达时回退到哪个服务商？',
+    secretPrompt: '{label}（安全存储，不写入 settings.json）',
+    manualModelPrompt: '{label} —— 输入模型 id',
+
+    field_name: '名称',
+    field_badge: '徽标（彩色圆点，可选）',
+    field_hotkey: '快捷键（可选，自动取下一个空闲）',
+    field_fallback: '回退服务商（不可达时）',
+    field_baseUrl: 'Base URL（留空 = 原生订阅）',
+    field_token: '授权令牌（API 密钥）',
+    field_opus: 'Opus 模型',
+    field_sonnet: 'Sonnet 模型',
+    field_haiku: 'Haiku 模型',
+    field_timeout: 'API 超时（毫秒，可选）',
+
+    color_green: '绿色',
+    color_blue: '蓝色',
+    color_purple: '紫色',
+    color_yellow: '黄色',
+    color_orange: '橙色',
+    color_red: '红色',
+    color_white: '白色',
+    color_brown: '棕色',
+    color_black: '黑色',
+    shape_square: '方块',
+    shape_diamond: '菱形',
+    color_join: '',
+
+    addMenuPlaceholder: '选择一个服务商 —— 字段已预填且可编辑（请填入你的 API 密钥）',
+    customLabel: '自定义',
+    customDesc: '从空白开始，自行填写每个字段',
+    claudeSub: 'Claude 订阅',
+    claudeSubDesc: '原生 Claude Code 登录 —— 无需 API 密钥和 Base URL',
+    claudeApi: 'Claude API',
+    claudeApiDesc: '{url} —— 按 token 计费的 API 密钥',
+    sepAnthropic: 'Anthropic',
+    sepCompatible: 'Anthropic 兼容服务商',
+    sepLocal: '本地服务',
+    customTag: '（自定义）',
+    manageCustom: '管理自定义服务商…',
+    manageCustomDesc: '添加列表中没有的服务商（打开可编辑表格）',
+
+    deleteConfirm: '删除服务商「{name}」？',
+    deleteBtn: '删除',
+
+    fetchingModels: '正在从「{name}」获取模型…',
+    enterManually: '手动输入…',
+    clear: '清除',
+    modelsCount: '{n} 个模型',
+    pickTier: '选择{tier}',
+    couldntListModels: '无法获取模型列表（{reason}）。请手动输入 id。',
+    reason_unreachable: '端点不可达',
+    reason_auth: '授权失败 —— 请检查 API 密钥',
+    reason_serverError: '服务器错误',
+    reason_noList: '该服务商不提供模型列表',
+
+    nativeNothingToTest: '「{name}」使用原生 Claude 订阅 —— 无需测试。',
+    testing: '正在测试「{name}」…',
+    testUnreachable: '✗ {name}：不可达 —— {msg}',
+    testConnected: '✓ {name}：已连接（HTTP 200）。',
+    testAuthFailed: '✗ {name}：可达，但授权失败（HTTP {s}）—— 请检查 API 密钥。',
+    testNotFound: '✗ {name}：端点未找到（HTTP 404）—— 请检查 Base URL。',
+    test400: '✓ {name}：可达且已授权（HTTP 400 —— 多半是测试用的模型名；端点和密钥没问题）。',
+    test429: '⚠ {name}：可达，但被限流（HTTP 429）。',
+    testOther: '⚠ {name}：可达 —— 服务器返回 HTTP {s}。',
+
+    checking: '正在检查「{name}」…',
+    fellBack: '{skipped} 不可达 —— 已回退到「{name}」。',
+    noReachableChain: '回退链中没有可达的服务商：{chain}。已保留「{name}」。',
+    unreachableNoFallback: '「{name}」不可达且没有可用回退。仍已应用。',
+    switchFallbackPlaceholder: '切换（先探测，不可达则回退）…',
+    hasFallback: '   ↪ 有回退',
+
+    health_reachable: '🟢 可达',
+    health_unreachable: '🔴 不可达',
+    health_notChecked: '⚪ 未检查',
+    checkingHealth: '正在检查服务商可达性…',
+    healthSomeDown: '可达性：{total} 个中有 {n} 个不可达 —— {list}。',
+    healthAllOk: '可达性：全部 {total} 个服务商均可达。',
+
+    noExport: '没有可导出的服务商。',
+    exportWithout: '$(shield) 不含 API 密钥',
+    exportWithoutDesc: '推荐 —— 可安全分享或提交',
+    exportInclude: '$(key) 包含 API 密钥',
+    exportIncludeDesc: '敏感！密钥将以明文写入',
+    exportPlaceholder: '是否同时导出 API 密钥？',
+    exportLabel: '导出',
+    exportedMsg: '已导出 {n} 个服务商{withKeys}。',
+    withKeysSuffix: '（含 API 密钥）',
+    importLabel: '导入',
+    importReadError: '无法将文件解析为 JSON：{msg}',
+    importExpectArray: '应为服务商配置的 JSON 数组。',
+    importNoValid: '文件中未找到有效的配置。',
+    importedMsg: '已导入 {n} 个服务商{withKeys}。',
+    importedKeysSuffix: '（其中 {n} 个带 API 密钥）',
+
+    nativeSubscriptionPlain: '原生订阅',
+    tip_hotkey: '快捷键：{hotkey}',
+    tip_baseUrl: 'Base URL：{url}',
+    tip_status: '状态：{status}',
+    tip_pinned: '📌 已绑定到此工作区',
+    tip_clickToSwitch: '点击以切换',
+    tip_fallback: '回退：{name}',
+
+    statusDefault: 'Claude（默认）',
+    statusTooltipDefault: 'Claude 服务商 —— 点击切换',
+
+    cp_title: '自定义服务商',
+    cp_heading: '自定义服务商',
+    cp_intro: '它们会出现在 <b>Add provider</b> 菜单中，与内置列表并列。每一行会预填新配置的 Base URL 和模型映射 —— API 密钥在各配置中单独输入并保存在 SecretStorage 中，而非这里。此表格编辑 <code>claudeProviderSwitcher.customProviders</code> 设置。',
+    cp_col_name: '名称',
+    cp_col_baseUrl: 'Base URL',
+    cp_col_local: '本地',
+    cp_col_icon: '图标',
+    cp_col_opus: 'Opus 模型',
+    cp_col_sonnet: 'Sonnet 模型',
+    cp_col_haiku: 'Haiku 模型',
+    cp_add: '+ 添加服务商',
+    cp_save: '保存',
+    cp_empty: '尚无自定义服务商 —— 点击「添加服务商」。',
+    cp_saved: '已保存 {count} 个服务商。',
+    cp_remove: '删除',
+  },
+};
+
+let lang = 'en';
+
+function setLang(l) {
+  lang = STRINGS[l] ? l : 'en';
+}
+
+function currentLang() {
+  return lang;
+}
+
+function t(key, params) {
+  const tbl = STRINGS[lang] || STRINGS.en;
+  let s = tbl[key] != null ? tbl[key] : STRINGS.en[key] != null ? STRINGS.en[key] : key;
+  if (params) {
+    for (const k of Object.keys(params)) {
+      s = s.split('{' + k + '}').join(String(params[k]));
+    }
+  }
+  return s;
+}
+
+module.exports = { t, setLang, currentLang, LANGS: ['en', 'ru', 'zh'] };

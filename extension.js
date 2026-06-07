@@ -1,11 +1,29 @@
 const vscode = require('vscode');
 const crypto = require('crypto');
+const { t, setLang } = require('./i18n');
 
 const SELF = 'claudeProviderSwitcher';
 const CLAUDE_SECTION = 'claudeCode';
 const CLAUDE_KEY = 'environmentVariables';
 const KB_FILE = 'keybindings.json';
 const PIN_KEY = `${SELF}.pinnedProfileId`; // workspaceState: profile pinned to this workspace
+
+// ---- language --------------------------------------------------------------
+// The UI language is driven by the `language` setting (auto | en | ru | zh) so it
+// switches live, independent of VS Code's display language. `auto` follows VS
+// Code's display language, falling back to English. Resolved into the i18n module
+// via setLang() on activation and whenever the setting changes.
+function resolveLanguage() {
+  const cfg = vscode.workspace.getConfiguration(SELF).get('language') || 'en';
+  if (cfg === 'en' || cfg === 'ru' || cfg === 'zh') return cfg;
+  const v = (vscode.env.language || 'en').toLowerCase(); // 'auto'
+  if (v.startsWith('ru')) return 'ru';
+  if (v.startsWith('zh')) return 'zh';
+  return 'en';
+}
+function applyLanguage() {
+  setLang(resolveLanguage());
+}
 
 // ---- provider templates ----------------------------------------------------
 // Shown in the "Add provider" menu so the user doesn't have to hunt down each
@@ -131,8 +149,8 @@ function cachedToken(p) {
 // token (if any). Used everywhere the previous code used `p.env` directly.
 function fullEnv(p) {
   const env = { ...((p && p.env) || {}) };
-  const t = cachedToken(p);
-  if (t) env.ANTHROPIC_AUTH_TOKEN = t;
+  const tk = cachedToken(p);
+  if (tk) env.ANTHROPIC_AUTH_TOKEN = tk;
   return env;
 }
 async function setToken(id, value) {
@@ -186,10 +204,7 @@ async function applyProfile(p) {
   await vscode.workspace
     .getConfiguration(CLAUDE_SECTION)
     .update(CLAUDE_KEY, fullEnv(p), vscode.ConfigurationTarget.Global);
-  vscode.window.setStatusBarMessage(
-    `Claude provider → ${p.name}. Restart the Claude Code session to apply.`,
-    5000
-  );
+  vscode.window.setStatusBarMessage(t('applyMessage', { name: p.name }), 5000);
 }
 
 // User-initiated switch. When `autoFallbackOnApply` is on it probes the target
@@ -205,8 +220,8 @@ function switchProfile(p) {
 async function selectProfile() {
   const profiles = getProfiles();
   if (!profiles.length) {
-    const add = 'Add provider';
-    const r = await vscode.window.showInformationMessage('No providers configured yet.', add);
+    const add = t('addProvider');
+    const r = await vscode.window.showInformationMessage(t('noProviders'), add);
     if (r === add) vscode.commands.executeCommand(`${SELF}.add`);
     return;
   }
@@ -216,20 +231,20 @@ async function selectProfile() {
     return {
       label: `${badgeTextPrefix(p.color)}${p.name}`,
       description:
-        (i === active ? '● active   ' : '') +
-        (env.ANTHROPIC_BASE_URL ? env.ANTHROPIC_BASE_URL : '(native subscription)'),
-      detail: p.hotkey ? `⌨ ${p.hotkey}` : 'no hotkey',
+        (i === active ? t('activeMarker') : '') +
+        (env.ANTHROPIC_BASE_URL ? env.ANTHROPIC_BASE_URL : t('nativeSubscriptionParen')),
+      detail: p.hotkey ? t('hotkeyDetail', { hotkey: p.hotkey }) : t('noHotkey'),
       _idx: i,
     };
   });
-  const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Select a Claude Code provider' });
+  const pick = await vscode.window.showQuickPick(items, { placeHolder: t('selectPlaceholder') });
   if (pick) await switchProfile(profiles[pick._idx]);
 }
 
 function switchToIndex(n) {
   const p = getProfiles()[n];
   if (p) switchProfile(p);
-  else vscode.window.showInformationMessage(`Provider #${n + 1} is not defined.`);
+  else vscode.window.showInformationMessage(t('providerNotDefined', { n: n + 1 }));
 }
 
 // Cycle to the next (dir=1) or previous (dir=-1) provider, wrapping around.
@@ -237,7 +252,7 @@ function switchToIndex(n) {
 function cycleProfile(dir) {
   const profiles = getProfiles();
   if (!profiles.length) {
-    vscode.window.showInformationMessage('No providers configured yet.');
+    vscode.window.showInformationMessage(t('noProviders'));
     return;
   }
   const cur = activeProfileIndex();
@@ -281,9 +296,7 @@ async function applyPinnedProfile() {
 async function pinToWorkspace(arg) {
   if (!workspaceState) return;
   if (!hasWorkspace()) {
-    vscode.window.showInformationMessage(
-      'Open a folder or workspace first — there is nothing to pin a provider to.'
-    );
+    vscode.window.showInformationMessage(t('openFolderFirst'));
     return;
   }
   const profiles = getProfiles();
@@ -297,21 +310,21 @@ async function pinToWorkspace(arg) {
   } else {
     const items = [
       {
-        label: '$(circle-slash) Don’t auto-switch (unpin)',
-        description: pinned ? '' : '● current',
+        label: t('dontAutoSwitch'),
+        description: pinned ? '' : t('current'),
         _unpin: true,
       },
-      { label: 'Providers', kind: vscode.QuickPickItemKind.Separator },
+      { label: t('providersSep'), kind: vscode.QuickPickItemKind.Separator },
       ...profiles.map((p) => ({
         label: `${badgeTextPrefix(p.color)}${p.name}`,
         description:
-          (p.id === pinned ? '● pinned   ' : '') +
-          ((p.env && p.env.ANTHROPIC_BASE_URL) || '(native subscription)'),
+          (p.id === pinned ? t('pinnedMarker') : '') +
+          ((p.env && p.env.ANTHROPIC_BASE_URL) || t('nativeSubscriptionParen')),
         _id: p.id,
       })),
     ];
     const pick = await vscode.window.showQuickPick(items, {
-      placeHolder: `Auto-switch to which provider when "${folderName}" opens?`,
+      placeHolder: t('pinPlaceholder', { folder: folderName }),
       ignoreFocusOut: true,
     });
     if (!pick) return;
@@ -320,13 +333,13 @@ async function pinToWorkspace(arg) {
 
   if (chosen.unpin) {
     await setPinnedId(undefined);
-    vscode.window.showInformationMessage(`Provider unpinned from "${folderName}".`);
+    vscode.window.showInformationMessage(t('unpinnedMsg', { folder: folderName }));
   } else {
     await setPinnedId(chosen.id);
     const p = profiles.find((x) => x.id === chosen.id);
     if (p) await applyProfile(p);
     vscode.window.showInformationMessage(
-      `"${p ? p.name : 'Provider'}" pinned to "${folderName}" — it will auto-apply on open.`
+      t('pinnedMsg', { name: p ? p.name : t('providerWord'), folder: folderName })
     );
   }
   vscode.commands.executeCommand(`${SELF}.refresh`);
@@ -340,29 +353,39 @@ function resolveIndex(arg) {
   return -1;
 }
 
+// Badge palette: each entry is an emoji `value` plus a `color`/`shape` so the
+// human label can be localized at render time (see colorLabel). `value: ''` is
+// the "None" entry.
 const COLOR_CHOICES = [
-  { label: '🟢  Green', value: '🟢' },
-  { label: '🔵  Blue', value: '🔵' },
-  { label: '🟣  Purple', value: '🟣' },
-  { label: '🟡  Yellow', value: '🟡' },
-  { label: '🟠  Orange', value: '🟠' },
-  { label: '🔴  Red', value: '🔴' },
-  { label: '⚪  White', value: '⚪' },
-  { label: '🟤  Brown', value: '🟤' },
-  { label: '⚫  Black', value: '⚫' },
-  { label: '🟩  Green square', value: '🟩' },
-  { label: '🟦  Blue square', value: '🟦' },
-  { label: '🟪  Purple square', value: '🟪' },
-  { label: '🟨  Yellow square', value: '🟨' },
-  { label: '🟧  Orange square', value: '🟧' },
-  { label: '🟥  Red square', value: '🟥' },
-  { label: '⬜  White square', value: '⬜' },
-  { label: '🟫  Brown square', value: '🟫' },
-  { label: '⬛  Black square', value: '⬛' },
-  { label: '🔷  Blue diamond', value: '🔷' },
-  { label: '🔶  Orange diamond', value: '🔶' },
-  { label: '$(close)  None', value: '' },
+  { value: '🟢', color: 'green' },
+  { value: '🔵', color: 'blue' },
+  { value: '🟣', color: 'purple' },
+  { value: '🟡', color: 'yellow' },
+  { value: '🟠', color: 'orange' },
+  { value: '🔴', color: 'red' },
+  { value: '⚪', color: 'white' },
+  { value: '🟤', color: 'brown' },
+  { value: '⚫', color: 'black' },
+  { value: '🟩', color: 'green', shape: 'square' },
+  { value: '🟦', color: 'blue', shape: 'square' },
+  { value: '🟪', color: 'purple', shape: 'square' },
+  { value: '🟨', color: 'yellow', shape: 'square' },
+  { value: '🟧', color: 'orange', shape: 'square' },
+  { value: '🟥', color: 'red', shape: 'square' },
+  { value: '⬜', color: 'white', shape: 'square' },
+  { value: '🟫', color: 'brown', shape: 'square' },
+  { value: '⬛', color: 'black', shape: 'square' },
+  { value: '🔷', color: 'blue', shape: 'diamond' },
+  { value: '🔶', color: 'orange', shape: 'diamond' },
+  { value: '', none: true },
 ];
+
+// Localized "🟢  Green" / "$(close)  None" label for a palette entry.
+function colorLabel(c) {
+  if (c.none) return `$(close)  ${t('noneLabel')}`;
+  const name = t('color_' + c.color) + (c.shape ? t('color_join') + t('shape_' + c.shape) : '');
+  return `${c.value}  ${name}`;
+}
 
 // All badge values in pick order (everything except the "None" entry).
 const BADGE_VALUES = COLOR_CHOICES.map((c) => c.value).filter(Boolean);
@@ -397,22 +420,28 @@ function buildHotkeyChoices() {
       out.push({ label: `$(keyboard) ${hk}`, value: hk, _free: !used.has(hk) });
     }
   }
-  out.push({ label: '$(close) None', value: '', _free: true });
+  out.push({ label: `$(close) ${t('noneLabel')}`, value: '', _free: true });
   return out;
 }
 
 const FIELDS = [
-  { key: '__name', label: 'Name' },
-  { key: '__color', label: 'Badge (color dot, optional)' },
-  { key: '__hotkey', label: 'Hotkey (optional, auto-picks next free)' },
-  { key: '__fallback', label: 'Fallback provider (when unreachable)' },
-  { key: 'ANTHROPIC_BASE_URL', label: 'Base URL (empty = native subscription)' },
-  { key: 'ANTHROPIC_AUTH_TOKEN', label: 'Auth token (API key)', secret: true },
-  { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', label: 'Opus model', model: true },
-  { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', label: 'Sonnet model', model: true },
-  { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', label: 'Haiku model', model: true },
-  { key: 'API_TIMEOUT_MS', label: 'API timeout (ms, optional)' },
+  { key: '__name', labelKey: 'field_name' },
+  { key: '__color', labelKey: 'field_badge' },
+  { key: '__hotkey', labelKey: 'field_hotkey' },
+  { key: '__fallback', labelKey: 'field_fallback' },
+  { key: 'ANTHROPIC_BASE_URL', labelKey: 'field_baseUrl' },
+  { key: 'ANTHROPIC_AUTH_TOKEN', labelKey: 'field_token', secret: true },
+  { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', labelKey: 'field_opus', model: true },
+  { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', labelKey: 'field_sonnet', model: true },
+  { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', labelKey: 'field_haiku', model: true },
+  { key: 'API_TIMEOUT_MS', labelKey: 'field_timeout' },
 ];
+
+// Localized label for a FIELDS entry (computed at render time so it follows the
+// active language).
+function fieldLabel(f) {
+  return t(f.labelKey);
+}
 
 function fieldValue(p, key) {
   if (key === '__name') return p.name || '';
@@ -420,8 +449,8 @@ function fieldValue(p, key) {
   if (key === '__hotkey') return p.hotkey || '';
   if (key === '__fallback') {
     if (!p.fallbackId) return '';
-    const t = getProfiles().find((x) => x.id === p.fallbackId);
-    return t ? t.name : '(missing)';
+    const tgt = getProfiles().find((x) => x.id === p.fallbackId);
+    return tgt ? tgt.name : t('missing');
   }
   // token lives in SecretStorage — only ever surface a masked placeholder
   if (key === 'ANTHROPIC_AUTH_TOKEN') return cachedToken(p) ? '••••••••' : '';
@@ -456,13 +485,13 @@ async function editProfileFields(index) {
     // status bar falls back to the bare old URL and the active dot disappears).
     const wasActive = envEqual(fullEnv(p), getActiveEnv());
     const items = FIELDS.map((f) => ({
-      label: f.label,
-      description: fieldValue(p, f.key) || '(empty)',
+      label: fieldLabel(f),
+      description: fieldValue(p, f.key) || t('empty'),
       _f: f,
     }));
-    items.push({ label: '$(check) Done', _done: true });
+    items.push({ label: `$(check) ${t('done')}`, _done: true });
     const pick = await vscode.window.showQuickPick(items, {
-      placeHolder: `Editing "${p.name}" — pick a field, or Done`,
+      placeHolder: t('editingPlaceholder', { name: p.name }),
       ignoreFocusOut: true,
     });
     if (!pick || pick._done) return;
@@ -472,12 +501,12 @@ async function editProfileFields(index) {
     if (f.key === '__color') {
       const cur = fieldValue(p, f.key);
       const choices = COLOR_CHOICES.map((c) => ({
-        label: c.label,
-        description: c.value === cur ? '● current' : '',
+        label: colorLabel(c),
+        description: c.value === cur ? t('current') : '',
         _value: c.value,
       }));
       const picked = await vscode.window.showQuickPick(choices, {
-        placeHolder: 'Pick a badge color (shown next to the name)',
+        placeHolder: t('pickBadge'),
         ignoreFocusOut: true,
       });
       if (!picked) continue;
@@ -489,11 +518,11 @@ async function editProfileFields(index) {
         .map((c) => ({
           label: c.label,
           description:
-            c.value === cur ? '● current' : c._free ? 'free' : 'in use',
+            c.value === cur ? t('current') : c._free ? t('free') : t('inUse'),
           _value: c.value,
         }));
       const picked = await vscode.window.showQuickPick(choices, {
-        placeHolder: 'Pick a hotkey, or None to clear',
+        placeHolder: t('pickHotkey'),
         ignoreFocusOut: true,
       });
       if (!picked) continue;
@@ -501,20 +530,20 @@ async function editProfileFields(index) {
     } else if (f.key === '__fallback') {
       const cur = p.fallbackId;
       const choices = [
-        { label: '$(close) None', _value: '' },
-        { label: 'Providers', kind: vscode.QuickPickItemKind.Separator },
+        { label: `$(close) ${t('noneLabel')}`, _value: '' },
+        { label: t('providersSep'), kind: vscode.QuickPickItemKind.Separator },
         ...list
           .filter((x) => x.id !== p.id) // can't fall back to itself
           .map((x) => ({
             label: `${badgeTextPrefix(x.color)}${x.name}`,
             description:
-              (x.id === cur ? '● current   ' : '') +
-              ((x.env && x.env.ANTHROPIC_BASE_URL) || '(native subscription)'),
+              (x.id === cur ? t('current') + '   ' : '') +
+              ((x.env && x.env.ANTHROPIC_BASE_URL) || t('nativeSubscriptionParen')),
             _value: x.id,
           })),
       ];
       const picked = await vscode.window.showQuickPick(choices, {
-        placeHolder: 'Fall back to which provider when this one is unreachable?',
+        placeHolder: t('pickFallback'),
         ignoreFocusOut: true,
       });
       if (!picked) continue;
@@ -523,7 +552,7 @@ async function editProfileFields(index) {
       // Edit the token directly in SecretStorage; never round-trip it through
       // the profile JSON. Pre-fill with the real value so edits don't wipe it.
       const entered = await vscode.window.showInputBox({
-        prompt: f.label + ' (stored securely, not in settings.json)',
+        prompt: t('secretPrompt', { label: fieldLabel(f) }),
         value: cachedToken(p),
         password: true,
         ignoreFocusOut: true,
@@ -541,7 +570,7 @@ async function editProfileFields(index) {
       input = res.value; // may be '' to clear
     } else {
       input = await vscode.window.showInputBox({
-        prompt: f.label,
+        prompt: fieldLabel(f),
         value: fieldValue(p, f.key),
         ignoreFocusOut: true,
       });
@@ -646,14 +675,14 @@ function logoDataUri(file) {
 function profileTooltip(p, extraLines) {
   const env = p.env || {};
   const lines = [`**${p.name}**`];
-  if (p.hotkey) lines.push('Hotkey: ' + p.hotkey);
-  lines.push('Base URL: ' + (env.ANTHROPIC_BASE_URL || '(native subscription)'));
+  if (p.hotkey) lines.push(t('tip_hotkey', { hotkey: p.hotkey }));
+  lines.push(t('tip_baseUrl', { url: env.ANTHROPIC_BASE_URL || t('nativeSubscriptionParen') }));
   if (env.ANTHROPIC_DEFAULT_OPUS_MODEL) lines.push('opus → ' + env.ANTHROPIC_DEFAULT_OPUS_MODEL);
   if (env.ANTHROPIC_DEFAULT_SONNET_MODEL) lines.push('sonnet → ' + env.ANTHROPIC_DEFAULT_SONNET_MODEL);
   if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL) lines.push('haiku → ' + env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
   if (p.fallbackId) {
-    const t = getProfiles().find((x) => x.id === p.fallbackId);
-    if (t) lines.push('Fallback: ' + t.name);
+    const tgt = getProfiles().find((x) => x.id === p.fallbackId);
+    if (tgt) lines.push(t('tip_fallback', { name: tgt.name }));
   }
   if (extraLines) lines.push(...extraLines);
 
@@ -672,48 +701,49 @@ function profileTooltip(p, extraLines) {
 // Returns the chosen template { name, env } or undefined.
 async function pickProviderTemplate() {
   const sep = (label) => ({ label, kind: vscode.QuickPickItemKind.Separator });
+  const customTag = `   ${t('customTag')}`;
   const items = [
     {
-      label: '$(edit) Custom',
-      description: 'Start blank and fill every field yourself',
+      label: `$(edit) ${t('customLabel')}`,
+      description: t('customDesc'),
       _tpl: { name: 'Custom', env: {} },
     },
-    sep('Anthropic'),
+    sep(t('sepAnthropic')),
     {
-      label: 'Claude Subscription',
-      description: 'Native Claude Code login — no API key, no Base URL',
+      label: t('claudeSub'),
+      description: t('claudeSubDesc'),
       iconPath: providerIcon('claude.png'),
       _tpl: { name: 'Claude Subscription', env: {}, icon: 'claude.png' },
     },
     {
-      label: 'Claude API',
-      description: `${CLAUDE_API_URL} — pay-per-token API key`,
+      label: t('claudeApi'),
+      description: t('claudeApiDesc', { url: CLAUDE_API_URL }),
       iconPath: providerIcon('claude.png'),
       _tpl: { name: 'Claude API', env: { ANTHROPIC_BASE_URL: CLAUDE_API_URL }, icon: 'claude.png' },
     },
-    sep('Anthropic-compatible providers'),
+    sep(t('sepCompatible')),
     ...allRemotePresets().map((pr) => ({
       label: pr.name,
-      description: (pr.env.ANTHROPIC_BASE_URL || '') + (pr.custom ? '   (custom)' : ''),
+      description: (pr.env.ANTHROPIC_BASE_URL || '') + (pr.custom ? customTag : ''),
       iconPath: providerIcon(pr.icon),
       _tpl: { name: pr.name, env: pr.env, icon: pr.icon },
     })),
-    sep('Local servers'),
+    sep(t('sepLocal')),
     ...allLocalPresets().map((pr) => ({
       label: pr.name,
-      description: (pr.env.ANTHROPIC_BASE_URL || '') + (pr.custom ? '   (custom)' : ''),
+      description: (pr.env.ANTHROPIC_BASE_URL || '') + (pr.custom ? customTag : ''),
       iconPath: providerIcon(pr.icon),
       _tpl: { name: pr.name, env: pr.env, icon: pr.icon },
     })),
     sep(''),
     {
-      label: '$(gear) Manage custom providers…',
-      description: 'Add a provider that isn’t in this list (opens an editable table)',
+      label: `$(gear) ${t('manageCustom')}`,
+      description: t('manageCustomDesc'),
       _manage: true,
     },
   ];
   const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Pick a provider — fields are pre-filled and stay editable (add your API key)',
+    placeHolder: t('addMenuPlaceholder'),
     ignoreFocusOut: true,
   });
   if (pick && pick._manage) {
@@ -756,12 +786,13 @@ async function deleteProfile(arg) {
   const i = resolveIndex(arg);
   const list = getProfiles();
   if (i < 0 || !list[i]) return;
+  const del = t('deleteBtn');
   const ok = await vscode.window.showWarningMessage(
-    `Delete provider "${list[i].name}"?`,
+    t('deleteConfirm', { name: list[i].name }),
     { modal: true },
-    'Delete'
+    del
   );
-  if (ok !== 'Delete') return;
+  if (ok !== del) return;
   const wasActive = envEqual(fullEnv(list[i]), getActiveEnv());
   const removedId = list[i].id;
   const draft = cloneProfiles();
@@ -793,8 +824,8 @@ async function duplicateProfile(arg) {
   delete copy.hotkey; // don't duplicate the hotkey
   draft.splice(i + 1, 0, copy);
   await saveProfiles(draft);
-  const t = sourceId ? tokenCache.get(sourceId) : '';
-  if (t) await setToken(copy.id, t); // carry the token over to the copy
+  const tk = sourceId ? tokenCache.get(sourceId) : '';
+  if (tk) await setToken(copy.id, tk); // carry the token over to the copy
 }
 
 async function moveProfile(arg, dir) {
@@ -898,10 +929,10 @@ async function probeModelsList(baseUrl, token) {
 async function pickModelValue(p, f) {
   const cur = (p.env && p.env[f.key]) || '';
   const base = p.env && p.env.ANTHROPIC_BASE_URL;
-  const tier = f.label.toLowerCase(); // "opus model" → readable placeholder
+  const tier = fieldLabel(f).toLowerCase(); // "opus model" → readable placeholder
   const manual = async () => {
     const v = await vscode.window.showInputBox({
-      prompt: `${f.label} — type the model id`,
+      prompt: t('manualModelPrompt', { label: fieldLabel(f) }),
       value: cur,
       ignoreFocusOut: true,
     });
@@ -911,33 +942,33 @@ async function pickModelValue(p, f) {
   if (!base) return manual();
 
   const r = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: `Fetching models from "${p.name}"…` },
+    { location: vscode.ProgressLocation.Notification, title: t('fetchingModels', { name: p.name }) },
     () => probeModelsList(base, cachedToken(p))
   );
   if (!r.ok || !r.models.length) {
     const reason = !r.reachable
-      ? 'endpoint unreachable'
+      ? t('reason_unreachable')
       : r.auth
-        ? 'auth failed — check the API key'
+        ? t('reason_auth')
         : r.serverError
-          ? 'server error'
-          : "this provider doesn't expose a model list";
-    vscode.window.showWarningMessage(`Couldn't list models (${reason}). Enter the id manually.`);
+          ? t('reason_serverError')
+          : t('reason_noList');
+    vscode.window.showWarningMessage(t('couldntListModels', { reason }));
     return manual();
   }
 
   const items = [
-    { label: '$(edit) Enter manually…', _manual: true },
-    ...(cur ? [{ label: '$(close) Clear', _clear: true }] : []),
-    { label: `${r.models.length} models`, kind: vscode.QuickPickItemKind.Separator },
+    { label: `$(edit) ${t('enterManually')}`, _manual: true },
+    ...(cur ? [{ label: `$(close) ${t('clear')}`, _clear: true }] : []),
+    { label: t('modelsCount', { n: r.models.length }), kind: vscode.QuickPickItemKind.Separator },
     ...r.models.map((id) => ({
       label: id,
-      description: id === cur ? '● current' : '',
+      description: id === cur ? t('current') : '',
       _value: id,
     })),
   ];
   const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: `Pick the ${tier}`,
+    placeHolder: t('pickTier', { tier }),
     matchOnDescription: true,
     ignoreFocusOut: true,
   });
@@ -995,9 +1026,7 @@ async function testProfile(arg) {
   if (!p) return;
   const base = p.env && p.env.ANTHROPIC_BASE_URL;
   if (!base) {
-    vscode.window.showInformationMessage(
-      `"${p.name}" uses the native Claude subscription — nothing to test.`
-    );
+    vscode.window.showInformationMessage(t('nativeNothingToTest', { name: p.name }));
     return;
   }
   const env = p.env || {};
@@ -1006,26 +1035,26 @@ async function testProfile(arg) {
     env.ANTHROPIC_DEFAULT_SONNET_MODEL ||
     env.ANTHROPIC_DEFAULT_OPUS_MODEL;
   const r = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: `Testing "${p.name}"…` },
+    { location: vscode.ProgressLocation.Notification, title: t('testing', { name: p.name }) },
     () => httpProbe(base, cachedToken(p), model)
   );
   if (r.kind === 'error') {
-    vscode.window.showErrorMessage(`✗ ${p.name}: unreachable — ${r.msg}`);
+    vscode.window.showErrorMessage(t('testUnreachable', { name: p.name, msg: r.msg }));
     return;
   }
   const s = r.status;
   if (s === 200) {
-    vscode.window.showInformationMessage(`✓ ${p.name}: connected (HTTP 200).`);
+    vscode.window.showInformationMessage(t('testConnected', { name: p.name }));
   } else if (s === 401 || s === 403) {
-    vscode.window.showErrorMessage(`✗ ${p.name}: reachable, but auth failed (HTTP ${s}) — check the API key.`);
+    vscode.window.showErrorMessage(t('testAuthFailed', { name: p.name, s }));
   } else if (s === 404) {
-    vscode.window.showErrorMessage(`✗ ${p.name}: endpoint not found (HTTP 404) — check the Base URL.`);
+    vscode.window.showErrorMessage(t('testNotFound', { name: p.name }));
   } else if (s === 400) {
-    vscode.window.showInformationMessage(`✓ ${p.name}: reachable and authorized (HTTP 400 — likely the test model name; the endpoint and key are fine).`);
+    vscode.window.showInformationMessage(t('test400', { name: p.name }));
   } else if (s === 429) {
-    vscode.window.showWarningMessage(`⚠ ${p.name}: reachable, but rate-limited (HTTP 429).`);
+    vscode.window.showWarningMessage(t('test429', { name: p.name }));
   } else {
-    vscode.window.showWarningMessage(`⚠ ${p.name}: reachable — server returned HTTP ${s}.`);
+    vscode.window.showWarningMessage(t('testOther', { name: p.name, s }));
   }
 }
 
@@ -1068,7 +1097,7 @@ async function applyProfileWithFallback(startP) {
         env.ANTHROPIC_DEFAULT_SONNET_MODEL ||
         env.ANTHROPIC_DEFAULT_OPUS_MODEL;
       const r = await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: `Checking "${cand.name}"…` },
+        { location: vscode.ProgressLocation.Notification, title: t('checking', { name: cand.name }) },
         () => httpProbe(base, cachedToken(cand), model)
       );
       healthy = probeHealthy(r);
@@ -1077,7 +1106,7 @@ async function applyProfileWithFallback(startP) {
       await applyProfile(cand);
       if (skipped.length) {
         vscode.window.showWarningMessage(
-          `${skipped.join(', ')} unreachable — fell back to "${cand.name}".`
+          t('fellBack', { skipped: skipped.join(', '), name: cand.name })
         );
       }
       return cand;
@@ -1089,8 +1118,8 @@ async function applyProfileWithFallback(startP) {
   await applyProfile(startP);
   vscode.window.showErrorMessage(
     skipped.length > 1
-      ? `No reachable provider in the fallback chain: ${skipped.join(' → ')}. Kept "${startP.name}".`
-      : `"${startP.name}" is unreachable and has no working fallback. Applied it anyway.`
+      ? t('noReachableChain', { chain: skipped.join(' → '), name: startP.name })
+      : t('unreachableNoFallback', { name: startP.name })
   );
   return startP;
 }
@@ -1099,7 +1128,7 @@ async function applyProfileWithFallback(startP) {
 async function switchWithFallback(arg) {
   const profiles = getProfiles();
   if (!profiles.length) {
-    vscode.window.showInformationMessage('No providers configured yet.');
+    vscode.window.showInformationMessage(t('noProviders'));
     return;
   }
   let p;
@@ -1110,12 +1139,12 @@ async function switchWithFallback(arg) {
     const items = profiles.map((x, idx) => ({
       label: `${badgeTextPrefix(x.color)}${x.name}`,
       description:
-        ((x.env && x.env.ANTHROPIC_BASE_URL) || '(native subscription)') +
-        (x.fallbackId ? '   ↪ has fallback' : ''),
+        ((x.env && x.env.ANTHROPIC_BASE_URL) || t('nativeSubscriptionParen')) +
+        (x.fallbackId ? t('hasFallback') : ''),
       _idx: idx,
     }));
     const pick = await vscode.window.showQuickPick(items, {
-      placeHolder: 'Switch to (probe first, fall back if unreachable)…',
+      placeHolder: t('switchFallbackPlaceholder'),
     });
     if (!pick) return;
     p = profiles[pick._idx];
@@ -1136,7 +1165,7 @@ function healthOf(p) {
   return (p && p.id && healthCache.get(p.id)) || 'unknown';
 }
 function healthLabel(s) {
-  return s === 'ok' ? '🟢 reachable' : s === 'down' ? '🔴 unreachable' : '⚪ not checked';
+  return s === 'ok' ? t('health_reachable') : s === 'down' ? t('health_unreachable') : t('health_notChecked');
 }
 function healthColor(s) {
   if (s === 'ok') return new vscode.ThemeColor('charts.green');
@@ -1172,21 +1201,21 @@ async function checkAllHealth() {
 async function checkHealthCommand() {
   const profiles = getProfiles();
   if (!profiles.length) {
-    vscode.window.showInformationMessage('No providers configured yet.');
+    vscode.window.showInformationMessage(t('noProviders'));
     return;
   }
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: 'Checking provider health…' },
+    { location: vscode.ProgressLocation.Notification, title: t('checkingHealth') },
     () => checkAllHealth()
   );
   vscode.commands.executeCommand(`${SELF}.refresh`);
   const down = profiles.filter((p) => healthOf(p) === 'down').map((p) => p.name);
   if (down.length) {
     vscode.window.showWarningMessage(
-      `Health: ${down.length} of ${profiles.length} unreachable — ${down.join(', ')}.`
+      t('healthSomeDown', { n: down.length, total: profiles.length, list: down.join(', ') })
     );
   } else {
-    vscode.window.showInformationMessage(`Health: all ${profiles.length} provider(s) reachable.`);
+    vscode.window.showInformationMessage(t('healthAllOk', { total: profiles.length }));
   }
 }
 
@@ -1216,15 +1245,15 @@ function restartHealthTimer() {
 async function exportProfiles() {
   const profiles = getProfiles();
   if (!profiles.length) {
-    vscode.window.showInformationMessage('No providers to export.');
+    vscode.window.showInformationMessage(t('noExport'));
     return;
   }
   const choice = await vscode.window.showQuickPick(
     [
-      { label: '$(shield) Without API keys', description: 'Recommended — safe to share or commit', _withTokens: false },
-      { label: '$(key) Include API keys', description: 'Sensitive! Keys will be written in plain text', _withTokens: true },
+      { label: t('exportWithout'), description: t('exportWithoutDesc'), _withTokens: false },
+      { label: t('exportInclude'), description: t('exportIncludeDesc'), _withTokens: true },
     ],
-    { placeHolder: 'Export API keys as well?', ignoreFocusOut: true }
+    { placeHolder: t('exportPlaceholder'), ignoreFocusOut: true }
   );
   if (!choice) return;
   const out = profiles.map((p) => {
@@ -1232,25 +1261,27 @@ async function exportProfiles() {
     if (p.color) o.color = p.color;
     if (p.hotkey) o.hotkey = p.hotkey;
     if (choice._withTokens) {
-      const t = cachedToken(p);
-      if (t) o.env.ANTHROPIC_AUTH_TOKEN = t;
+      const tk = cachedToken(p);
+      if (tk) o.env.ANTHROPIC_AUTH_TOKEN = tk;
     }
     return o;
   });
   const uri = await vscode.window.showSaveDialog({
-    saveLabel: 'Export',
+    saveLabel: t('exportLabel'),
     filters: { JSON: ['json'] },
     defaultUri: vscode.Uri.file('claude-providers.json'),
   });
   if (!uri) return;
   await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(out, null, 2), 'utf8'));
-  vscode.window.showInformationMessage(`Exported ${out.length} provider(s)${choice._withTokens ? ' with API keys' : ''}.`);
+  vscode.window.showInformationMessage(
+    t('exportedMsg', { n: out.length, withKeys: choice._withTokens ? t('withKeysSuffix') : '' })
+  );
 }
 
 async function importProfiles() {
   const picks = await vscode.window.showOpenDialog({
     canSelectMany: false,
-    openLabel: 'Import',
+    openLabel: t('importLabel'),
     filters: { JSON: ['json'] },
   });
   if (!picks || !picks.length) return;
@@ -1259,11 +1290,11 @@ async function importProfiles() {
     const buf = await vscode.workspace.fs.readFile(picks[0]);
     data = JSON.parse(Buffer.from(buf).toString('utf8'));
   } catch (e) {
-    vscode.window.showErrorMessage('Could not read the file as JSON: ' + e.message);
+    vscode.window.showErrorMessage(t('importReadError', { msg: e.message }));
     return;
   }
   if (!Array.isArray(data)) {
-    vscode.window.showErrorMessage('Expected a JSON array of provider profiles.');
+    vscode.window.showErrorMessage(t('importExpectArray'));
     return;
   }
   const draft = cloneProfiles();
@@ -1288,13 +1319,16 @@ async function importProfiles() {
     added++;
   }
   if (!added) {
-    vscode.window.showWarningMessage('No valid profiles found in the file.');
+    vscode.window.showWarningMessage(t('importNoValid'));
     return;
   }
   await saveProfiles(draft);
-  for (const [id, t] of pendingTokens) await setToken(id, t);
+  for (const [id, tk] of pendingTokens) await setToken(id, tk);
   vscode.window.showInformationMessage(
-    `Imported ${added} provider(s)${pendingTokens.length ? ` (${pendingTokens.length} with an API key)` : ''}.`
+    t('importedMsg', {
+      n: added,
+      withKeys: pendingTokens.length ? t('importedKeysSuffix', { n: pendingTokens.length }) : '',
+    })
   );
 }
 
@@ -1333,7 +1367,7 @@ function manageCustomProviders() {
   }
   const panel = vscode.window.createWebviewPanel(
     `${SELF}.customProvidersTable`,
-    'Custom Providers',
+    t('cp_title'),
     vscode.ViewColumn.Active,
     { enableScripts: true, retainContextWhenHidden: true }
   );
@@ -1410,30 +1444,35 @@ function customProvidersHtml(webview) {
 </style>
 </head>
 <body>
-  <h2>Custom providers</h2>
-  <p class="muted">These appear in the <b>Add provider</b> menu next to the built-in list. Each row pre-fills a new profile's Base URL and model mapping — the API key is entered per profile and kept in SecretStorage, not here. This table edits the <code>claudeProviderSwitcher.customProviders</code> setting.</p>
+  <h2>${t('cp_heading')}</h2>
+  <p class="muted">${t('cp_intro')}</p>
   <table>
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Base URL</th>
-        <th class="center col-narrow">Local</th>
-        <th>Icon</th>
-        <th>Opus model</th>
-        <th>Sonnet model</th>
-        <th>Haiku model</th>
+        <th>${t('cp_col_name')}</th>
+        <th>${t('cp_col_baseUrl')}</th>
+        <th class="center col-narrow">${t('cp_col_local')}</th>
+        <th>${t('cp_col_icon')}</th>
+        <th>${t('cp_col_opus')}</th>
+        <th>${t('cp_col_sonnet')}</th>
+        <th>${t('cp_col_haiku')}</th>
         <th class="center col-narrow"></th>
       </tr>
     </thead>
     <tbody id="rows"></tbody>
   </table>
   <div class="actions">
-    <button id="add">+ Add provider</button>
-    <button id="save" class="primary">Save</button>
+    <button id="add">${t('cp_add')}</button>
+    <button id="save" class="primary">${t('cp_save')}</button>
     <span id="status" class="muted"></span>
   </div>
 <script nonce="${n}">
   const vscode = acquireVsCodeApi();
+  const L = ${JSON.stringify({
+    empty: t('cp_empty'),
+    saved: t('cp_saved', { count: '{count}' }),
+    remove: t('cp_remove'),
+  })};
   const tbody = document.getElementById('rows');
   let state = [];
 
@@ -1452,7 +1491,7 @@ function customProvidersHtml(webview) {
       const td = document.createElement('td');
       td.colSpan = 8; td.className = 'muted center';
       td.style.padding = '14px';
-      td.textContent = 'No custom providers yet — click "Add provider".';
+      td.textContent = L.empty;
       tr.appendChild(td); tbody.appendChild(tr); return;
     }
     state.forEach((row) => {
@@ -1468,7 +1507,7 @@ function customProvidersHtml(webview) {
       tr.appendChild(txt(row, 'sonnetModel', ''));
       tr.appendChild(txt(row, 'haikuModel', ''));
       const tdR = document.createElement('td'); tdR.className = 'center';
-      const b = document.createElement('button'); b.className = 'rm'; b.textContent = '✕'; b.title = 'Remove';
+      const b = document.createElement('button'); b.className = 'rm'; b.textContent = '✕'; b.title = L.remove;
       b.addEventListener('click', () => { state.splice(state.indexOf(row), 1); render(); });
       tdR.appendChild(b); tr.appendChild(tdR);
       tbody.appendChild(tr);
@@ -1487,7 +1526,7 @@ function customProvidersHtml(webview) {
       render();
     } else if (m.type === 'saved') {
       const s = document.getElementById('status');
-      s.textContent = 'Saved ' + m.count + ' provider(s).';
+      s.textContent = L.saved.replace('{count}', m.count);
       setTimeout(() => { s.textContent = ''; }, 3000);
     }
   });
@@ -1584,14 +1623,17 @@ function updateStatus() {
     // status bar is text-only, so a logo badge just shows the plug + name
     statusItem.text = `$(plug) ${badgeTextPrefix(p.color)}${p.name}`;
     const st = healthOf(p);
+    const clickLine = t('tip_clickToSwitch');
     statusItem.tooltip = profileTooltip(
       p,
-      st !== 'unknown' ? ['', 'Status: ' + healthLabel(st), '', 'Click to switch'] : ['', 'Click to switch']
+      st !== 'unknown'
+        ? ['', t('tip_status', { status: healthLabel(st) }), '', clickLine]
+        : ['', clickLine]
     );
   } else {
     const base = getActiveEnv().ANTHROPIC_BASE_URL;
-    statusItem.text = `$(plug) ${base ? base : 'Claude (default)'}`;
-    statusItem.tooltip = 'Claude provider — click to switch';
+    statusItem.text = `$(plug) ${base ? base : t('statusDefault')}`;
+    statusItem.tooltip = t('statusTooltipDefault');
   }
   statusItem.show();
 }
@@ -1618,15 +1660,15 @@ class ProfilesProvider {
       const it = new vscode.TreeItem(`${badgeTextPrefix(p.color)}${p.name}`);
       it.id = String(i);
       it.contextValue = 'claudeProfile';
-      it.description = (isPinned ? '📌 ' : '') + (env.ANTHROPIC_BASE_URL || 'native subscription');
+      it.description = (isPinned ? '📌 ' : '') + (env.ANTHROPIC_BASE_URL || t('nativeSubscriptionPlain'));
       // shape marks active/inactive; color (when known) marks health
       it.iconPath = new vscode.ThemeIcon(
         i === active ? 'pass-filled' : 'circle-large-outline',
         healthColor(status)
       );
       const extra = [];
-      if (isPinned) extra.push('', '📌 Pinned to this workspace');
-      if (status !== 'unknown') extra.push('', 'Status: ' + healthLabel(status));
+      if (isPinned) extra.push('', t('tip_pinned'));
+      if (status !== 'unknown') extra.push('', t('tip_status', { status: healthLabel(status) }));
       it.tooltip = profileTooltip(p, extra.length ? extra : undefined);
       // Clicking the row switches to this provider (with fallback when enabled),
       // same as the old inline ▶ button. The circle marks the active one.
@@ -1642,6 +1684,7 @@ function activate(context) {
   extensionUri = context.extensionUri;
   secretStorage = context.secrets;
   workspaceState = context.workspaceState;
+  applyLanguage(); // resolve the UI language before anything renders
   loadBundledProviders(); // populate PROVIDER_PRESETS / LOCAL_PRESETS from providers.json
   const provider = new ProfilesProvider();
   context.subscriptions.push(
@@ -1698,10 +1741,20 @@ function activate(context) {
   })();
 
   // initial sync
-  syncKeybindings().then(() => vscode.window.setStatusBarMessage('Claude provider hotkeys synced', 2500));
+  syncKeybindings().then(() => vscode.window.setStatusBarMessage(t('hotkeysSynced'), 2500));
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
+      // Language change: re-resolve and repaint everything that's localized.
+      if (e.affectsConfiguration(`${SELF}.language`)) {
+        applyLanguage();
+        provider.refresh();
+        updateStatus();
+        // Re-render the custom-providers table (if open) in the new language.
+        if (customProvidersPanel) {
+          customProvidersPanel.webview.html = customProvidersHtml(customProvidersPanel.webview);
+        }
+      }
       if (
         e.affectsConfiguration(`${CLAUDE_SECTION}.${CLAUDE_KEY}`) ||
         e.affectsConfiguration(`${SELF}.profiles`) ||

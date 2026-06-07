@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -32,7 +32,7 @@
       "activitybar": [
         {
           "id": "claudeProviderSwitcher",
-          "title": "Claude Providers",
+          "title": "%container.title%",
           "icon": "media/sidebar.svg"
         }
       ]
@@ -41,19 +41,33 @@
       "claudeProviderSwitcher": [
         {
           "id": "claudeProviderSwitcher.view",
-          "name": "Providers"
+          "name": "%view.name%"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "claudeProviderSwitcher.view",
-        "contents": "No providers yet.\n[Add provider](command:claudeProviderSwitcher.add)\n\nProfiles are stored in your settings (`claudeProviderSwitcher.profiles`)."
+        "contents": "%welcome%"
       }
     ],
     "configuration": {
       "title": "Claude Provider Switcher",
       "properties": {
+        "claudeProviderSwitcher.language": {
+          "type": "string",
+          "enum": ["auto", "en", "ru", "zh"],
+          "enumItemLabels": ["Auto (follow VS Code)", "English", "Русский", "中文"],
+          "enumDescriptions": [
+            "Follow VS Code's display language, falling back to English.",
+            "English.",
+            "Russian / Русский.",
+            "Chinese / 中文."
+          ],
+          "default": "auto",
+          "order": 0,
+          "markdownDescription": "Language for the extension's own UI — menus, notifications, the sidebar, the status bar and the custom-providers table. Switches live. **Note:** command titles in the Command Palette and these setting descriptions are localized by VS Code's own display language, not this setting."
+        },
         "claudeProviderSwitcher.profiles": {
           "type": "array",
           "default": [],
@@ -164,25 +178,25 @@
       }
     },
     "commands": [
-      { "command": "claudeProviderSwitcher.select", "title": "Select provider…", "category": "Claude Provider" },
-      { "command": "claudeProviderSwitcher.add", "title": "Add provider", "category": "Claude Provider", "icon": "$(add)" },
-      { "command": "claudeProviderSwitcher.refresh", "title": "Refresh", "category": "Claude Provider", "icon": "$(refresh)" },
-      { "command": "claudeProviderSwitcher.switchTo", "title": "Switch to this provider", "category": "Claude Provider", "icon": "$(play)" },
-      { "command": "claudeProviderSwitcher.edit", "title": "Edit provider", "category": "Claude Provider", "icon": "$(pencil)" },
-      { "command": "claudeProviderSwitcher.delete", "title": "Delete provider", "category": "Claude Provider", "icon": "$(trash)" },
-      { "command": "claudeProviderSwitcher.duplicate", "title": "Duplicate provider", "category": "Claude Provider", "icon": "$(copy)" },
-      { "command": "claudeProviderSwitcher.moveUp", "title": "Move up", "category": "Claude Provider", "icon": "$(arrow-up)" },
-      { "command": "claudeProviderSwitcher.moveDown", "title": "Move down", "category": "Claude Provider", "icon": "$(arrow-down)" },
-      { "command": "claudeProviderSwitcher.test", "title": "Test connection", "category": "Claude Provider", "icon": "$(pulse)" },
-      { "command": "claudeProviderSwitcher.next", "title": "Switch to next provider", "category": "Claude Provider" },
-      { "command": "claudeProviderSwitcher.previous", "title": "Switch to previous provider", "category": "Claude Provider" },
-      { "command": "claudeProviderSwitcher.export", "title": "Export providers…", "category": "Claude Provider", "icon": "$(export)" },
-      { "command": "claudeProviderSwitcher.import", "title": "Import providers…", "category": "Claude Provider", "icon": "$(import)" },
-      { "command": "claudeProviderSwitcher.switchToIndex", "title": "Switch to provider (by index)", "category": "Claude Provider" },
-      { "command": "claudeProviderSwitcher.pinToWorkspace", "title": "Pin provider to this workspace", "category": "Claude Provider", "icon": "$(pin)" },
-      { "command": "claudeProviderSwitcher.switchWithFallback", "title": "Switch with fallback", "category": "Claude Provider", "icon": "$(sync)" },
-      { "command": "claudeProviderSwitcher.checkHealth", "title": "Check provider health", "category": "Claude Provider", "icon": "$(heart)" },
-      { "command": "claudeProviderSwitcher.manageCustomProviders", "title": "Manage custom providers…", "category": "Claude Provider", "icon": "$(table)" }
+      { "command": "claudeProviderSwitcher.select", "title": "%cmd.select%", "category": "%category%" },
+      { "command": "claudeProviderSwitcher.add", "title": "%cmd.add%", "category": "%category%", "icon": "$(add)" },
+      { "command": "claudeProviderSwitcher.refresh", "title": "%cmd.refresh%", "category": "%category%", "icon": "$(refresh)" },
+      { "command": "claudeProviderSwitcher.switchTo", "title": "%cmd.switchTo%", "category": "%category%", "icon": "$(play)" },
+      { "command": "claudeProviderSwitcher.edit", "title": "%cmd.edit%", "category": "%category%", "icon": "$(pencil)" },
+      { "command": "claudeProviderSwitcher.delete", "title": "%cmd.delete%", "category": "%category%", "icon": "$(trash)" },
+      { "command": "claudeProviderSwitcher.duplicate", "title": "%cmd.duplicate%", "category": "%category%", "icon": "$(copy)" },
+      { "command": "claudeProviderSwitcher.moveUp", "title": "%cmd.moveUp%", "category": "%category%", "icon": "$(arrow-up)" },
+      { "command": "claudeProviderSwitcher.moveDown", "title": "%cmd.moveDown%", "category": "%category%", "icon": "$(arrow-down)" },
+      { "command": "claudeProviderSwitcher.test", "title": "%cmd.test%", "category": "%category%", "icon": "$(pulse)" },
+      { "command": "claudeProviderSwitcher.next", "title": "%cmd.next%", "category": "%category%" },
+      { "command": "claudeProviderSwitcher.previous", "title": "%cmd.previous%", "category": "%category%" },
+      { "command": "claudeProviderSwitcher.export", "title": "%cmd.export%", "category": "%category%", "icon": "$(export)" },
+      { "command": "claudeProviderSwitcher.import", "title": "%cmd.import%", "category": "%category%", "icon": "$(import)" },
+      { "command": "claudeProviderSwitcher.switchToIndex", "title": "%cmd.switchToIndex%", "category": "%category%" },
+      { "command": "claudeProviderSwitcher.pinToWorkspace", "title": "%cmd.pinToWorkspace%", "category": "%category%", "icon": "$(pin)" },
+      { "command": "claudeProviderSwitcher.switchWithFallback", "title": "%cmd.switchWithFallback%", "category": "%category%", "icon": "$(sync)" },
+      { "command": "claudeProviderSwitcher.checkHealth", "title": "%cmd.checkHealth%", "category": "%category%", "icon": "$(heart)" },
+      { "command": "claudeProviderSwitcher.manageCustomProviders", "title": "%cmd.manageCustomProviders%", "category": "%category%", "icon": "$(table)" }
     ],
     "menus": {
       "view/title": [
