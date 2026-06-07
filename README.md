@@ -67,6 +67,24 @@ It applies a profile by writing its environment variables into Claude Code's
   or the palette) always switches and reloads in one step, regardless of the setting.
 - ∞ **Unlimited profiles** (hotkeys cover the first 10 slots; the rest are switched via the sidebar/menu).
 
+### How it compares
+
+Tools for pointing Claude Code at a different model fall into three groups. This is the most complete of
+the in-editor kind:
+
+- **vs other in-editor switchers** — beyond one-click switching it adds per-profile **hotkeys** + cycle, a
+  **token-free health** indicator, **fallback chains**, **workspace pinning**, **pick-a-model from
+  `/v1/models`**, import/export, and keeps API keys in VS Code **SecretStorage** (not in plain
+  `settings.json`). It can optionally mirror the active provider into `~/.claude/settings.json` so the
+  `claude` CLI in a terminal follows along too.
+- **vs desktop switcher apps** — the same one-click provider management, but inside the editor you already
+  use, with hotkeys and keys kept in SecretStorage rather than a plaintext config file.
+- **vs proxy / router gateways** — those run a separate process and let you change models live with
+  `/model` inside one session. This extension doesn't proxy traffic — it writes configuration that the
+  **next** session reads. If you switch *models* many times within a single chat, a router fits better; if
+  you switch *providers* (subscription ↔ your gateway ↔ a direct API) and want hotkeys and secure keys
+  with nothing extra running, this fits better.
+
 ### Quick start
 
 1. Install this extension and the [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) extension.
@@ -325,6 +343,24 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - ∞ **Без лимита на число профилей** (хоткеи покрывают первые 10 слотов; остальные — через
   сайдбар/меню).
 
+### Сравнение с альтернативами
+
+Инструменты для переключения Claude Code на другую модель делятся на три группы. Это — самое полное
+решение из тех, что живут внутри редактора:
+
+- **vs другие switcher'ы в редакторе** — помимо переключения в один клик есть **хоткеи** на профиль +
+  цикл, **health без токенов**, **цепочки fallback**, **привязка к workspace**, **выбор модели из
+  `/v1/models`**, импорт/экспорт, а ключи хранятся в **SecretStorage** VS Code (а не в открытом
+  `settings.json`). Опционально зеркалит активного провайдера в `~/.claude/settings.json`, чтобы и
+  `claude` в терминале использовал его.
+- **vs десктоп-приложения-переключатели** — то же управление провайдерами в один клик, но прямо в
+  редакторе, которым ты и так пользуешься, с хоткеями и ключами в SecretStorage, а не в plaintext-файле.
+- **vs прокси/роутеры** — те запускают отдельный процесс и дают менять модель на лету командой `/model`
+  внутри одной сессии. Это расширение не проксирует трафик — оно пишет конфиг, который читает
+  **следующая** сессия. Если ты десятки раз за чат меняешь *модель* — лучше роутер; если переключаешь
+  *провайдера* (подписка ↔ свой шлюз ↔ прямой API) и хочешь хоткеи и безопасные ключи без лишних
+  процессов — лучше это.
+
 ### Быстрый старт
 
 1. Установи это расширение и [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code).
@@ -508,6 +544,20 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - 🔄 **切换并重新加载** —— 专用的 *切换服务商并重新加载窗口* 命令（右键点击服务商或命令面板）始终一步
   完成切换与重载，不受设置影响。
 - ∞ **配置数量不限**（快捷键覆盖前 10 个槽位，其余通过侧边栏/菜单切换）。
+
+### 与同类方案的比较
+
+让 Claude Code 指向其他模型的工具可分为三类。本扩展是其中编辑器内方案里最完整的：
+
+- **vs 其他编辑器内切换器** —— 除一键切换外，还有每配置**快捷键**+循环、**零 token 健康检测**、**回退链**、
+  **绑定到工作区**、**从 `/v1/models` 选择模型**、导入/导出，并将 API 密钥保存在 VS Code **SecretStorage**
+  中（而非明文 `settings.json`）。还可选地把活动服务商同步到 `~/.claude/settings.json`，让终端里的 `claude`
+  也跟随。
+- **vs 桌面切换器应用** —— 同样的一键服务商管理，但就在你已经使用的编辑器里，带快捷键，且密钥存于
+  SecretStorage 而非明文配置文件。
+- **vs 代理/路由网关** —— 那些会运行独立进程，可在同一会话内用 `/model` 实时切换模型。本扩展不代理流量
+  —— 它写入配置，由**下一个**会话读取。若你在单次对话中频繁切换*模型*，路由器更合适；若你切换*服务商*
+  （订阅 ↔ 自建网关 ↔ 直连 API）并希望有快捷键和安全密钥、且无需额外常驻进程，则本扩展更合适。
 
 ### 快速开始
 

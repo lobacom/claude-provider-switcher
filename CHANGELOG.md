@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2
+
+- **Docs:** added a *How it compares* section (EN/RU/ZH) — a category-based comparison (other in-editor
+  switchers, desktop switcher apps, proxy/router gateways) explaining where this extension fits and when a
+  proxy router is the better choice. No code changes.
+
 ## 0.7.1
 
 - **Docs:** corrected the "restart the session after switching" note (EN/RU/ZH). A *resumed* chat — and a
