@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const crypto = require('crypto');
 
 const SELF = 'claudeProviderSwitcher';
 const CLAUDE_SECTION = 'claudeCode';
@@ -184,9 +185,75 @@ function envEqual(a, b) {
   if (ak.length !== bk.length) return false;
   return ak.every((k) => String(a[k]) === String(b[k]));
 }
+
+// ---- secret-backed auth tokens --------------------------------------------
+// API keys are never stored in `claudeProviderSwitcher.profiles` (which lives in
+// settings.json, often synced or committed by accident). Instead each profile
+// gets a stable `id` and its token lives in VS Code SecretStorage. We keep a
+// synchronous in-memory cache (id → token) so the tree, status bar and
+// active-profile matching can stay synchronous. The active provider's token is
+// still written into `claudeCode.environmentVariables` when applied — that's
+// unavoidable, since Claude Code reads it from there — but it's only ever the
+// one active token, not the whole list.
+let secretStorage;
+let tokenCache = new Map(); // profile.id → token (string, '' when unset)
+
+function tokenKey(id) {
+  return `${SELF}.token.${id}`;
+}
+function cachedToken(p) {
+  return (p && p.id && tokenCache.get(p.id)) || '';
+}
+// The full env applied to Claude Code: the profile's stored env plus its secret
+// token (if any). Used everywhere the previous code used `p.env` directly.
+function fullEnv(p) {
+  const env = { ...((p && p.env) || {}) };
+  const t = cachedToken(p);
+  if (t) env.ANTHROPIC_AUTH_TOKEN = t;
+  return env;
+}
+async function setToken(id, value) {
+  if (!secretStorage || !id) return;
+  const v = (value || '').trim();
+  if (v) {
+    await secretStorage.store(tokenKey(id), v);
+    tokenCache.set(id, v);
+  } else {
+    await secretStorage.delete(tokenKey(id));
+    tokenCache.set(id, '');
+  }
+}
+async function refreshTokenCache() {
+  if (!secretStorage) return;
+  const next = new Map();
+  for (const p of getProfiles()) {
+    if (p.id) next.set(p.id, (await secretStorage.get(tokenKey(p.id))) || '');
+  }
+  tokenCache = next;
+}
+// One-time migration: give every profile a stable id, and move any
+// ANTHROPIC_AUTH_TOKEN out of the stored env into SecretStorage.
+async function migrateProfiles() {
+  if (!secretStorage) return;
+  const draft = cloneProfiles();
+  let changed = false;
+  for (const p of draft) {
+    if (!p.id) {
+      p.id = crypto.randomUUID();
+      changed = true;
+    }
+    if (p.env && p.env.ANTHROPIC_AUTH_TOKEN) {
+      await setToken(p.id, p.env.ANTHROPIC_AUTH_TOKEN);
+      delete p.env.ANTHROPIC_AUTH_TOKEN;
+      changed = true;
+    }
+  }
+  if (changed) await saveProfiles(draft);
+}
+
 function activeProfileIndex() {
   const cur = getActiveEnv();
-  return getProfiles().findIndex((p) => envEqual(p.env || {}, cur));
+  return getProfiles().findIndex((p) => envEqual(fullEnv(p), cur));
 }
 
 // ---- apply / select --------------------------------------------------------
@@ -195,7 +262,7 @@ async function applyProfile(p) {
   if (!p) return;
   await vscode.workspace
     .getConfiguration(CLAUDE_SECTION)
-    .update(CLAUDE_KEY, p.env || {}, vscode.ConfigurationTarget.Global);
+    .update(CLAUDE_KEY, fullEnv(p), vscode.ConfigurationTarget.Global);
   vscode.window.setStatusBarMessage(
     `Claude provider → ${p.name}. Restart the Claude Code session to apply.`,
     5000
@@ -230,6 +297,20 @@ function switchToIndex(n) {
   const p = getProfiles()[n];
   if (p) applyProfile(p);
   else vscode.window.showInformationMessage(`Provider #${n + 1} is not defined.`);
+}
+
+// Cycle to the next (dir=1) or previous (dir=-1) provider, wrapping around.
+// With nothing active yet, dir=1 lands on the first profile, dir=-1 on the last.
+function cycleProfile(dir) {
+  const profiles = getProfiles();
+  if (!profiles.length) {
+    vscode.window.showInformationMessage('No providers configured yet.');
+    return;
+  }
+  const cur = activeProfileIndex();
+  const start = cur < 0 ? (dir > 0 ? -1 : 0) : cur;
+  const next = (start + dir + profiles.length) % profiles.length;
+  applyProfile(profiles[next]);
 }
 
 // ---- CRUD ------------------------------------------------------------------
@@ -306,7 +387,7 @@ const FIELDS = [
   { key: '__color', label: 'Badge (color dot, optional)' },
   { key: '__hotkey', label: 'Hotkey (optional, auto-picks next free)' },
   { key: 'ANTHROPIC_BASE_URL', label: 'Base URL (empty = native subscription)' },
-  { key: 'ANTHROPIC_AUTH_TOKEN', label: 'Auth token (API key)' },
+  { key: 'ANTHROPIC_AUTH_TOKEN', label: 'Auth token (API key)', secret: true },
   { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', label: 'Opus model' },
   { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', label: 'Sonnet model' },
   { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', label: 'Haiku model' },
@@ -317,6 +398,8 @@ function fieldValue(p, key) {
   if (key === '__name') return p.name || '';
   if (key === '__color') return p.color || '';
   if (key === '__hotkey') return p.hotkey || '';
+  // token lives in SecretStorage — only ever surface a masked placeholder
+  if (key === 'ANTHROPIC_AUTH_TOKEN') return cachedToken(p) ? '••••••••' : '';
   return (p.env && p.env[key]) || '';
 }
 
@@ -343,6 +426,10 @@ async function editProfileFields(index) {
     const list = getProfiles();
     const p = list[index];
     if (!p) return;
+    // If we're editing the live provider, env/token changes must be re-applied to
+    // claudeCode.environmentVariables — otherwise the active link breaks (the
+    // status bar falls back to the bare old URL and the active dot disappears).
+    const wasActive = envEqual(fullEnv(p), getActiveEnv());
     const items = FIELDS.map((f) => ({
       label: f.label,
       description: fieldValue(p, f.key) || '(empty)',
@@ -386,6 +473,20 @@ async function editProfileFields(index) {
       });
       if (!picked) continue;
       input = picked._value;
+    } else if (f.secret) {
+      // Edit the token directly in SecretStorage; never round-trip it through
+      // the profile JSON. Pre-fill with the real value so edits don't wipe it.
+      const entered = await vscode.window.showInputBox({
+        prompt: f.label + ' (stored securely, not in settings.json)',
+        value: cachedToken(p),
+        password: true,
+        ignoreFocusOut: true,
+      });
+      if (entered === undefined) continue;
+      await setToken(p.id, entered);
+      if (wasActive) await applyProfile(getProfiles()[index]);
+      vscode.commands.executeCommand(`${SELF}.refresh`);
+      continue;
     } else {
       input = await vscode.window.showInputBox({
         prompt: f.label,
@@ -417,6 +518,9 @@ async function editProfileFields(index) {
       dp.env[f.key] = input;
     }
     await saveProfiles(draft);
+    // env-affecting fields on the live provider need re-applying (name/color/
+    // hotkey don't change env, so the active match still holds).
+    if (wasActive && !f.key.startsWith('__')) await applyProfile(draft[index]);
   }
 }
 
@@ -554,16 +658,22 @@ async function addProfile() {
   const tpl = await pickProviderTemplate();
   if (!tpl) return;
   const draft = cloneProfiles();
+  const env = JSON.parse(JSON.stringify(tpl.env || {}));
+  // a preset may carry a placeholder token (local servers) — route it to secrets
+  const presetToken = env.ANTHROPIC_AUTH_TOKEN;
+  delete env.ANTHROPIC_AUTH_TOKEN;
   const newProfile = {
+    id: crypto.randomUUID(),
     name: uniqueName(tpl.name, draft),
     // default badge: the provider's own logo; Custom (no icon) gets a free shape
     color: firstFreeBadge(draft, -1),
-    env: JSON.parse(JSON.stringify(tpl.env || {})),
+    env,
   };
   // auto-assign the next free hotkey
   newProfile.hotkey = firstFreeHotkey(draft, -1, null);
   draft.push(newProfile);
   await saveProfiles(draft);
+  if (presetToken) await setToken(newProfile.id, presetToken);
   await editProfileFields(draft.length - 1);
 }
 
@@ -583,10 +693,12 @@ async function deleteProfile(arg) {
     'Delete'
   );
   if (ok !== 'Delete') return;
-  const wasActive = envEqual(list[i].env || {}, getActiveEnv());
+  const wasActive = envEqual(fullEnv(list[i]), getActiveEnv());
+  const removedId = list[i].id;
   const draft = cloneProfiles();
   draft.splice(i, 1);
   await saveProfiles(draft);
+  if (removedId) await setToken(removedId, ''); // drop its secret
   if (wasActive) {
     if (draft.length) {
       await applyProfile(draft[0]);
@@ -602,11 +714,15 @@ async function duplicateProfile(arg) {
   const i = resolveIndex(arg);
   const draft = cloneProfiles();
   if (i < 0 || !draft[i]) return;
+  const sourceId = draft[i].id;
   const copy = JSON.parse(JSON.stringify(draft[i]));
+  copy.id = crypto.randomUUID(); // fresh id → its own secret slot
   copy.name = copy.name + ' copy';
   delete copy.hotkey; // don't duplicate the hotkey
   draft.splice(i + 1, 0, copy);
   await saveProfiles(draft);
+  const t = sourceId ? tokenCache.get(sourceId) : '';
+  if (t) await setToken(copy.id, t); // carry the token over to the copy
 }
 
 async function moveProfile(arg, dir) {
@@ -618,6 +734,178 @@ async function moveProfile(arg, dir) {
   draft[i] = draft[j];
   draft[j] = tmp;
   await saveProfiles(draft);
+}
+
+// ---- test connection -------------------------------------------------------
+// Fire a single small POST /v1/messages and classify the response. We don't care
+// about the body — any HTTP reply means the host is reachable; the status code
+// tells us whether auth worked. A 400 (e.g. unknown model) still proves the
+// endpoint and key are fine, which is all we want to confirm here.
+
+function httpProbe(baseUrl, token, model) {
+  return new Promise((resolve) => {
+    let url;
+    try {
+      url = new (require('url').URL)(normalizeUrl(baseUrl) + '/v1/messages');
+    } catch {
+      resolve({ kind: 'error', msg: 'Invalid Base URL' });
+      return;
+    }
+    const lib = url.protocol === 'http:' ? require('http') : require('https');
+    const body = JSON.stringify({
+      model: model || 'claude-3-5-haiku-latest',
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'ping' }],
+    });
+    const headers = {
+      'content-type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'content-length': Buffer.byteLength(body),
+    };
+    if (token) {
+      // Anthropic uses x-api-key; many gateways accept a Bearer token. Send both.
+      headers['x-api-key'] = token;
+      headers['authorization'] = `Bearer ${token}`;
+    }
+    const req = lib.request(url, { method: 'POST', headers, timeout: 12000 }, (res) => {
+      res.on('data', () => {}); // drain so the socket can close
+      res.on('end', () => resolve({ kind: 'status', status: res.statusCode }));
+    });
+    req.on('timeout', () => { req.destroy(); resolve({ kind: 'error', msg: 'Timed out after 12s' }); });
+    req.on('error', (e) => resolve({ kind: 'error', msg: e.message }));
+    req.write(body);
+    req.end();
+  });
+}
+
+async function testProfile(arg) {
+  const i = resolveIndex(arg);
+  const p = getProfiles()[i];
+  if (!p) return;
+  const base = p.env && p.env.ANTHROPIC_BASE_URL;
+  if (!base) {
+    vscode.window.showInformationMessage(
+      `"${p.name}" uses the native Claude subscription — nothing to test.`
+    );
+    return;
+  }
+  const env = p.env || {};
+  const model =
+    env.ANTHROPIC_DEFAULT_HAIKU_MODEL ||
+    env.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+    env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+  const r = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: `Testing "${p.name}"…` },
+    () => httpProbe(base, cachedToken(p), model)
+  );
+  if (r.kind === 'error') {
+    vscode.window.showErrorMessage(`✗ ${p.name}: unreachable — ${r.msg}`);
+    return;
+  }
+  const s = r.status;
+  if (s === 200) {
+    vscode.window.showInformationMessage(`✓ ${p.name}: connected (HTTP 200).`);
+  } else if (s === 401 || s === 403) {
+    vscode.window.showErrorMessage(`✗ ${p.name}: reachable, but auth failed (HTTP ${s}) — check the API key.`);
+  } else if (s === 404) {
+    vscode.window.showErrorMessage(`✗ ${p.name}: endpoint not found (HTTP 404) — check the Base URL.`);
+  } else if (s === 400) {
+    vscode.window.showInformationMessage(`✓ ${p.name}: reachable and authorized (HTTP 400 — likely the test model name; the endpoint and key are fine).`);
+  } else if (s === 429) {
+    vscode.window.showWarningMessage(`⚠ ${p.name}: reachable, but rate-limited (HTTP 429).`);
+  } else {
+    vscode.window.showWarningMessage(`⚠ ${p.name}: reachable — server returned HTTP ${s}.`);
+  }
+}
+
+// ---- import / export -------------------------------------------------------
+// Profiles round-trip as a plain JSON array. The local `id` is never exported
+// (it's only meaningful for this machine's SecretStorage); imports get fresh
+// ids. Tokens are excluded by default and only included on explicit request.
+
+async function exportProfiles() {
+  const profiles = getProfiles();
+  if (!profiles.length) {
+    vscode.window.showInformationMessage('No providers to export.');
+    return;
+  }
+  const choice = await vscode.window.showQuickPick(
+    [
+      { label: '$(shield) Without API keys', description: 'Recommended — safe to share or commit', _withTokens: false },
+      { label: '$(key) Include API keys', description: 'Sensitive! Keys will be written in plain text', _withTokens: true },
+    ],
+    { placeHolder: 'Export API keys as well?', ignoreFocusOut: true }
+  );
+  if (!choice) return;
+  const out = profiles.map((p) => {
+    const o = { name: p.name, env: { ...((p && p.env) || {}) } };
+    if (p.color) o.color = p.color;
+    if (p.hotkey) o.hotkey = p.hotkey;
+    if (choice._withTokens) {
+      const t = cachedToken(p);
+      if (t) o.env.ANTHROPIC_AUTH_TOKEN = t;
+    }
+    return o;
+  });
+  const uri = await vscode.window.showSaveDialog({
+    saveLabel: 'Export',
+    filters: { JSON: ['json'] },
+    defaultUri: vscode.Uri.file('claude-providers.json'),
+  });
+  if (!uri) return;
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(out, null, 2), 'utf8'));
+  vscode.window.showInformationMessage(`Exported ${out.length} provider(s)${choice._withTokens ? ' with API keys' : ''}.`);
+}
+
+async function importProfiles() {
+  const picks = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    openLabel: 'Import',
+    filters: { JSON: ['json'] },
+  });
+  if (!picks || !picks.length) return;
+  let data;
+  try {
+    const buf = await vscode.workspace.fs.readFile(picks[0]);
+    data = JSON.parse(Buffer.from(buf).toString('utf8'));
+  } catch (e) {
+    vscode.window.showErrorMessage('Could not read the file as JSON: ' + e.message);
+    return;
+  }
+  if (!Array.isArray(data)) {
+    vscode.window.showErrorMessage('Expected a JSON array of provider profiles.');
+    return;
+  }
+  const draft = cloneProfiles();
+  const pendingTokens = [];
+  let added = 0;
+  for (const raw of data) {
+    if (!raw || typeof raw.name !== 'string' || !raw.name.trim()) continue;
+    const env = raw.env && typeof raw.env === 'object' ? { ...raw.env } : {};
+    const token = env.ANTHROPIC_AUTH_TOKEN;
+    delete env.ANTHROPIC_AUTH_TOKEN;
+    const id = crypto.randomUUID();
+    const prof = {
+      id,
+      name: uniqueName(raw.name.trim(), draft),
+      color: raw.color || firstFreeBadge(draft, -1),
+      env,
+    };
+    const hk = firstFreeHotkey(draft, -1, null);
+    if (hk) prof.hotkey = hk;
+    draft.push(prof);
+    if (token) pendingTokens.push([id, token]);
+    added++;
+  }
+  if (!added) {
+    vscode.window.showWarningMessage('No valid profiles found in the file.');
+    return;
+  }
+  await saveProfiles(draft);
+  for (const [id, t] of pendingTokens) await setToken(id, t);
+  vscode.window.showInformationMessage(
+    `Imported ${added} provider(s)${pendingTokens.length ? ` (${pendingTokens.length} with an API key)` : ''}.`
+  );
 }
 
 // ---- dynamic keybindings ----------------------------------------------------
@@ -745,6 +1033,7 @@ class ProfilesProvider {
 
 function activate(context) {
   extensionUri = context.extensionUri;
+  secretStorage = context.secrets;
   const provider = new ProfilesProvider();
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider(`${SELF}.view`, provider)
@@ -769,10 +1058,24 @@ function activate(context) {
     if (i >= 0) applyProfile(getProfiles()[i]);
   });
   reg('switchToIndex', (idx) => switchToIndex(typeof idx === 'number' ? idx : parseInt(idx, 10)));
+  reg('next', () => cycleProfile(1));
+  reg('previous', () => cycleProfile(-1));
+  reg('test', testProfile);
+  reg('export', exportProfiles);
+  reg('import', importProfiles);
   reg('refresh', () => {
     provider.refresh();
     updateStatus();
   });
+
+  // Migrate older profiles (assign ids, move tokens to SecretStorage), prime the
+  // token cache, then repaint once everything is loaded.
+  (async () => {
+    await migrateProfiles();
+    await refreshTokenCache();
+    provider.refresh();
+    updateStatus();
+  })();
 
   // initial sync
   syncKeybindings().then(() => vscode.window.setStatusBarMessage('Claude provider hotkeys synced', 2500));

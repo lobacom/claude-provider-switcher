@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0
+
+- **API keys now live in VS Code SecretStorage**, not in `settings.json`. On first run any existing
+  `ANTHROPIC_AUTH_TOKEN` is migrated out of `claudeProviderSwitcher.profiles` automatically — so the
+  profiles list is safe to sync or share. The active provider's key is still written to
+  `claudeCode.environmentVariables` when applied (Claude Code reads it there), but only that one key.
+  In the editor the token field is masked and entered through a password box.
+- **Test connection** — a new ⚡ action on each profile (and `Claude Provider: Test connection`) fires
+  a small request at the endpoint and tells you whether it's reachable and the API key is accepted.
+- **Cycle providers** — `Ctrl+Alt+]` / `Ctrl+Alt+[` (`Cmd+Alt+…` on macOS) switch to the next /
+  previous provider, wrapping around.
+- **Import / Export** — `Export providers…` / `Import providers…` (sidebar title bar and command
+  palette) round-trip profiles as JSON. Export excludes API keys by default (opt in to include them);
+  import assigns fresh badges/hotkeys and avoids name clashes.
+- **Fix:** editing the active provider now re-applies its env, so the active marker and status bar
+  stay in sync (previously they reverted to the bare old URL until you re-selected the profile).
+
 ## 0.2.0
 
 - **Add provider** now opens a template menu (with provider logos) instead of only asking for a

@@ -17,6 +17,8 @@ It applies a profile by writing its environment variables into Claude Code's
 > настройках и никуда не отправляются. ·
 > **不含任何账号或密钥。** 本扩展不附带任何凭据；你的配置（包括 API 密钥）仅保存在*你自己的*设置中，绝不外发。
 
+![Claude Provider Switcher](https://raw.githubusercontent.com/lobacom/claude-provider-switcher/main/media/screenshot.png)
+
 ---
 
 <a id="english"></a>
@@ -31,10 +33,12 @@ It applies a profile by writing its environment variables into Claude Code's
   `Ctrl+Alt+0`). New profiles get the next free slot automatically; the binding is written to your
   `keybindings.json` for you.
 - 🎛️ **Menu** — `Claude Provider: Select provider…`, or click the status bar item.
+- 🔁 **Cycle** — `Ctrl+Alt+]` / `Ctrl+Alt+[` (macOS `Cmd+Alt+…`) jump to the next / previous provider.
+- ⚡ **Test connection** — check that an endpoint is reachable and your API key is accepted, right from the row.
+- 🔐 **Secure keys** — API keys are stored in VS Code **SecretStorage**, never in `settings.json`.
+- 📤 **Import / Export** — share or back up your profiles as JSON (keys excluded by default).
 - 🔌 **Status bar indicator** — shows the active provider; hidden when no providers exist.
 - ∞ **Unlimited profiles** (hotkeys cover the first 10 slots; the rest are switched via the sidebar/menu).
-
-> See the Marketplace listing for screenshots.
 
 ### Quick start
 
@@ -55,9 +59,11 @@ It applies a profile by writing its environment variables into Claude Code's
 | --- | --- |
 | **Add** | view title-bar `+` → pick a template (Custom / Claude Subscription / Claude API / a built-in provider), then add your key; auto-assigns the next free hotkey |
 | **Switch to** | row ▶ (inline) |
+| **Test connection** | row ⚡ (inline) or right-click → *Test connection* |
 | **Edit** | row ✎ (inline) or right-click → *Edit* |
 | **Delete** | row 🗑 (inline) or right-click → *Delete* (deleting the active one switches to the first remaining; deleting the last resets to the subscription) |
 | **Duplicate / Move up / Move down** | right-click menu |
+| **Import / Export** | view title-bar overflow (`…`) menu |
 
 The active provider is marked with a filled dot. Editing is field-by-field: pick a field, set its value,
 repeat, then *Done*. **Color** and **Hotkey** are chosen from a dropdown — no codes to remember.
@@ -77,7 +83,7 @@ repeat, then *Done*. **Color** and **Hotkey** are chosen from a dropdown — no 
 | **Badge** | A color shape (🟢🔵🟣🟡🟠🟩🟦🔷…) picked from a list; auto-assigned on Add. (The provider **logo** shows in the Add menu and the hover tooltip.) |
 | **Hotkey** | Optional `Ctrl+Alt+<n>` shortcut, auto-assigned on Add. |
 | `ANTHROPIC_BASE_URL` | Anthropic-compatible endpoint. **Empty = native subscription.** |
-| `ANTHROPIC_AUTH_TOKEN` | API key for third-party endpoints (sent as a **Bearer** token). |
+| `ANTHROPIC_AUTH_TOKEN` | API key for third-party endpoints. **Stored in SecretStorage**, not `settings.json`; the editor shows it masked. |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | Models the Opus/Sonnet/Haiku tiers map to. |
 | `API_TIMEOUT_MS` | (optional) Request timeout in ms. |
 
@@ -202,15 +208,13 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
   `Ctrl+Alt+0`). Новому профилю автоматически выдаётся ближайший свободный слот; биндинг сам
   прописывается в твой `keybindings.json`.
 - 🎛️ **Меню** — `Claude Provider: Select provider…` или клик по индикатору.
+- 🔁 **Цикл** — `Ctrl+Alt+]` / `Ctrl+Alt+[` (на macOS `Cmd+Alt+…`) переключают на следующего / предыдущего провайдера.
+- ⚡ **Проверка соединения** — прямо из строки профиля проверить, что эндпоинт доступен и ключ принят.
+- 🔐 **Безопасные ключи** — API-ключи хранятся в **SecretStorage** VS Code, а не в `settings.json`.
+- 📤 **Импорт / экспорт** — поделиться профилями или сделать бэкап в JSON (ключи по умолчанию исключаются).
 - 🔌 **Индикатор** активного провайдера в статус-баре; прячется, когда профилей нет.
 - ∞ **Без лимита на число профилей** (хоткеи покрывают первые 10 слотов; остальные — через
   сайдбар/меню).
-
-### Скриншоты
-
-| Сайдбар | Добавление провайдера | Подсказка |
-| --- | --- | --- |
-| _Скриншоты — в карточке Marketplace._ |
 
 ### Быстрый старт
 
@@ -231,9 +235,11 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | --- | --- |
 | **Add** | кнопка `+` в шапке → выбор шаблона (Custom / Claude Subscription / Claude API / встроенный провайдер), затем впиши ключ; сразу выдаёт ближайший свободный хоткей |
 | **Switch to** | ▶ в строке |
+| **Test connection** | ⚡ в строке или ПКМ → *Test connection* |
 | **Edit** | ✎ в строке или ПКМ → *Edit* |
 | **Delete** | 🗑 в строке или ПКМ → *Delete* (удаление активного → переключение на первого оставшегося; удаление последнего → сброс на подписку) |
 | **Duplicate / Move up / Move down** | контекстное меню (ПКМ) |
+| **Import / Export** | меню «…» в шапке панели |
 
 Активный провайдер помечен закрашенной точкой. Редактирование — по полям: выбрал поле, задал значение,
 повторил, потом *Done*. **Color** и **Hotkey** выбираются из списка — никаких кодов запоминать не надо.
@@ -253,7 +259,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | **Badge** | Цветная фигурка (🟢🔵🟣🟡🟠🟩🟦🔷…) из списка; авто-назначается при Add. (**Логотип** провайдера показывается в меню Add и во всплывающей подсказке.) |
 | **Hotkey** | Необязательный `Ctrl+Alt+<n>`, авто-назначается при Add. |
 | `ANTHROPIC_BASE_URL` | Anthropic-совместимый эндпоинт. **Пусто = нативная подписка.** |
-| `ANTHROPIC_AUTH_TOKEN` | Ключ для сторонних эндпоинтов (отправляется как **Bearer**). |
+| `ANTHROPIC_AUTH_TOKEN` | Ключ для сторонних эндпоинтов. **Хранится в SecretStorage**, а не в `settings.json`; в редакторе показывается замаскированным. |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | На какие модели мапятся уровни Opus/Sonnet/Haiku. |
 | `API_TIMEOUT_MS` | (необязательно) таймаут запроса в мс. |
 
@@ -314,14 +320,12 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 - ⌨️ **每个配置独立快捷键**（`Ctrl+Alt+1`…`Ctrl+Alt+9`、`Ctrl+Alt+0`）。新配置自动分配下一个空闲槽位；
   快捷键会自动写入你的 `keybindings.json`。
 - 🎛️ **菜单** —— `Claude Provider: Select provider…`，或点击状态栏项。
+- 🔁 **循环切换** —— `Ctrl+Alt+]` / `Ctrl+Alt+[`（macOS 为 `Cmd+Alt+…`）切换到下一个 / 上一个服务商。
+- ⚡ **测试连接** —— 直接在行内检查端点是否可达、API 密钥是否被接受。
+- 🔐 **密钥安全** —— API 密钥存储在 VS Code **SecretStorage** 中，而非 `settings.json`。
+- 📤 **导入 / 导出** —— 以 JSON 形式分享或备份配置（默认不含密钥）。
 - 🔌 **状态栏指示器** —— 显示当前服务商；无配置时隐藏。
 - ∞ **配置数量不限**（快捷键覆盖前 10 个槽位，其余通过侧边栏/菜单切换）。
-
-### 截图
-
-| 侧边栏 | 添加服务商 | 悬停提示 |
-| --- | --- | --- |
-| _截图见 Marketplace 页面._ |
 
 ### 快速开始
 
@@ -341,9 +345,11 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | --- | --- |
 | **添加** | 视图标题栏的 `+` → 选择模板（Custom / Claude Subscription / Claude API / 内置服务商），再填入密钥；自动分配下一个空闲快捷键 |
 | **切换到** | 行内 ▶ |
+| **测试连接** | 行内 ⚡ 或右键 → *Test connection* |
 | **编辑** | 行内 ✎ 或右键 → *Edit* |
 | **删除** | 行内 🗑 或右键 → *Delete*（删除当前项会切到第一个剩余项；删除最后一个会重置为订阅） |
 | **复制 / 上移 / 下移** | 右键菜单 |
+| **导入 / 导出** | 视图标题栏的「…」菜单 |
 
 当前服务商以实心圆点标记。编辑是逐字段进行的：选择字段、填值、重复，最后 *Done*。**颜色**与**快捷键**
 都从下拉列表选择 —— 无需记任何代码。
@@ -362,7 +368,7 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 | **Badge** | 彩色图形（🟢🔵🟣🟡🟠🟩🟦🔷…），从列表选择；添加时自动分配。（服务商**标志**显示在 Add 菜单和悬停提示中。） |
 | **Hotkey** | 可选的 `Ctrl+Alt+<n>` 快捷键，添加时自动分配。 |
 | `ANTHROPIC_BASE_URL` | Anthropic 兼容端点。**留空 = 原生订阅。** |
-| `ANTHROPIC_AUTH_TOKEN` | 第三方端点的 API 密钥（以 **Bearer** 令牌发送）。 |
+| `ANTHROPIC_AUTH_TOKEN` | 第三方端点的 API 密钥。**存储在 SecretStorage** 中，而非 `settings.json`；编辑器中以掩码显示。 |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` / `…_SONNET_MODEL` / `…_HAIKU_MODEL` | Opus/Sonnet/Haiku 档位映射到的模型。 |
 | `API_TIMEOUT_MS` | （可选）请求超时（毫秒）。 |
 
@@ -401,11 +407,17 @@ exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty
 ## Privacy / Конфиденциальность / 隐私
 
 This extension stores nothing remotely and bundles no credentials. It reads
-`claudeProviderSwitcher.profiles`, writes `claudeCode.environmentVariables`, and manages its own
-entries in your `keybindings.json`. · Расширение ничего не хранит удалённо и не содержит ключей. Оно
-читает `claudeProviderSwitcher.profiles`, пишет `claudeCode.environmentVariables` и ведёт свои записи
-в `keybindings.json`. · 本扩展不在远端存储任何内容，也不附带凭据。它读取 `claudeProviderSwitcher.profiles`、
-写入 `claudeCode.environmentVariables`，并维护 `keybindings.json` 中属于自己的条目。
+`claudeProviderSwitcher.profiles`, keeps API keys in VS Code **SecretStorage** (not `settings.json`),
+writes `claudeCode.environmentVariables` (including the active provider's key, which Claude Code reads
+there), and manages its own entries in your `keybindings.json`. *Test connection* sends one request
+to the endpoint you configured — nowhere else. · Расширение ничего не хранит удалённо и не содержит
+ключей. Оно читает `claudeProviderSwitcher.profiles`, хранит API-ключи в **SecretStorage** VS Code (а
+не в `settings.json`), пишет `claudeCode.environmentVariables` (включая ключ активного провайдера,
+откуда его читает Claude Code) и ведёт свои записи в `keybindings.json`. *Проверка соединения*
+отправляет один запрос только на указанный тобой эндпоинт. · 本扩展不在远端存储任何内容，也不附带凭据。它读取
+`claudeProviderSwitcher.profiles`，将 API 密钥保存在 VS Code **SecretStorage**（而非 `settings.json`），
+写入 `claudeCode.environmentVariables`（含当前服务商的密钥，Claude Code 在此读取），并维护 `keybindings.json`
+中属于自己的条目。*测试连接* 仅向你配置的端点发送一个请求。
 
 ## Trademarks / Товарные знаки / 商标
 

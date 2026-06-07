@@ -2,32 +2,14 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "http://cratos:3000/lobanov/claude-provider-switcher.git"
-  },
   "icon": "icon.png",
   "galleryBanner": {
     "color": "#181825",
     "theme": "dark"
   },
-  "screenshots": [
-    {
-      "path": "media/screenshots/01-sidebar.png",
-      "alt": "Claude Providers sidebar with active profile and badges"
-    },
-    {
-      "path": "media/screenshots/02-add-provider.png",
-      "alt": "Add provider menu with built-in Anthropic-compatible providers and local servers"
-    },
-    {
-      "path": "media/screenshots/03-tooltip.png",
-      "alt": "Provider hover tooltip showing logo, hotkey, Base URL and model mapping"
-    }
-  ],
   "engines": {
     "vscode": "^1.83.0"
   },
@@ -82,14 +64,22 @@
               "name"
             ],
             "properties": {
+              "id": {
+                "type": "string",
+                "description": "Stable internal id; links the profile to its API key in SecretStorage. Managed automatically."
+              },
               "name": {
                 "type": "string"
               },
               "color": {
                 "type": "string"
               },
+              "hotkey": {
+                "type": "string"
+              },
               "env": {
                 "type": "object",
+                "description": "Environment variables written to claudeCode.environmentVariables. The API key (ANTHROPIC_AUTH_TOKEN) is NOT stored here — it lives in SecretStorage.",
                 "additionalProperties": {
                   "type": "string"
                 }
@@ -114,19 +104,28 @@
       { "command": "claudeProviderSwitcher.duplicate", "title": "Duplicate provider", "category": "Claude Provider", "icon": "$(copy)" },
       { "command": "claudeProviderSwitcher.moveUp", "title": "Move up", "category": "Claude Provider", "icon": "$(arrow-up)" },
       { "command": "claudeProviderSwitcher.moveDown", "title": "Move down", "category": "Claude Provider", "icon": "$(arrow-down)" },
+      { "command": "claudeProviderSwitcher.test", "title": "Test connection", "category": "Claude Provider", "icon": "$(pulse)" },
+      { "command": "claudeProviderSwitcher.next", "title": "Switch to next provider", "category": "Claude Provider" },
+      { "command": "claudeProviderSwitcher.previous", "title": "Switch to previous provider", "category": "Claude Provider" },
+      { "command": "claudeProviderSwitcher.export", "title": "Export providers…", "category": "Claude Provider", "icon": "$(export)" },
+      { "command": "claudeProviderSwitcher.import", "title": "Import providers…", "category": "Claude Provider", "icon": "$(import)" },
       { "command": "claudeProviderSwitcher.switchToIndex", "title": "Switch to provider (by index)", "category": "Claude Provider" }
     ],
     "menus": {
       "view/title": [
         { "command": "claudeProviderSwitcher.add", "when": "view == claudeProviderSwitcher.view", "group": "navigation@1" },
-        { "command": "claudeProviderSwitcher.refresh", "when": "view == claudeProviderSwitcher.view", "group": "navigation@2" }
+        { "command": "claudeProviderSwitcher.refresh", "when": "view == claudeProviderSwitcher.view", "group": "navigation@2" },
+        { "command": "claudeProviderSwitcher.import", "when": "view == claudeProviderSwitcher.view", "group": "1_io@1" },
+        { "command": "claudeProviderSwitcher.export", "when": "view == claudeProviderSwitcher.view", "group": "1_io@2" }
       ],
       "view/item/context": [
         { "command": "claudeProviderSwitcher.switchTo", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@1" },
-        { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@2" },
-        { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@3" },
+        { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@2" },
+        { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@3" },
+        { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@4" },
         { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@1" },
         { "command": "claudeProviderSwitcher.duplicate", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@2" },
+        { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@3" },
         { "command": "claudeProviderSwitcher.moveUp", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@1" },
         { "command": "claudeProviderSwitcher.moveDown", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@2" },
         { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "3_danger@1" }
@@ -138,9 +137,13 @@
         { "command": "claudeProviderSwitcher.duplicate", "when": "false" },
         { "command": "claudeProviderSwitcher.moveUp", "when": "false" },
         { "command": "claudeProviderSwitcher.moveDown", "when": "false" },
+        { "command": "claudeProviderSwitcher.test", "when": "false" },
         { "command": "claudeProviderSwitcher.refresh", "when": "false" }
       ]
     },
-    "keybindings": []
+    "keybindings": [
+      { "command": "claudeProviderSwitcher.next", "key": "ctrl+alt+]", "mac": "cmd+alt+]" },
+      { "command": "claudeProviderSwitcher.previous", "key": "ctrl+alt+[", "mac": "cmd+alt+[" }
+    ]
   }
 }
