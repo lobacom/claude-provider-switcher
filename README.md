@@ -26,7 +26,7 @@ Pick a provider from the **built-in catalog**: the endpoint is pre-filled and th
 ### Quick start
 
 1. Install this extension and the [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) extension.
-2. Open the **Claude Providers** view from the Activity Bar (the dotted icon) and click **+ Add provider**. Pick a **template** — *Custom* (blank), *Claude Subscription*, *Claude API*, a built-in **Anthropic-compatible provider** (DeepSeek, Kimi, MiniMax, Qwen, Z.ai, …), or a **local server** (Ollama, LM Studio, llama.cpp, vLLM): the Base URL (and model mapping, where fixed) is pre-filled. Then just add your API key. Every field stays editable (see [Profile fields](#profile-fields)); an empty Base URL = native subscription.
+2. Open the **Claude Providers** view from the Activity Bar (the dotted icon) and click **+ Add provider**. Pick a **template** — *Custom* (blank), *Claude Subscription*, *Claude API*, a built-in **Anthropic-compatible provider** (DeepSeek, Kimi, MiniMax, Qwen, Xiaomi MiMo, Z.ai, …), or a **local server** (Ollama, LM Studio, llama.cpp, vLLM): the Base URL (and model mapping, where fixed) is pre-filled. Then just add your API key. Every field stays editable (see [Profile fields](#profile-fields)); an empty Base URL = native subscription.
 3. Switch by clicking the **status bar indicator**, with the profile's **hotkey**, or via the row in the sidebar.
 4. **Start a new Claude Code session** (new chat / Reload Window) so it picks up the change — Claude Code reads the environment when a session starts, not live.
 
@@ -42,7 +42,7 @@ Pick a provider from the **built-in catalog**: the endpoint is pre-filled and th
 
 **Setting up providers**
 
-- 📇 **Built-in catalog** — *Claude Subscription*, *Claude API*, Anthropic-compatible providers (DeepSeek, Kimi, MiniMax, Qwen, Z.ai, …) and local servers (Ollama, LM Studio, llama.cpp, vLLM), with Base URLs and fixed model mappings pre-filled.
+- 📇 **Built-in catalog** — *Claude Subscription*, *Claude API*, Anthropic-compatible providers (DeepSeek, Kimi, MiniMax, Qwen, Xiaomi MiMo, Z.ai, …) and local servers (Ollama, LM Studio, llama.cpp, vLLM), with Base URLs and fixed model mappings pre-filled.
 - 🧩 **Pick models from a list** — the Opus/Sonnet/Haiku fields fetch the provider's model catalog (`GET /v1/models`) so you choose from a dropdown instead of typing the id.
 - ➕ **Add your own providers** — a **table editor** (*Manage custom providers…*) covers anything not in the catalog; your entries appear in the *Add provider* menu tagged `(custom)`. Backed by the `customProviders` setting.
 - 🔐 **Secure keys** — API keys are stored in VS Code **SecretStorage**, never in `settings.json`; the editor shows them masked.
@@ -268,7 +268,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 
 **Настройка провайдеров**
 
-- 📇 **Встроенный каталог** — *Claude Subscription*, *Claude API*, Anthropic-совместимые провайдеры (DeepSeek, Kimi, MiniMax, Qwen, Z.ai, …) и локальные серверы (Ollama, LM Studio, llama.cpp, vLLM); Base URL и фиксированные маппинги моделей подставляются сами.
+- 📇 **Встроенный каталог** — *Claude Subscription*, *Claude API*, Anthropic-совместимые провайдеры (DeepSeek, Kimi, MiniMax, Qwen, Xiaomi MiMo, Z.ai, …) и локальные серверы (Ollama, LM Studio, llama.cpp, vLLM); Base URL и фиксированные маппинги моделей подставляются сами.
 - 🧩 **Выбор модели из списка** — поля Opus/Sonnet/Haiku подтягивают каталог моделей провайдера (`GET /v1/models`), и ты выбираешь из выпадающего списка, а не вводишь id вручную.
 - ➕ **Свои провайдеры** — **табличный редактор** (*Manage custom providers…*) для всего, чего нет в каталоге; твои записи появляются в меню *Add provider* с пометкой `(custom)`. Хранится в настройке `customProviders`.
 - 🔐 **Безопасные ключи** — API-ключи хранятся в **SecretStorage** VS Code, а не в `settings.json`; в редакторе показываются замаскированными.
@@ -412,7 +412,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 ### 快速开始
 
 1. 安装本扩展和 [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) 扩展。
-2. 从活动栏打开 **Claude Providers** 视图（圆点图标），点击 **+ Add provider**，选择一个**模板** —— *Custom*（空白）、*Claude Subscription*、*Claude API*、内置的 **Anthropic 兼容服务商**（DeepSeek、 Kimi、MiniMax、Qwen、Z.ai 等）或**本地服务**（Ollama、LM Studio、llama.cpp、vLLM）：Base URL（以及 固定的模型映射）会自动填好，你只需填入自己的 API 密钥。所有字段仍可编辑（见下方 [配置字段](#配置字段)）；Base URL 留空 = 原生订阅。
+2. 从活动栏打开 **Claude Providers** 视图（圆点图标），点击 **+ Add provider**，选择一个**模板** —— *Custom*（空白）、*Claude Subscription*、*Claude API*、内置的 **Anthropic 兼容服务商**（DeepSeek、Kimi、MiniMax、Qwen、Xiaomi MiMo、Z.ai 等）或**本地服务**（Ollama、LM Studio、llama.cpp、vLLM）：Base URL（以及 固定的模型映射）会自动填好，你只需填入自己的 API 密钥。所有字段仍可编辑（见下方 [配置字段](#配置字段)）；Base URL 留空 = 原生订阅。
 3. 点击**状态栏指示器**、用配置的**快捷键**，或点击侧边栏中的行来切换。
 4. **启动新的 Claude Code 会话**（新对话 / 重载窗口）使其生效 —— Claude Code 在会话启动时读取环境变量， 不会实时刷新。
 
@@ -428,7 +428,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 
 **配置服务商**
 
-- 📇 **内置目录** —— *Claude Subscription*、*Claude API*、Anthropic 兼容服务商（DeepSeek、Kimi、 MiniMax、Qwen、Z.ai 等）和本地服务（Ollama、LM Studio、llama.cpp、vLLM）；Base URL 与固定的模型映射 自动预填。
+- 📇 **内置目录** —— *Claude Subscription*、*Claude API*、Anthropic 兼容服务商（DeepSeek、Kimi、MiniMax、Qwen、Xiaomi MiMo、Z.ai 等）和本地服务（Ollama、LM Studio、llama.cpp、vLLM）；Base URL 与固定的模型映射 自动预填。
 - 🧩 **从列表选择模型** —— Opus/Sonnet/Haiku 字段会从服务商拉取模型目录（`GET /v1/models`）， 让你从下拉列表中选择，而无需手动输入 id。
 - ➕ **添加自定义服务商** —— **表格编辑器**（*Manage custom providers…*）可添加目录中没有的任意服务商； 自定义项以 `(custom)` 标记出现在 *Add provider* 菜单中。由 `customProviders` 设置存储。
 - 🔐 **密钥安全** —— API 密钥存储在 VS Code **SecretStorage** 中，而非 `settings.json`；编辑器中以掩码显示。
