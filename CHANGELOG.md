@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.4
+
+- **Provider:** added **Xiaomi MiMo** to the built-in catalog (api.xiaomimimo.com/anthropic,
+  mimo-v2.5-pro / mimo-v2-pro / mimo-v2-flash defaults).
+- **Docs:** rewrote README from scratch — restructured around the status bar (main switching surface)
+  and four core scenarios, removed the *How it compares* section, added missing settings to the table,
+  aligned RU/ZH sections with EN, switched to an English screenshot.
+
 ## 0.7.3
 
 - **Docs:** removed the stale `row ▶ (inline)` from the *Switch to* row of the provider-management table
