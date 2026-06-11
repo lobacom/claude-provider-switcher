@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.5
+
+- **Docs:** scenario 4 clarified (EN/RU/ZH) — parallel providers work in Claude Code *tabs of the same
+  VS Code window*, not only across separate windows.
+- **Marketplace:** added the `AI` category and expanded keywords to match the current catalog
+  (DeepSeek, Kimi, MiniMax, Qwen, GLM/Zhipu, Xiaomi MiMo, OpenRouter, Ollama, LM Studio, llama.cpp,
+  vLLM, …).
+
 ## 0.7.4
 
 - **Provider:** added **Xiaomi MiMo** to the built-in catalog (api.xiaomimimo.com/anthropic,

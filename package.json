@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -14,6 +14,7 @@
     "vscode": "^1.83.0"
   },
   "categories": [
+    "AI",
     "Other"
   ],
   "keywords": [
@@ -21,7 +22,25 @@
     "claude code",
     "anthropic",
     "provider",
-    "litellm"
+    "switcher",
+    "model switcher",
+    "llm",
+    "gateway",
+    "litellm",
+    "openrouter",
+    "deepseek",
+    "kimi",
+    "moonshot",
+    "minimax",
+    "qwen",
+    "glm",
+    "zhipu",
+    "xiaomi mimo",
+    "ollama",
+    "lm studio",
+    "llama.cpp",
+    "vllm",
+    "local llm"
   ],
   "activationEvents": [
     "onStartupFinished"
