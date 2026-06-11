@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -75,8 +75,18 @@
       "properties": {
         "claudeProviderSwitcher.language": {
           "type": "string",
-          "enum": ["auto", "en", "ru", "zh"],
-          "enumItemLabels": ["Auto (follow VS Code)", "English", "Русский", "中文"],
+          "enum": [
+            "auto",
+            "en",
+            "ru",
+            "zh"
+          ],
+          "enumItemLabels": [
+            "Auto (follow VS Code)",
+            "English",
+            "Русский",
+            "中文"
+          ],
           "enumDescriptions": [
             "Follow VS Code's display language, falling back to English.",
             "English.",
@@ -89,8 +99,14 @@
         },
         "claudeProviderSwitcher.switchAction": {
           "type": "string",
-          "enum": ["switch", "switchAndReload"],
-          "enumItemLabels": ["Switch provider", "Switch provider & reload window"],
+          "enum": [
+            "switch",
+            "switchAndReload"
+          ],
+          "enumItemLabels": [
+            "Switch provider",
+            "Switch provider & reload window"
+          ],
           "enumDescriptions": [
             "Switch the provider, then remind you to restart the session (new chat / Reload Window).",
             "Switch the provider and immediately reload the window so the next Claude Code session starts against the new provider."
@@ -202,7 +218,10 @@
         },
         "claudeProviderSwitcher.healthCheck": {
           "type": "string",
-          "enum": ["manual", "periodic"],
+          "enum": [
+            "manual",
+            "periodic"
+          ],
           "enumDescriptions": [
             "Only check reachability when you run the Check provider health command (default).",
             "Check all providers automatically on a timer (see healthCheckIntervalMinutes)."
@@ -219,65 +238,269 @@
       }
     },
     "commands": [
-      { "command": "claudeProviderSwitcher.select", "title": "%cmd.select%", "category": "%category%" },
-      { "command": "claudeProviderSwitcher.add", "title": "%cmd.add%", "category": "%category%", "icon": "$(add)" },
-      { "command": "claudeProviderSwitcher.refresh", "title": "%cmd.refresh%", "category": "%category%", "icon": "$(refresh)" },
-      { "command": "claudeProviderSwitcher.switchTo", "title": "%cmd.switchTo%", "category": "%category%", "icon": "$(play)" },
-      { "command": "claudeProviderSwitcher.edit", "title": "%cmd.edit%", "category": "%category%", "icon": "$(pencil)" },
-      { "command": "claudeProviderSwitcher.delete", "title": "%cmd.delete%", "category": "%category%", "icon": "$(trash)" },
-      { "command": "claudeProviderSwitcher.duplicate", "title": "%cmd.duplicate%", "category": "%category%", "icon": "$(copy)" },
-      { "command": "claudeProviderSwitcher.moveUp", "title": "%cmd.moveUp%", "category": "%category%", "icon": "$(arrow-up)" },
-      { "command": "claudeProviderSwitcher.moveDown", "title": "%cmd.moveDown%", "category": "%category%", "icon": "$(arrow-down)" },
-      { "command": "claudeProviderSwitcher.test", "title": "%cmd.test%", "category": "%category%", "icon": "$(pulse)" },
-      { "command": "claudeProviderSwitcher.next", "title": "%cmd.next%", "category": "%category%" },
-      { "command": "claudeProviderSwitcher.previous", "title": "%cmd.previous%", "category": "%category%" },
-      { "command": "claudeProviderSwitcher.export", "title": "%cmd.export%", "category": "%category%", "icon": "$(export)" },
-      { "command": "claudeProviderSwitcher.import", "title": "%cmd.import%", "category": "%category%", "icon": "$(import)" },
-      { "command": "claudeProviderSwitcher.switchToIndex", "title": "%cmd.switchToIndex%", "category": "%category%" },
-      { "command": "claudeProviderSwitcher.pinToWorkspace", "title": "%cmd.pinToWorkspace%", "category": "%category%", "icon": "$(pin)" },
-      { "command": "claudeProviderSwitcher.switchWithFallback", "title": "%cmd.switchWithFallback%", "category": "%category%", "icon": "$(sync)" },
-      { "command": "claudeProviderSwitcher.switchAndReload", "title": "%cmd.switchAndReload%", "category": "%category%", "icon": "$(debug-restart)" },
-      { "command": "claudeProviderSwitcher.checkHealth", "title": "%cmd.checkHealth%", "category": "%category%", "icon": "$(heart)" },
-      { "command": "claudeProviderSwitcher.manageCustomProviders", "title": "%cmd.manageCustomProviders%", "category": "%category%", "icon": "$(table)" }
+      {
+        "command": "claudeProviderSwitcher.select",
+        "title": "%cmd.select%",
+        "category": "%category%"
+      },
+      {
+        "command": "claudeProviderSwitcher.add",
+        "title": "%cmd.add%",
+        "category": "%category%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "claudeProviderSwitcher.refresh",
+        "title": "%cmd.refresh%",
+        "category": "%category%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchTo",
+        "title": "%cmd.switchTo%",
+        "category": "%category%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "claudeProviderSwitcher.edit",
+        "title": "%cmd.edit%",
+        "category": "%category%",
+        "icon": "$(pencil)"
+      },
+      {
+        "command": "claudeProviderSwitcher.delete",
+        "title": "%cmd.delete%",
+        "category": "%category%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "claudeProviderSwitcher.duplicate",
+        "title": "%cmd.duplicate%",
+        "category": "%category%",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "claudeProviderSwitcher.moveUp",
+        "title": "%cmd.moveUp%",
+        "category": "%category%",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "claudeProviderSwitcher.moveDown",
+        "title": "%cmd.moveDown%",
+        "category": "%category%",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "claudeProviderSwitcher.test",
+        "title": "%cmd.test%",
+        "category": "%category%",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "claudeProviderSwitcher.next",
+        "title": "%cmd.next%",
+        "category": "%category%"
+      },
+      {
+        "command": "claudeProviderSwitcher.previous",
+        "title": "%cmd.previous%",
+        "category": "%category%"
+      },
+      {
+        "command": "claudeProviderSwitcher.export",
+        "title": "%cmd.export%",
+        "category": "%category%",
+        "icon": "$(export)"
+      },
+      {
+        "command": "claudeProviderSwitcher.import",
+        "title": "%cmd.import%",
+        "category": "%category%",
+        "icon": "$(import)"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchToIndex",
+        "title": "%cmd.switchToIndex%",
+        "category": "%category%"
+      },
+      {
+        "command": "claudeProviderSwitcher.pinToWorkspace",
+        "title": "%cmd.pinToWorkspace%",
+        "category": "%category%",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchWithFallback",
+        "title": "%cmd.switchWithFallback%",
+        "category": "%category%",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchAndReload",
+        "title": "%cmd.switchAndReload%",
+        "category": "%category%",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "claudeProviderSwitcher.checkHealth",
+        "title": "%cmd.checkHealth%",
+        "category": "%category%",
+        "icon": "$(heart)"
+      },
+      {
+        "command": "claudeProviderSwitcher.manageCustomProviders",
+        "title": "%cmd.manageCustomProviders%",
+        "category": "%category%",
+        "icon": "$(table)"
+      }
     ],
     "menus": {
       "view/title": [
-        { "command": "claudeProviderSwitcher.add", "when": "view == claudeProviderSwitcher.view", "group": "navigation@1" },
-        { "command": "claudeProviderSwitcher.refresh", "when": "view == claudeProviderSwitcher.view", "group": "navigation@2" },
-        { "command": "claudeProviderSwitcher.checkHealth", "when": "view == claudeProviderSwitcher.view", "group": "navigation@3" },
-        { "command": "claudeProviderSwitcher.manageCustomProviders", "when": "view == claudeProviderSwitcher.view", "group": "1_io@1" },
-        { "command": "claudeProviderSwitcher.import", "when": "view == claudeProviderSwitcher.view", "group": "1_io@2" },
-        { "command": "claudeProviderSwitcher.export", "when": "view == claudeProviderSwitcher.view", "group": "1_io@3" }
+        {
+          "command": "claudeProviderSwitcher.add",
+          "when": "view == claudeProviderSwitcher.view",
+          "group": "navigation@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.refresh",
+          "when": "view == claudeProviderSwitcher.view",
+          "group": "navigation@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.checkHealth",
+          "when": "view == claudeProviderSwitcher.view",
+          "group": "navigation@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.manageCustomProviders",
+          "when": "view == claudeProviderSwitcher.view",
+          "group": "1_io@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.import",
+          "when": "view == claudeProviderSwitcher.view",
+          "group": "1_io@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.export",
+          "when": "view == claudeProviderSwitcher.view",
+          "group": "1_io@3"
+        }
       ],
       "view/item/context": [
-        { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@2" },
-        { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@3" },
-        { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "inline@4" },
-        { "command": "claudeProviderSwitcher.switchTo", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "0_switch@1" },
-        { "command": "claudeProviderSwitcher.switchAndReload", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "0_switch@2" },
-        { "command": "claudeProviderSwitcher.edit", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@1" },
-        { "command": "claudeProviderSwitcher.duplicate", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@2" },
-        { "command": "claudeProviderSwitcher.test", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@3" },
-        { "command": "claudeProviderSwitcher.pinToWorkspace", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@4" },
-        { "command": "claudeProviderSwitcher.switchWithFallback", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "1_edit@5" },
-        { "command": "claudeProviderSwitcher.moveUp", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@1" },
-        { "command": "claudeProviderSwitcher.moveDown", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "2_order@2" },
-        { "command": "claudeProviderSwitcher.delete", "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile", "group": "3_danger@1" }
+        {
+          "command": "claudeProviderSwitcher.test",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "inline@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.edit",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "inline@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.delete",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "inline@4"
+        },
+        {
+          "command": "claudeProviderSwitcher.switchTo",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "0_switch@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.switchAndReload",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "0_switch@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.edit",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.duplicate",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.test",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "1_edit@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.pinToWorkspace",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "1_edit@4"
+        },
+        {
+          "command": "claudeProviderSwitcher.switchWithFallback",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "1_edit@5"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveUp",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "2_order@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveDown",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "2_order@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.delete",
+          "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
+          "group": "3_danger@1"
+        }
       ],
       "commandPalette": [
-        { "command": "claudeProviderSwitcher.switchTo", "when": "false" },
-        { "command": "claudeProviderSwitcher.edit", "when": "false" },
-        { "command": "claudeProviderSwitcher.delete", "when": "false" },
-        { "command": "claudeProviderSwitcher.duplicate", "when": "false" },
-        { "command": "claudeProviderSwitcher.moveUp", "when": "false" },
-        { "command": "claudeProviderSwitcher.moveDown", "when": "false" },
-        { "command": "claudeProviderSwitcher.test", "when": "false" },
-        { "command": "claudeProviderSwitcher.refresh", "when": "false" }
+        {
+          "command": "claudeProviderSwitcher.switchTo",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.edit",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.delete",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.duplicate",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveUp",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveDown",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.test",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.refresh",
+          "when": "false"
+        }
       ]
     },
     "keybindings": [
-      { "command": "claudeProviderSwitcher.next", "key": "ctrl+alt+]", "mac": "cmd+alt+]" },
-      { "command": "claudeProviderSwitcher.previous", "key": "ctrl+alt+[", "mac": "cmd+alt+[" }
+      {
+        "command": "claudeProviderSwitcher.next",
+        "key": "ctrl+alt+]",
+        "mac": "cmd+alt+]"
+      },
+      {
+        "command": "claudeProviderSwitcher.previous",
+        "key": "ctrl+alt+[",
+        "mac": "cmd+alt+["
+      }
     ]
   }
 }

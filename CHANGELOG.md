@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.6
+
+- **Internal:** split the ~1900-line `extension.js` monolith into 17 focused modules under `src/`
+  (profiles, providers, http, switching, editor, crud, transfer, pinning, health, badges, statusbar,
+  tree, customProviders, keybindings, constants, i18n, and a thin `extension` entry point). No
+  behaviour change — done for readability. Also removed a dead `readKeybindingsFile` helper.
+
 ## 0.7.5
 
 - **Docs:** scenario 4 clarified (EN/RU/ZH) — parallel providers work in Claude Code *tabs of the same
