@@ -1,11 +1,19 @@
 # TODO / Backlog
 
-- Usage statistics — count switches / time spent per provider, surface in the
-  status-bar tooltip (and maybe a tree badge).
+_(empty — add the next idea here)_
 
 ---
 
 ## Done
+- Usage statistics — per-provider switch count + active time, banked in
+  globalState (heartbeat + on-switch), shown in the sidebar/status-bar tooltip
+  (📊 line, gated by `showUsageStats`); `Reset usage statistics` command clears it.
+- Token statistics — per-provider token usage for **today / last 7 days** (🔢 line)
+  read from Claude Code's `~/.claude/projects/*.jsonl` transcripts and attributed via
+  a switch timeline (session start → active provider). Bucketed by day **and model**,
+  so each mapped Opus/Sonnet/Haiku line shows its own usage in parentheses (matched by
+  the transcript `model` field). Incremental scan, deduped by requestId, gated by
+  `showTokenStats`. See `src/tokens.js`.
 - Mirror the active provider into `~/.claude/settings.json` (CLI config) — opt-in
   `writeClaudeSettings`; merges only the managed env keys, preserves the rest.
 - Switch & reload window — one command switches and reloads so a new Claude Code

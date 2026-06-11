@@ -64,6 +64,7 @@ const STRINGS = {
     field_opus: 'Opus model',
     field_sonnet: 'Sonnet model',
     field_haiku: 'Haiku model',
+    field_fable: 'Fable model (empty = same as Opus)',
     field_timeout: 'API timeout (ms, optional)',
     field_extraEnv: 'Extra environment variables',
 
@@ -177,6 +178,19 @@ const STRINGS = {
     tip_fallback: 'Fallback: {name}',
     tip_gatewayNote: 'Gateway: the model comes from the `ANTHROPIC_DEFAULT_*_MODEL` mapping (it shows in `/model` as Custom Opus/Sonnet/Haiku). After switching, start a **new chat** — a resumed chat keeps its previous model.',
 
+    // usage statistics
+    tip_usage: '📊 Switches: {switches} · Active: {time}',
+    tip_tokens: '🔢 Tokens (in+out) — today: {today} · 7 days: {week}',
+    tip_tokensBreakdown: '   7d: {in} in · {out} out · {cache} cached',
+    tip_modelTokens: '(today {today} · 7d {week})',
+    tip_fableDefaulted: ' *(= opus)*',
+    usage_h: 'h',
+    usage_m: 'm',
+    usage_lessMin: '<1m',
+    resetUsageConfirm: 'Reset all usage statistics (switch counts, active time and token totals)?',
+    resetUsageConfirmYes: 'Reset',
+    resetUsageDone: 'Usage statistics reset',
+
     // status bar
     statusDefault: 'Claude (default)',
     statusTooltipDefault: 'Claude provider — click to switch',
@@ -248,6 +262,7 @@ const STRINGS = {
     field_opus: 'Модель Opus',
     field_sonnet: 'Модель Sonnet',
     field_haiku: 'Модель Haiku',
+    field_fable: 'Модель Fable (пусто = как Opus)',
     field_timeout: 'Таймаут API (мс, необязательно)',
     field_extraEnv: 'Доп. переменные окружения',
 
@@ -351,6 +366,19 @@ const STRINGS = {
     tip_fallback: 'Резерв: {name}',
     tip_gatewayNote: 'Шлюз: модель берётся из маппинга `ANTHROPIC_DEFAULT_*_MODEL` (видна в `/model` как Custom Opus/Sonnet/Haiku). После переключения начни **новый чат** — возобновлённый держит прежнюю модель.',
 
+    // статистика использования
+    tip_usage: '📊 Переключений: {switches} · Активен: {time}',
+    tip_tokens: '🔢 Токены (вход+выход) — сегодня: {today} · 7 дней: {week}',
+    tip_tokensBreakdown: '   7 дн: {in} вход · {out} выход · {cache} кэш',
+    tip_modelTokens: '(сегодня {today} · 7 дн {week})',
+    tip_fableDefaulted: ' *(= opus)*',
+    usage_h: 'ч',
+    usage_m: 'м',
+    usage_lessMin: '<1 мин',
+    resetUsageConfirm: 'Сбросить всю статистику использования (счётчики переключений, время активности и токены)?',
+    resetUsageConfirmYes: 'Сбросить',
+    resetUsageDone: 'Статистика использования сброшена',
+
     statusDefault: 'Claude (по умолчанию)',
     statusTooltipDefault: 'Провайдер Claude — клик, чтобы переключить',
 
@@ -420,6 +448,7 @@ const STRINGS = {
     field_opus: 'Opus 模型',
     field_sonnet: 'Sonnet 模型',
     field_haiku: 'Haiku 模型',
+    field_fable: 'Fable 模型（留空 = 与 Opus 相同）',
     field_timeout: 'API 超时（毫秒，可选）',
     field_extraEnv: '额外环境变量',
 
@@ -522,6 +551,19 @@ const STRINGS = {
     tip_clickToSwitch: '点击以切换',
     tip_fallback: '回退：{name}',
     tip_gatewayNote: '网关：模型来自 `ANTHROPIC_DEFAULT_*_MODEL` 映射（在 `/model` 中显示为 Custom Opus/Sonnet/Haiku）。切换后请新建对话 —— 恢复的对话会沿用之前的模型。',
+
+    // 使用统计
+    tip_usage: '📊 切换次数：{switches} · 活跃时长：{time}',
+    tip_tokens: '🔢 Tokens（输入+输出）—— 今天：{today} · 7 天：{week}',
+    tip_tokensBreakdown: '   7 天：{in} 输入 · {out} 输出 · {cache} 缓存',
+    tip_modelTokens: '（今天 {today} · 7 天 {week}）',
+    tip_fableDefaulted: ' *(= opus)*',
+    usage_h: '小时',
+    usage_m: '分钟',
+    usage_lessMin: '<1 分钟',
+    resetUsageConfirm: '重置所有使用统计（切换次数、活跃时长和 token 总量）？',
+    resetUsageConfirmYes: '重置',
+    resetUsageDone: '使用统计已重置',
 
     statusDefault: 'Claude（默认）',
     statusTooltipDefault: 'Claude 服务商 —— 点击切换',

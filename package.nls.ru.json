@@ -22,5 +22,6 @@
   "cmd.switchWithFallback": "Переключиться с резервом",
   "cmd.switchAndReload": "Переключиться и перезагрузить окно",
   "cmd.checkHealth": "Проверить доступность провайдеров",
-  "cmd.manageCustomProviders": "Управление своими провайдерами…"
+  "cmd.manageCustomProviders": "Управление своими провайдерами…",
+  "cmd.resetUsageStats": "Сбросить статистику использования"
 }

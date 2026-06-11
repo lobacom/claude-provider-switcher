@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.7.7",
+  "version": "0.8.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -204,6 +204,16 @@
           "default": true,
           "description": "Show the active-provider indicator in the status bar."
         },
+        "claudeProviderSwitcher.showUsageStats": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show usage statistics (how many times each provider was switched to, and how long it has been active) in the sidebar and status-bar tooltips. Reset them with the \"Reset usage statistics\" command."
+        },
+        "claudeProviderSwitcher.showTokenStats": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show per-provider token usage (today and the last 7 days) in the tooltips, read from Claude Code's session transcripts under `~/.claude/projects` and attributed to whichever provider was active when each session started. Turning this off disables transcript reading entirely. Reset the counters with the \"Reset usage statistics\" command."
+        },
         "claudeProviderSwitcher.writeClaudeSettings": {
           "type": "boolean",
           "default": false,
@@ -361,6 +371,12 @@
         "title": "%cmd.manageCustomProviders%",
         "category": "%category%",
         "icon": "$(table)"
+      },
+      {
+        "command": "claudeProviderSwitcher.resetUsageStats",
+        "title": "%cmd.resetUsageStats%",
+        "category": "%category%",
+        "icon": "$(clear-all)"
       }
     ],
     "menus": {
@@ -394,6 +410,11 @@
           "command": "claudeProviderSwitcher.export",
           "when": "view == claudeProviderSwitcher.view",
           "group": "1_io@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.resetUsageStats",
+          "when": "view == claudeProviderSwitcher.view",
+          "group": "2_usage@1"
         }
       ],
       "view/item/context": [

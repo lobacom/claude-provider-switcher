@@ -9,10 +9,8 @@ const {
   getProfiles,
   cloneProfiles,
   saveProfiles,
-  getActiveEnv,
-  envEqual,
   cachedToken,
-  fullEnv,
+  isActiveProfile,
   setToken,
 } = require('./profiles');
 const { COLOR_CHOICES, colorLabel, badgeTextPrefix } = require('./badges');
@@ -68,6 +66,7 @@ const FIELDS = [
   { key: '__fallback', labelKey: 'field_fallback' },
   { key: 'ANTHROPIC_BASE_URL', labelKey: 'field_baseUrl' },
   { key: 'ANTHROPIC_AUTH_TOKEN', labelKey: 'field_token', secret: true },
+  { key: 'ANTHROPIC_DEFAULT_FABLE_MODEL', labelKey: 'field_fable', model: true },
   { key: 'ANTHROPIC_DEFAULT_OPUS_MODEL', labelKey: 'field_opus', model: true },
   { key: 'ANTHROPIC_DEFAULT_SONNET_MODEL', labelKey: 'field_sonnet', model: true },
   { key: 'ANTHROPIC_DEFAULT_HAIKU_MODEL', labelKey: 'field_haiku', model: true },
@@ -237,7 +236,7 @@ async function editProfileFields(index) {
     // If we're editing the live provider, env/token changes must be re-applied to
     // claudeCode.environmentVariables — otherwise the active link breaks (the
     // status bar falls back to the bare old URL and the active dot disappears).
-    const wasActive = envEqual(fullEnv(p), getActiveEnv());
+    const wasActive = isActiveProfile(p);
     const items = FIELDS.map((f) => ({
       label: fieldLabel(f),
       description: fieldValue(p, f.key) || t('empty'),

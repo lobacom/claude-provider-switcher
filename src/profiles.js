@@ -83,10 +83,17 @@ function cachedToken(p) {
 }
 // The full env applied to Claude Code: the profile's stored env plus its secret
 // token (if any). Used everywhere the pre-SecretStorage code used `p.env` directly.
+// Third-party providers (Base URL set) that map an Opus model get the Fable tier
+// defaulted to the same model — otherwise Claude Code's Fable tier keeps pointing
+// at claude-fable-5, which the provider doesn't serve. Explicit values win; the
+// native subscription (no Base URL) serves Fable itself and needs no mapping.
 function fullEnv(p) {
   const env = { ...((p && p.env) || {}) };
   const tk = cachedToken(p);
   if (tk) env.ANTHROPIC_AUTH_TOKEN = tk;
+  if (env.ANTHROPIC_BASE_URL && env.ANTHROPIC_DEFAULT_OPUS_MODEL && !env.ANTHROPIC_DEFAULT_FABLE_MODEL) {
+    env.ANTHROPIC_DEFAULT_FABLE_MODEL = env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+  }
   return env;
 }
 async function setToken(id, value) {
@@ -128,9 +135,25 @@ async function migrateProfiles() {
   if (changed) await saveProfiles(draft);
 }
 
+// Does `p` match the currently-applied env? Exact match against fullEnv(), plus
+// a legacy form: an env applied by a pre-Fable version lacks the defaulted
+// ANTHROPIC_DEFAULT_FABLE_MODEL key — accept that too, so the active provider
+// stays recognized after the update (the next switch writes the new shape).
+function isActiveProfile(p, cur) {
+  cur = cur || getActiveEnv();
+  const env = fullEnv(p);
+  if (envEqual(env, cur)) return true;
+  if (env.ANTHROPIC_DEFAULT_FABLE_MODEL && !(p.env && p.env.ANTHROPIC_DEFAULT_FABLE_MODEL)) {
+    const legacy = { ...env };
+    delete legacy.ANTHROPIC_DEFAULT_FABLE_MODEL;
+    return envEqual(legacy, cur);
+  }
+  return false;
+}
+
 function activeProfileIndex() {
   const cur = getActiveEnv();
-  return getProfiles().findIndex((p) => envEqual(fullEnv(p), cur));
+  return getProfiles().findIndex((p) => isActiveProfile(p, cur));
 }
 
 module.exports = {
@@ -148,5 +171,6 @@ module.exports = {
   setToken,
   refreshTokenCache,
   migrateProfiles,
+  isActiveProfile,
   activeProfileIndex,
 };

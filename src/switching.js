@@ -17,6 +17,7 @@ const {
 const { badgeTextPrefix } = require('./badges');
 const { httpProbe, probeHealthy } = require('./http');
 const { markRestartPending } = require('./statusbar');
+const { recordUsageSwitch } = require('./usage');
 
 // Mirror the active env into Claude Code's CLI config at ~/.claude/settings.json,
 // under its `env` key — so a `claude` run in a plain terminal (outside the VS Code
@@ -75,6 +76,7 @@ async function writeActiveEnv(env) {
 async function applyProfile(p) {
   if (!p) return;
   await writeActiveEnv(fullEnv(p));
+  await recordUsageSwitch(p.id);
   markRestartPending();
   vscode.window.setStatusBarMessage(t('applyMessage', { name: p.name }), 5000);
 }

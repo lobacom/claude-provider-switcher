@@ -7,7 +7,7 @@
 const vscode = require('vscode');
 const { t } = require('./i18n');
 const { SELF } = require('./constants');
-const { getProfiles, getActiveEnv, envEqual, fullEnv, resolveIndex } = require('./profiles');
+const { getProfiles, isActiveProfile, resolveIndex } = require('./profiles');
 const { badgeTextPrefix } = require('./badges');
 const { applyProfile, switchProfile } = require('./switching');
 
@@ -39,7 +39,7 @@ async function applyPinnedProfile() {
   if (!id) return;
   const p = getProfiles().find((x) => x.id === id);
   if (!p) return; // pinned profile was deleted
-  if (envEqual(fullEnv(p), getActiveEnv())) return; // already active
+  if (isActiveProfile(p)) return; // already active
   await switchProfile(p);
 }
 

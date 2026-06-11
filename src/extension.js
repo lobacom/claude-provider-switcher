@@ -12,6 +12,7 @@ const {
   refreshTokenCache,
   migrateProfiles,
   resolveIndex,
+  activeProfileIndex,
 } = require('./profiles');
 const { loadBundledProviders } = require('./providers');
 const { initBadges } = require('./badges');
@@ -32,6 +33,19 @@ const { restartHealthTimer, disposeHealthTimer, checkHealthCommand, testProfile 
 const { manageCustomProviders, relocalizeCustomProvidersPanel } = require('./customProviders');
 const { syncKeybindings } = require('./keybindings');
 const { ProfilesProvider } = require('./tree');
+const { initUsage, resumeUsage, tickUsage, resetUsage } = require('./usage');
+const { initTokens, scanTokens, resetTokens } = require('./tokens');
+
+// Token scanning reads Claude Code's transcripts; gated so users who turn it off
+// pay nothing (no file reads at all).
+function tokenStatsEnabled() {
+  return vscode.workspace.getConfiguration(SELF).get('showTokenStats') !== false;
+}
+
+// Bank the active provider's running time every minute, so totals stay fresh
+// between switches (and survive a crash with at most ~1 minute lost).
+const USAGE_HEARTBEAT_MS = 60000;
+let usageTimer;
 
 // The UI language is driven by the `language` setting (auto | en | ru | zh) so it
 // switches live, independent of VS Code's display language. `auto` follows VS
@@ -52,6 +66,8 @@ function applyLanguage() {
 function activate(context) {
   initSecrets(context.secrets);
   initPinning(context.workspaceState);
+  initUsage(context.globalState);
+  initTokens(context.globalState);
   initBadges(context.extensionUri);
   applyLanguage(); // resolve the UI language before anything renders
   loadBundledProviders(context.extensionUri); // populate the preset catalog from providers.json
@@ -87,6 +103,16 @@ function activate(context) {
   reg('switchAndReload', switchAndReload);
   reg('checkHealth', checkHealthCommand);
   reg('manageCustomProviders', manageCustomProviders);
+  reg('resetUsageStats', async () => {
+    const yes = t('resetUsageConfirmYes');
+    const r = await vscode.window.showWarningMessage(t('resetUsageConfirm'), { modal: true }, yes);
+    if (r !== yes) return;
+    await resetUsage();
+    await resetTokens();
+    provider.refresh();
+    updateStatus();
+    vscode.window.setStatusBarMessage(t('resetUsageDone'), 2500);
+  });
   reg('refresh', () => {
     provider.refresh();
     updateStatus();
@@ -100,6 +126,15 @@ function activate(context) {
     // If this workspace pins a provider, switch to it now (before a Claude Code
     // session starts). Runs after the token cache so fullEnv() matches correctly.
     await applyPinnedProfile();
+    // Resume usage timing for whatever provider is active now (a pin switch above
+    // already counted its switch; this only restarts the active-time clock).
+    const ai = activeProfileIndex();
+    await resumeUsage(ai >= 0 ? getProfiles()[ai].id : undefined);
+    // First token scan (reads transcripts) — after the timeline is seeded so
+    // sessions attribute correctly. Repaint once it's in.
+    if (tokenStatsEnabled()) {
+      await scanTokens();
+    }
     provider.refresh();
     updateStatus();
     // Arm health checks only after the token cache is primed. Otherwise the
@@ -110,6 +145,14 @@ function activate(context) {
 
   // initial sync
   syncKeybindings().then(() => vscode.window.setStatusBarMessage(t('hotkeysSynced'), 2500));
+
+  // Periodically bank the active provider's elapsed time (usage.js) and refresh
+  // token stats (tokens.js — incremental, only re-reads changed transcripts).
+  usageTimer = setInterval(() => {
+    tickUsage();
+    if (tokenStatsEnabled()) scanTokens().then(() => { provider.refresh(); updateStatus(); });
+  }, USAGE_HEARTBEAT_MS);
+  context.subscriptions.push({ dispose: () => clearInterval(usageTimer) });
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -155,6 +198,9 @@ function activate(context) {
 
 function deactivate() {
   disposeHealthTimer();
+  if (usageTimer) clearInterval(usageTimer);
+  // Best-effort final bank of the running segment before the host tears us down.
+  tickUsage();
 }
 
 module.exports = { activate, deactivate };

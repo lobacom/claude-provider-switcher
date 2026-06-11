@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.8.0
+
+- **Fable tier support:** Claude Code added a Fable model tier (`ANTHROPIC_DEFAULT_FABLE_MODEL`).
+  Third-party profiles that map an Opus model now default the Fable tier to the same model on apply —
+  so after switching to e.g. DeepSeek, the model picker's Fable entry no longer points at
+  `claude-fable-5` (which the provider doesn't serve). A new *Fable model* editor field overrides the
+  default; the tooltip shows the mapping (`fable → … (= opus)` when defaulted). The variable is also
+  managed in the CLI mirror.
+
+- **Usage statistics:** every provider now tracks how many times you've switched to it and how long
+  it has been the active one. The counts show up in the sidebar and status-bar tooltips (📊 line).
+  Tracking is local (VS Code `globalState`, never `settings.json`) and active time only accrues while
+  the editor is open. New *Reset usage statistics* command clears it; the `showUsageStats` setting
+  (default on) hides the tooltip line.
+- **Token statistics:** the tooltip also shows per-provider token usage for **today and the last 7
+  days** (🔢 line: input+output headline plus an input / output / cache breakdown), read from Claude
+  Code's session transcripts under `~/.claude/projects` and attributed to whichever provider was active
+  when each session started (the env is frozen at session start, so one session = one provider). Usage
+  is bucketed by day; scanning is incremental (only changed transcripts are re-read) and gated by the
+  new `showTokenStats` setting — turn it off to disable transcript reading entirely. Sessions that
+  predate the extension's switch history aren't attributed (they don't show under any provider). Each
+  mapped model line (Opus/Sonnet/Haiku) also shows its own today/7-day token usage in parentheses,
+  matched by the transcript's `model` field — case-insensitively, and tolerating gateway aliases
+  (a mapping like `flash` matches the echoed `deepseek-v4-flash` when unambiguous). Profiles that map
+  no models (native subscription) instead list the models actually used, busiest first.
+
 ## 0.7.7
 
 - **Project:** open-sourced — the repository is now public on GitHub at

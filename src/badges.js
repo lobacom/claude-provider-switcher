@@ -9,6 +9,9 @@ const { CLAUDE_API_URL } = require('./constants');
 const { normalizeUrl } = require('./http');
 const { allRemotePresets, allLocalPresets } = require('./providers');
 const { getProfiles } = require('./profiles');
+const { usageOf, formatActive } = require('./usage');
+const { tokenWindows, modelsUsed, formatTokens } = require('./tokens');
+const { SELF } = require('./constants');
 
 // Set at activation; needed to resolve bundled logo files under media/providers/.
 let extensionUri;
@@ -127,21 +130,86 @@ function logoDataUri(file) {
   return uri;
 }
 
+// Per-model token suffix: " (today X · 7d Y)" of input+output for a mapped model,
+// or "" when token stats are off or the model has no recorded usage.
+function modelTokenSuffix(p, cfg, modelId) {
+  if (!p.id || !modelId || cfg.get('showTokenStats') === false) return '';
+  const { today, week } = tokenWindows(p.id, modelId);
+  const tIo = today.input + today.output;
+  const wIo = week.input + week.output;
+  if (!wIo && !tIo) return '';
+  return ' ' + t('tip_modelTokens', { today: formatTokens(tIo), week: formatTokens(wIo) });
+}
+
 // Tooltip (Markdown): the provider logo (matched by endpoint) plus name, hotkey,
 // Base URL and the model mapping. Shared by the sidebar rows and the status bar.
 function profileTooltip(p, extraLines) {
   const env = p.env || {};
+  const cfg = vscode.workspace.getConfiguration(SELF);
   const lines = [`**${p.name}**`];
   if (p.hotkey) lines.push(t('tip_hotkey', { hotkey: p.hotkey }));
   lines.push(t('tip_baseUrl', { url: env.ANTHROPIC_BASE_URL || t('nativeSubscriptionParen') }));
-  if (env.ANTHROPIC_DEFAULT_OPUS_MODEL) lines.push('opus → ' + env.ANTHROPIC_DEFAULT_OPUS_MODEL);
-  if (env.ANTHROPIC_DEFAULT_SONNET_MODEL) lines.push('sonnet → ' + env.ANTHROPIC_DEFAULT_SONNET_MODEL);
-  if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL) lines.push('haiku → ' + env.ANTHROPIC_DEFAULT_HAIKU_MODEL);
+  // Fable first — it's the top tier. Explicit mapping, or the opus default
+  // fullEnv() will apply (marked with the defaulted-suffix so the user sees
+  // it's implicit).
+  {
+    const fable = env.ANTHROPIC_DEFAULT_FABLE_MODEL ||
+      (env.ANTHROPIC_BASE_URL && env.ANTHROPIC_DEFAULT_OPUS_MODEL) || '';
+    if (fable) {
+      lines.push('fable → ' + fable +
+        (env.ANTHROPIC_DEFAULT_FABLE_MODEL ? '' : t('tip_fableDefaulted')) +
+        modelTokenSuffix(p, cfg, fable));
+    }
+  }
+  if (env.ANTHROPIC_DEFAULT_OPUS_MODEL) lines.push('opus → ' + env.ANTHROPIC_DEFAULT_OPUS_MODEL + modelTokenSuffix(p, cfg, env.ANTHROPIC_DEFAULT_OPUS_MODEL));
+  if (env.ANTHROPIC_DEFAULT_SONNET_MODEL) lines.push('sonnet → ' + env.ANTHROPIC_DEFAULT_SONNET_MODEL + modelTokenSuffix(p, cfg, env.ANTHROPIC_DEFAULT_SONNET_MODEL));
+  if (env.ANTHROPIC_DEFAULT_HAIKU_MODEL) lines.push('haiku → ' + env.ANTHROPIC_DEFAULT_HAIKU_MODEL + modelTokenSuffix(p, cfg, env.ANTHROPIC_DEFAULT_HAIKU_MODEL));
   if (p.fallbackId) {
     const tgt = getProfiles().find((x) => x.id === p.fallbackId);
     if (tgt) lines.push(t('tip_fallback', { name: tgt.name }));
   }
   if (isGatewayProfile(p)) lines.push(t('tip_gatewayNote'));
+  // Usage stats (switch count + active time), gated by the setting. Only shown
+  // once the provider has actually been used, so untouched rows stay clean.
+  if (p.id && cfg.get('showUsageStats') !== false) {
+    const u = usageOf(p.id);
+    if (u.switches > 0 || u.activeMs > 0) {
+      lines.push(t('tip_usage', { switches: u.switches, time: formatActive(u.activeMs) }));
+    }
+  }
+  // Token totals attributed to this provider from Claude Code's transcripts,
+  // windowed: today + last 7 days. Headline is input+output (the "work" tokens);
+  // the breakdown line carries the (usually dominant) cache numbers.
+  if (p.id && cfg.get('showTokenStats') !== false) {
+    const { today, week } = tokenWindows(p.id);
+    const weekAny = week.input || week.output || week.cacheRead || week.cacheCreate;
+    if (weekAny) {
+      lines.push(t('tip_tokens', {
+        today: formatTokens(today.input + today.output),
+        week: formatTokens(week.input + week.output),
+      }));
+      lines.push(t('tip_tokensBreakdown', {
+        in: formatTokens(week.input),
+        out: formatTokens(week.output),
+        cache: formatTokens(week.cacheRead + week.cacheCreate),
+      }));
+      // No model mapping (native subscription) → no "opus →" lines to annotate;
+      // list the models actually used instead, busiest first, capped to keep the
+      // tooltip compact.
+      if (
+        !env.ANTHROPIC_DEFAULT_OPUS_MODEL &&
+        !env.ANTHROPIC_DEFAULT_SONNET_MODEL &&
+        !env.ANTHROPIC_DEFAULT_HAIKU_MODEL
+      ) {
+        for (const mu of modelsUsed(p.id).slice(0, 4)) {
+          lines.push('   ' + mu.model + ' ' + t('tip_modelTokens', {
+            today: formatTokens(mu.today.input + mu.today.output),
+            week: formatTokens(mu.week.input + mu.week.output),
+          }));
+        }
+      }
+    }
+  }
   if (extraLines) lines.push(...extraLines);
 
   const md = new vscode.MarkdownString();
