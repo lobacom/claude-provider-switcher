@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.7
+
+- **Project:** open-sourced — the repository is now public on GitHub at
+  [lobacom/claude-provider-switcher](https://github.com/lobacom/claude-provider-switcher). Added the
+  `repository`, `homepage` and `bugs` links to the Marketplace listing.
+
 ## 0.7.6
 
 - **Internal:** split the ~1900-line `extension.js` monolith into 17 focused modules under `src/`
