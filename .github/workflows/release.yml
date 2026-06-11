@@ -1,0 +1,59 @@
+name: Release
+
+# Triggered by pushing a version tag, e.g. `git tag v0.7.8 && git push origin v0.7.8`.
+# Builds the .vsix, publishes it to the VS Code Marketplace, then creates a
+# GitHub Release with the .vsix attached and notes taken from CHANGELOG.md.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG"
+            exit 1
+          fi
+
+      - name: Package
+        run: npx --yes @vscode/vsce package -o "claude-provider-switcher-${GITHUB_REF_NAME#v}.vsix"
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --yes @vscode/vsce publish --packagePath "claude-provider-switcher-${GITHUB_REF_NAME#v}.vsix"
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## " v "([ ].*)?$" { f=1; next }
+            f && /^## / { exit }
+            f { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "Release $GITHUB_REF_NAME" > notes.md; fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "claude-provider-switcher-${GITHUB_REF_NAME#v}.vsix" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md
