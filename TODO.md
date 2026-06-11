@@ -1,6 +1,7 @@
 # TODO / Backlog
 
-No planned features outstanding. Add new ideas here.
+- Usage statistics — count switches / time spent per provider, surface in the
+  status-bar tooltip (and maybe a tree badge).
 
 ---
 
