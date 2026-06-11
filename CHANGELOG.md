@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1
+
+- **Docs:** refreshed the Marketplace screenshot to avoid exposing the LiteLLM endpoint URL.
+
 ## 0.8.0
 
 - **Fable tier support:** Claude Code added a Fable model tier (`ANTHROPIC_DEFAULT_FABLE_MODEL`).
