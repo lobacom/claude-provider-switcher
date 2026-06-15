@@ -8,7 +8,7 @@
 // one session = one provider).
 //
 // We keep per-day buckets (not a lifetime total) so the UI can show an actionable
-// window — "today" and "last 7 days" — rather than an ever-growing odometer, and
+// window — "today", "last 7 days" and "last 30 days" — rather than an ever-growing odometer, and
 // a per-model split so each mapped tier (Opus/Sonnet/Haiku) can show its own
 // usage.
 //
@@ -200,49 +200,56 @@ function modelMatcher(days, model) {
   return () => false; // none or ambiguous — show nothing rather than a wrong sum
 }
 
-// Token totals for a provider over the windows we surface: today and the last 7
-// calendar days (today inclusive). When `model` is given, only that model is
-// summed (used for the per-tier breakdown, matched per modelMatcher); otherwise
-// all models are combined.
+// Token totals for a provider over the windows we surface: today, the last 7 and
+// the last 30 calendar days (today inclusive). When `model` is given, only that
+// model is summed (used for the per-tier breakdown, matched per modelMatcher);
+// otherwise all models are combined.
 function tokenWindows(id, model) {
   const days = read().byProvider[id] || {};
   const matches = model ? modelMatcher(days, model) : null;
   const today = dayKey(Date.now());
   const weekStart = dayKey(Date.now() - 6 * 24 * 60 * 60 * 1000);
+  const monthStart = dayKey(Date.now() - 29 * 24 * 60 * 60 * 1000);
   const tWin = ZERO();
   const wWin = ZERO();
+  const mWin = ZERO();
   for (const [k, models] of Object.entries(days)) {
-    if (k < weekStart) continue;
+    if (k < monthStart) continue;
+    const inWeek = k >= weekStart;
     const inToday = k === today;
     for (const [m, t] of Object.entries(models)) {
       if (matches && !matches(m)) continue;
-      addTotals(wWin, t, 1);
+      addTotals(mWin, t, 1);
+      if (inWeek) addTotals(wWin, t, 1);
       if (inToday) addTotals(tWin, t, 1);
     }
   }
-  return { today: tWin, week: wWin };
+  return { today: tWin, week: wWin, month: mWin };
 }
 
-// Models actually recorded for a provider within the 7-day window, with their
-// today/week totals, busiest first. Used for profiles that map no models (native
-// subscription) — there are no opus/sonnet/haiku lines to annotate, so the
+// Models actually recorded for a provider within the 30-day window, with their
+// today/week/month totals, busiest first. Used for profiles that map no models
+// (native subscription) — there are no opus/sonnet/haiku lines to annotate, so the
 // tooltip lists what was really used instead.
 function modelsUsed(id) {
   const days = read().byProvider[id] || {};
   const today = dayKey(Date.now());
   const weekStart = dayKey(Date.now() - 6 * 24 * 60 * 60 * 1000);
-  const map = new Map(); // model → { model, today, week }
+  const monthStart = dayKey(Date.now() - 29 * 24 * 60 * 60 * 1000);
+  const map = new Map(); // model → { model, today, week, month }
   for (const [k, models] of Object.entries(days)) {
-    if (k < weekStart) continue;
+    if (k < monthStart) continue;
+    const inWeek = k >= weekStart;
     for (const [m, t] of Object.entries(models)) {
       let e = map.get(m);
-      if (!e) map.set(m, (e = { model: m, today: ZERO(), week: ZERO() }));
-      addTotals(e.week, t, 1);
+      if (!e) map.set(m, (e = { model: m, today: ZERO(), week: ZERO(), month: ZERO() }));
+      addTotals(e.month, t, 1);
+      if (inWeek) addTotals(e.week, t, 1);
       if (k === today) addTotals(e.today, t, 1);
     }
   }
   return [...map.values()].sort(
-    (a, b) => b.week.input + b.week.output - (a.week.input + a.week.output)
+    (a, b) => b.month.input + b.month.output - (a.month.input + a.month.output)
   );
 }
 

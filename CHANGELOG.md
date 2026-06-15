@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.2
+
+- **Token statistics — 30-day window:** the 🔢 tooltip line now shows usage over **the last 30 days**
+  alongside today and the last 7 days. The input / output / cache breakdown keeps its 7-day line and
+  adds a 30-day line below it (the 7-day line is hidden when there was no activity in the last week).
+  The per-model lines (Opus/Sonnet/Haiku and the native-subscription model list) carry the 30-day
+  figure too. No data migration — the existing per-day buckets already cover it.
+
 ## 0.8.1
 
 - **Docs:** refreshed the Marketplace screenshot to avoid exposing the LiteLLM endpoint URL.

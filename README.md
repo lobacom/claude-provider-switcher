@@ -48,7 +48,7 @@ Pick a provider from the **built-in catalog**: the endpoint is pre-filled and th
 - 🔐 **Secure keys** — API keys are stored in VS Code **SecretStorage**, never in `settings.json`; the editor shows them masked.
 - ⚡ **Test connection** — check that an endpoint is reachable and your API key is accepted, right from the row.
 - 🟢 **Health indicator** — a 🟢/🔴 tint shows each provider's reachability. Refresh on demand (❤ button) or set `healthCheck` to `periodic`. The check uses `GET /v1/models` — **no inference, zero tokens**.
-- 📊 **Usage statistics** — each provider's tooltip shows how many times you switched to it, how long it has been active, and its token usage **today and over the last 7 days** (input / output / cache), including a per-model breakdown next to each mapped Opus/Sonnet/Haiku line. Tokens are read from Claude Code's session transcripts and attributed to whichever provider was active when each session started. Tracked locally (in globalState, not `settings.json`); clear it with *Reset usage statistics*, or hide it with `showUsageStats` / `showTokenStats` (the latter also stops transcript reading).
+- 📊 **Usage statistics** — each provider's tooltip shows how many times you switched to it, how long it has been active, and its token usage **today, over the last 7 days and the last 30 days** (input / output / cache), including a per-model breakdown next to each mapped Opus/Sonnet/Haiku line. Tokens are read from Claude Code's session transcripts and attributed to whichever provider was active when each session started. Tracked locally (in globalState, not `settings.json`); clear it with *Reset usage statistics*, or hide it with `showUsageStats` / `showTokenStats` (the latter also stops transcript reading).
 - 🧪 **Extra environment variables** — set any other variable Claude Code reads (e.g. `ANTHROPIC_CUSTOM_HEADERS`, `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`) per profile, without hand-editing `settings.json`.
 - 📤 **Import / Export** — share or back up your profiles as JSON (keys excluded by default).
 
@@ -218,7 +218,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | `claudeProviderSwitcher.language` | `auto` | UI language for the extension's own menus, notifications, sidebar, status bar and custom-providers table: `auto` / `en` / `ru` / `zh`. `auto` follows VS Code, falling back to English. Switches live. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Show the active-provider indicator in the status bar. |
 | `claudeProviderSwitcher.showUsageStats` | `true` | Show per-provider usage statistics (switch count + active time) in the tooltips. |
-| `claudeProviderSwitcher.showTokenStats` | `true` | Show per-provider token usage (today / last 7 days) in the tooltips, read from Claude Code's transcripts. Off disables transcript reading entirely. |
+| `claudeProviderSwitcher.showTokenStats` | `true` | Show per-provider token usage (today / last 7 days / last 30 days) in the tooltips, read from Claude Code's transcripts. Off disables transcript reading entirely. |
 | `claudeProviderSwitcher.switchAction` | `switch` | What happens on every switch (sidebar click, hotkey, cycle, menu): `switch` — switch the provider, then remind to restart the session; `switchAndReload` — switch and immediately reload the window so the next session picks up the new provider. |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | Also mirror the active provider into the Claude Code **CLI** config at `~/.claude/settings.json` (under `env`), so `claude` in a plain terminal uses the same provider. Only the keys this extension manages are touched; the rest of the file is preserved. Writes the active API key there in plain text. |
 | `claudeProviderSwitcher.showRestartHint` | `true` | After switching, tint the status bar item and remind you the Claude Code session must restart (new chat / Reload Window) to take effect. Clears on reload. |
@@ -277,7 +277,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 - 🔐 **Безопасные ключи** — API-ключи хранятся в **SecretStorage** VS Code, а не в `settings.json`; в редакторе показываются замаскированными.
 - ⚡ **Проверка соединения** — прямо из строки профиля проверить, что эндпоинт доступен и ключ принят.
 - 🟢 **Индикатор здоровья** — цвет 🟢/🔴 показывает доступность каждого провайдера. Обновляй по кнопке (❤) или включи `healthCheck` = `periodic`. Проверка идёт через `GET /v1/models` — **без инференса, ноль токенов**.
-- 📊 **Статистика использования** — в подсказке каждого провайдера видно, сколько раз ты на него переключался, сколько времени он был активен и сколько токенов израсходовано **за сегодня и за 7 дней** (вход / выход / кэш), с разбивкой по моделям рядом с каждой замапленной строкой Opus/Sonnet/Haiku. Токены читаются из транскриптов сессий Claude Code и относятся к тому провайдеру, который был активен на старте сессии. Считается локально (в globalState, не в `settings.json`); сбросить — командой *Сбросить статистику использования*, скрыть — настройками `showUsageStats` / `showTokenStats` (вторая также отключает чтение транскриптов).
+- 📊 **Статистика использования** — в подсказке каждого провайдера видно, сколько раз ты на него переключался, сколько времени он был активен и сколько токенов израсходовано **за сегодня, за 7 дней и за 30 дней** (вход / выход / кэш), с разбивкой по моделям рядом с каждой замапленной строкой Opus/Sonnet/Haiku. Токены читаются из транскриптов сессий Claude Code и относятся к тому провайдеру, который был активен на старте сессии. Считается локально (в globalState, не в `settings.json`); сбросить — командой *Сбросить статистику использования*, скрыть — настройками `showUsageStats` / `showTokenStats` (вторая также отключает чтение транскриптов).
 - 🧪 **Доп. переменные окружения** — задай любую другую переменную, которую читает Claude Code (напр. `ANTHROPIC_CUSTOM_HEADERS`, `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`), на уровне профиля и без ручной правки `settings.json`.
 - 📤 **Импорт / экспорт** — поделиться профилями или сделать бэкап в JSON (ключи по умолчанию исключаются).
 
@@ -381,7 +381,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | `claudeProviderSwitcher.language` | `auto` | Язык интерфейса расширения (меню, уведомления, сайдбар, статус-бар, таблица провайдеров): `auto` / `en` / `ru` / `zh`. `auto` следует языку VS Code с откатом на английский. Переключается на лету. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Показывать индикатор активного провайдера в статус-баре. |
 | `claudeProviderSwitcher.showUsageStats` | `true` | Показывать статистику использования по провайдеру (число переключений + время активности) в подсказках. |
-| `claudeProviderSwitcher.showTokenStats` | `true` | Показывать токены по провайдеру (за сегодня / 7 дней) в подсказках, читая транскрипты Claude Code. Выкл. полностью отключает чтение транскриптов. |
+| `claudeProviderSwitcher.showTokenStats` | `true` | Показывать токены по провайдеру (за сегодня / 7 дней / 30 дней) в подсказках, читая транскрипты Claude Code. Выкл. полностью отключает чтение транскриптов. |
 | `claudeProviderSwitcher.switchAction` | `switch` | Что делать при каждом переключении (клик в сайдбаре, хоткей, цикл, меню): `switch` — переключить и напомнить о перезапуске сессии; `switchAndReload` — переключить и сразу перезагрузить окно, чтобы новая сессия стартовала на новом провайдере. |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | Дублировать активного провайдера в **CLI**-конфиг Claude Code `~/.claude/settings.json` (в ключ `env`), чтобы `claude` в обычном терминале использовал того же провайдера. Трогаются только управляемые расширением ключи; остальное в файле сохраняется. Активный API-ключ пишется туда открытым текстом. |
 | `claudeProviderSwitcher.showRestartHint` | `true` | После переключения подсвечивать индикатор в статус-баре и напоминать, что сессию Claude Code нужно перезапустить (новый чат / Reload Window). Сбрасывается при перезагрузке окна. |
@@ -440,7 +440,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 - 🔐 **密钥安全** —— API 密钥存储在 VS Code **SecretStorage** 中，而非 `settings.json`；编辑器中以掩码显示。
 - ⚡ **测试连接** —— 直接在行内检查端点是否可达、API 密钥是否被接受。
 - 🟢 **健康指示器** —— 用 🟢/🔴 颜色显示每个服务商的可达性。可按需刷新（❤ 按钮），或将 `healthCheck` 设为 `periodic`。检测使用 `GET /v1/models` —— **不触发推理、零 token 消耗**。
-- 📊 **使用统计** —— 每个服务商的悬浮提示会显示你切换到它的次数、它处于活跃状态的时长，以及**今天和最近 7 天**的 token 用量（输入 / 输出 / 缓存），并在每个映射的 Opus/Sonnet/Haiku 行旁显示该模型的细分用量。token 数据读取自 Claude Code 的会话记录，并归属到会话开始时处于活跃状态的服务商。统计在本地进行（存于 globalState，而非 `settings.json`）；可用 *重置使用统计* 命令清除，或用 `showUsageStats` / `showTokenStats` 隐藏（后者还会停止读取会话记录）。
+- 📊 **使用统计** —— 每个服务商的悬浮提示会显示你切换到它的次数、它处于活跃状态的时长，以及**今天、最近 7 天和最近 30 天**的 token 用量（输入 / 输出 / 缓存），并在每个映射的 Opus/Sonnet/Haiku 行旁显示该模型的细分用量。token 数据读取自 Claude Code 的会话记录，并归属到会话开始时处于活跃状态的服务商。统计在本地进行（存于 globalState，而非 `settings.json`）；可用 *重置使用统计* 命令清除，或用 `showUsageStats` / `showTokenStats` 隐藏（后者还会停止读取会话记录）。
 - 🧪 **额外环境变量** —— 按配置设置 Claude Code 读取的任意其他变量（如 `ANTHROPIC_CUSTOM_HEADERS`、 `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY`），无需手动编辑 `settings.json`。
 - 📤 **导入 / 导出** —— 以 JSON 形式分享或备份配置（默认不含密钥）。
 
@@ -540,7 +540,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | `claudeProviderSwitcher.language` | `auto` | 扩展自身界面（菜单、通知、侧边栏、状态栏、自定义服务商表格）的语言：`auto` / `en` / `ru` / `zh`。`auto` 跟随 VS Code，回退到英语。实时切换。 |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | 在状态栏显示当前服务商指示器。 |
 | `claudeProviderSwitcher.showUsageStats` | `true` | 在悬浮提示中显示每个服务商的使用统计（切换次数 + 活跃时长）。 |
-| `claudeProviderSwitcher.showTokenStats` | `true` | 在悬浮提示中显示每个服务商的 token 用量（今天 / 最近 7 天），读取自 Claude Code 的会话记录。关闭后将完全停止读取会话记录。 |
+| `claudeProviderSwitcher.showTokenStats` | `true` | 在悬浮提示中显示每个服务商的 token 用量（今天 / 最近 7 天 / 最近 30 天），读取自 Claude Code 的会话记录。关闭后将完全停止读取会话记录。 |
 | `claudeProviderSwitcher.switchAction` | `switch` | 每次切换（侧边栏点击、快捷键、循环、菜单）时执行的操作：`switch` —— 切换后提醒重启会话；`switchAndReload` —— 切换后立即重新加载窗口，使新会话使用新服务商。 |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | 同时将活动服务商写入 Claude Code **CLI** 配置 `~/.claude/settings.json`（`env` 键），让普通终端中的 `claude` 使用同一服务商。仅修改本扩展管理的键，文件其余内容保持不变。活动 API 密钥会以明文写入该文件。 |
 | `claudeProviderSwitcher.showRestartHint` | `true` | 切换后高亮状态栏项并提醒 Claude Code 会话需要重启（新建对话 / 重新加载窗口）才能生效。重载窗口后清除。 |

@@ -130,15 +130,20 @@ function logoDataUri(file) {
   return uri;
 }
 
-// Per-model token suffix: " (today X · 7d Y)" of input+output for a mapped model,
-// or "" when token stats are off or the model has no recorded usage.
+// Per-model token suffix: " (today X · 7d Y · 30d Z)" of input+output for a mapped
+// model, or "" when token stats are off or the model has no recorded usage.
 function modelTokenSuffix(p, cfg, modelId) {
   if (!p.id || !modelId || cfg.get('showTokenStats') === false) return '';
-  const { today, week } = tokenWindows(p.id, modelId);
+  const { today, week, month } = tokenWindows(p.id, modelId);
   const tIo = today.input + today.output;
   const wIo = week.input + week.output;
-  if (!wIo && !tIo) return '';
-  return ' ' + t('tip_modelTokens', { today: formatTokens(tIo), week: formatTokens(wIo) });
+  const mIo = month.input + month.output;
+  if (!wIo && !tIo && !mIo) return '';
+  return ' ' + t('tip_modelTokens', {
+    today: formatTokens(tIo),
+    week: formatTokens(wIo),
+    month: formatTokens(mIo),
+  });
 }
 
 // Tooltip (Markdown): the provider logo (matched by endpoint) plus name, hotkey,
@@ -178,20 +183,31 @@ function profileTooltip(p, extraLines) {
     }
   }
   // Token totals attributed to this provider from Claude Code's transcripts,
-  // windowed: today + last 7 days. Headline is input+output (the "work" tokens);
-  // the breakdown line carries the (usually dominant) cache numbers.
+  // windowed: today + last 7 + last 30 days. Headline is input+output (the "work"
+  // tokens); two breakdown lines carry the (usually dominant) cache numbers for the
+  // 7-day and 30-day windows. The 7-day line is dropped when there was no activity
+  // in the last week (so it doesn't show a row of zeros under a busy 30-day total).
   if (p.id && cfg.get('showTokenStats') !== false) {
-    const { today, week } = tokenWindows(p.id);
+    const { today, week, month } = tokenWindows(p.id);
     const weekAny = week.input || week.output || week.cacheRead || week.cacheCreate;
-    if (weekAny) {
+    const monthAny = month.input || month.output || month.cacheRead || month.cacheCreate;
+    if (monthAny) {
       lines.push(t('tip_tokens', {
         today: formatTokens(today.input + today.output),
         week: formatTokens(week.input + week.output),
+        month: formatTokens(month.input + month.output),
       }));
-      lines.push(t('tip_tokensBreakdown', {
-        in: formatTokens(week.input),
-        out: formatTokens(week.output),
-        cache: formatTokens(week.cacheRead + week.cacheCreate),
+      if (weekAny) {
+        lines.push(t('tip_tokensBreakdown', {
+          in: formatTokens(week.input),
+          out: formatTokens(week.output),
+          cache: formatTokens(week.cacheRead + week.cacheCreate),
+        }));
+      }
+      lines.push(t('tip_tokensBreakdown30', {
+        in: formatTokens(month.input),
+        out: formatTokens(month.output),
+        cache: formatTokens(month.cacheRead + month.cacheCreate),
       }));
       // No model mapping (native subscription) → no "opus →" lines to annotate;
       // list the models actually used instead, busiest first, capped to keep the
@@ -205,6 +221,7 @@ function profileTooltip(p, extraLines) {
           lines.push('   ' + mu.model + ' ' + t('tip_modelTokens', {
             today: formatTokens(mu.today.input + mu.today.output),
             week: formatTokens(mu.week.input + mu.week.output),
+            month: formatTokens(mu.month.input + mu.month.output),
           }));
         }
       }

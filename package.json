@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -212,7 +212,7 @@
         "claudeProviderSwitcher.showTokenStats": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Show per-provider token usage (today and the last 7 days) in the tooltips, read from Claude Code's session transcripts under `~/.claude/projects` and attributed to whichever provider was active when each session started. Turning this off disables transcript reading entirely. Reset the counters with the \"Reset usage statistics\" command."
+          "markdownDescription": "Show per-provider token usage (today, the last 7 days and the last 30 days) in the tooltips, read from Claude Code's session transcripts under `~/.claude/projects` and attributed to whichever provider was active when each session started. Turning this off disables transcript reading entirely. Reset the counters with the \"Reset usage statistics\" command."
         },
         "claudeProviderSwitcher.writeClaudeSettings": {
           "type": "boolean",

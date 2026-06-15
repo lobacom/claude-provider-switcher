@@ -180,9 +180,10 @@ const STRINGS = {
 
     // usage statistics
     tip_usage: '📊 Switches: {switches} · Active: {time}',
-    tip_tokens: '🔢 Tokens (in+out) — today: {today} · 7 days: {week}',
+    tip_tokens: '🔢 Tokens (in+out) — today: {today} · 7 days: {week} · 30 days: {month}',
     tip_tokensBreakdown: '   7d: {in} in · {out} out · {cache} cached',
-    tip_modelTokens: '(today {today} · 7d {week})',
+    tip_tokensBreakdown30: '   30d: {in} in · {out} out · {cache} cached',
+    tip_modelTokens: '(today {today} · 7d {week} · 30d {month})',
     tip_fableDefaulted: ' *(= opus)*',
     usage_h: 'h',
     usage_m: 'm',
@@ -368,9 +369,10 @@ const STRINGS = {
 
     // статистика использования
     tip_usage: '📊 Переключений: {switches} · Активен: {time}',
-    tip_tokens: '🔢 Токены (вход+выход) — сегодня: {today} · 7 дней: {week}',
+    tip_tokens: '🔢 Токены (вход+выход) — сегодня: {today} · 7 дней: {week} · 30 дней: {month}',
     tip_tokensBreakdown: '   7 дн: {in} вход · {out} выход · {cache} кэш',
-    tip_modelTokens: '(сегодня {today} · 7 дн {week})',
+    tip_tokensBreakdown30: '   30 дн: {in} вход · {out} выход · {cache} кэш',
+    tip_modelTokens: '(сегодня {today} · 7 дн {week} · 30 дн {month})',
     tip_fableDefaulted: ' *(= opus)*',
     usage_h: 'ч',
     usage_m: 'м',
@@ -554,9 +556,10 @@ const STRINGS = {
 
     // 使用统计
     tip_usage: '📊 切换次数：{switches} · 活跃时长：{time}',
-    tip_tokens: '🔢 Tokens（输入+输出）—— 今天：{today} · 7 天：{week}',
+    tip_tokens: '🔢 Tokens（输入+输出）—— 今天：{today} · 7 天：{week} · 30 天：{month}',
     tip_tokensBreakdown: '   7 天：{in} 输入 · {out} 输出 · {cache} 缓存',
-    tip_modelTokens: '（今天 {today} · 7 天 {week}）',
+    tip_tokensBreakdown30: '   30 天：{in} 输入 · {out} 输出 · {cache} 缓存',
+    tip_modelTokens: '（今天 {today} · 7 天 {week} · 30 天 {month}）',
     tip_fableDefaulted: ' *(= opus)*',
     usage_h: '小时',
     usage_m: '分钟',
