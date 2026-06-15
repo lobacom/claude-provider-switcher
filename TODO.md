@@ -1,6 +1,10 @@
 # TODO / Backlog
 
-_(empty — add the next idea here)_
+- Bump GitHub Actions versions in `.github/workflows/release.yml` —
+  `actions/checkout@v4` and `actions/setup-node@v4` run on Node 20, which GitHub
+  is removing from runners on 2026-09-16 (forced to Node 24 from 2026-06-16). Move
+  to Node-24-capable action releases to silence the deprecation warning and avoid
+  future breakage.
 
 ---
 
