@@ -18,10 +18,24 @@ function normalizeUrl(u) {
 // Responses come as { data: [{ id }] }, { models: [...] }, a bare array, or
 // string ids — we accept all of those shapes.
 
+// Some gateways serve the Anthropic API and the model catalog on different paths,
+// so neither `<base>/v1/models` nor the host root finds the list. Worse, a few
+// (Z.ai, Zhipu) answer `<base>/v1/models` with HTTP 200 and an auth-error body,
+// which masquerades as a reachable-but-empty catalog. Map each known Anthropic
+// base to the real catalog endpoint we should probe in addition. `$1` is the host.
+const CATALOG_OVERRIDES = [
+  [/^(https?:\/\/[^/]+)\/api\/anthropic$/, '$1/api/paas/v4/models'],        // GLM family: Z.ai, Zhipu
+  [/^(https?:\/\/[^/]+)\/apps\/anthropic$/, '$1/compatible-mode/v1/models'], // DashScope (Alibaba)
+  [/^(https?:\/\/api\.novita\.ai)\/anthropic$/, '$1/v3/openai/models'],      // Novita
+];
+
 // Candidate model-list URLs for a Base URL, most-specific first.
 function modelListCandidates(baseUrl) {
   const n = normalizeUrl(baseUrl);
   const out = [n + '/v1/models', n + '/models'];
+  for (const [re, repl] of CATALOG_OVERRIDES) {
+    if (re.test(n)) { out.push(n.replace(re, repl)); break; }
+  }
   try {
     const u = new (require('url').URL)(n);
     const root = `${u.protocol}//${u.host}`;

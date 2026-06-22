@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.3
+
+- **Model auto-fetch for split-catalog gateways:** the model picker now finds the catalog on
+  providers that route the Anthropic API and the model list on different paths. **Z.ai** and
+  **Zhipu** serve the list on their OpenAI-compatible `…/api/paas/v4/models`, **DashScope** on
+  `…/compatible-mode/v1/models`, and **Novita** on `…/v3/openai/models` — none of which the old
+  host-root probe reached. These previously failed with a misleading "couldn't list models (no
+  list)"; they now fetch the catalog, or report a clear "needs token" when it's gated behind auth.
+
+- **Updated provider presets:** Z.ai and Zhipu now default the Opus tier to **GLM-5.2** (was
+  `glm-5.1`); both MiniMax profiles map the Sonnet and Haiku tiers to **MiniMax-M2.7** (Opus stays
+  `MiniMax-M3`).
+
 ## 0.8.2
 
 - **Token statistics — 30-day window:** the 🔢 tooltip line now shows usage over **the last 30 days**
