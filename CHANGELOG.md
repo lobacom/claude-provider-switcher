@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.0
 
 - **Terminal app `claude-providers`:** manage the switcher without VS Code — a full-screen menu driven
   by the arrow keys (no numbered items). Switch the `claude` CLI (`~/.claude/settings.json`), the VS
