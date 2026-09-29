@@ -21,6 +21,9 @@
   "engines": {
     "vscode": "^1.83.0"
   },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
   "categories": [
     "AI",
     "Other"
@@ -72,6 +75,11 @@
         {
           "id": "claudeProviderSwitcher.view",
           "name": "%view.name%"
+        },
+        {
+          "id": "claudeProviderSwitcher.codexView",
+          "name": "%view.codexName%",
+          "when": "claudeProviderSwitcher.codexDetected"
         }
       ]
     },
@@ -79,6 +87,10 @@
       {
         "view": "claudeProviderSwitcher.view",
         "contents": "%welcome%"
+      },
+      {
+        "view": "claudeProviderSwitcher.codexView",
+        "contents": "%welcome.codex%"
       }
     ],
     "configuration": {
@@ -202,10 +214,76 @@
             "additionalProperties": false
           }
         },
+        "claudeProviderSwitcher.codexProfiles": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Codex provider profiles, managed via the **Codex** view in the Claude Providers sidebar (or `claude-providers`). Switching writes `model_provider` / `model` / `model_reasoning_effort` and a managed `[model_providers.*]` block into Codex's `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`); the rest of that file is left untouched. API keys are NOT stored here — they live in SecretStorage.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Stable internal id; links the profile to its API key in SecretStorage. Managed automatically."
+              },
+              "name": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string",
+                "description": "Its name in config.toml ([model_providers.<key>]). Assigned on creation."
+              },
+              "color": {
+                "type": "string"
+              },
+              "codex": {
+                "type": "object",
+                "properties": {
+                  "base_url": {
+                    "type": "string",
+                    "description": "OpenAI Responses API endpoint (…/v1). Empty = Codex's built-in OpenAI provider (codex login)."
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "reasoning_effort": {
+                    "type": "string",
+                    "enum": [
+                      "minimal",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh"
+                    ]
+                  },
+                  "http_headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "query_params": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "claudeProviderSwitcher.showStatusBarItem": {
           "type": "boolean",
           "default": true,
           "description": "Show the active-provider indicator in the status bar."
+        },
+        "claudeProviderSwitcher.showCodexStatusBarItem": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the active Codex provider in the status bar (once you have Codex profiles)."
         },
         "claudeProviderSwitcher.showUsageStats": {
           "type": "boolean",
@@ -385,6 +463,52 @@
         "title": "%cmd.resetUsageStats%",
         "category": "%category%",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "claudeProviderSwitcher.selectCodex",
+        "title": "%cmd.selectCodex%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.addCodex",
+        "title": "%cmd.addCodex%",
+        "category": "%category.codex%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "claudeProviderSwitcher.refreshCodex",
+        "title": "%cmd.refreshCodex%",
+        "category": "%category.codex%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchCodexTo",
+        "title": "%cmd.switchCodexTo%",
+        "category": "%category.codex%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "claudeProviderSwitcher.deleteCodex",
+        "title": "%cmd.deleteCodex%",
+        "category": "%category.codex%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "claudeProviderSwitcher.setCodexKey",
+        "title": "%cmd.setCodexKey%",
+        "category": "%category.codex%",
+        "icon": "$(key)"
+      },
+      {
+        "command": "claudeProviderSwitcher.setCodexModel",
+        "title": "%cmd.setCodexModel%",
+        "category": "%category.codex%",
+        "icon": "$(symbol-class)"
+      },
+      {
+        "command": "claudeProviderSwitcher.resetCodex",
+        "title": "%cmd.resetCodex%",
+        "category": "%category.codex%"
       }
     ],
     "menus": {
@@ -423,6 +547,21 @@
           "command": "claudeProviderSwitcher.resetUsageStats",
           "when": "view == claudeProviderSwitcher.view",
           "group": "2_usage@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.addCodex",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.refreshCodex",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.resetCodex",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "1_reset@1"
         }
       ],
       "view/item/context": [
@@ -490,6 +629,41 @@
           "command": "claudeProviderSwitcher.delete",
           "when": "view == claudeProviderSwitcher.view && viewItem == claudeProfile",
           "group": "3_danger@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.setCodexModel",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "inline@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.setCodexKey",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "inline@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.deleteCodex",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "inline@4"
+        },
+        {
+          "command": "claudeProviderSwitcher.switchCodexTo",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "0_switch@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.setCodexModel",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.setCodexKey",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.deleteCodex",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "3_danger@1"
         }
       ],
       "commandPalette": [
@@ -523,6 +697,26 @@
         },
         {
           "command": "claudeProviderSwitcher.refresh",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.switchCodexTo",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.deleteCodex",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.setCodexKey",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.setCodexModel",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.refreshCodex",
           "when": "false"
         }
       ]

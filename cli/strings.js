@@ -95,11 +95,29 @@ Commands:
   current              Print the provider the claude CLI uses
   use <name|#n>        Switch the claude CLI (~/.claude/settings.json)
       --vscode         …also switch the VS Code extension
+  codex list           List Codex providers and which one is active
+  codex current        Print the provider Codex uses
+  codex use <name|#n>  Switch Codex (~/.codex/config.toml: codex CLI + extension)
+  codex default        Give Codex back its own config.toml settings
   help                 Show this help
 
 Options:
   --settings <path>    VS Code settings.json to use (default: auto-detected;
                        env CLAUDE_PROVIDERS_VSCODE_SETTINGS works too)`,
+    // Codex
+    hdr_codex: 'Codex (config.toml):    {name}',
+    codexSep: 'Codex',
+    codex_default: 'default (your own config.toml settings)',
+    mark_codex: '● Codex',
+    menu_addCodex: 'Add Codex provider…',
+    menu_codexReset: 'Codex: back to your own settings',
+    switchedCodex: '✓ Codex → {name}. Start a new Codex session to apply.',
+    codexResetDone: '✓ Codex → your own config.toml settings. Start a new Codex session to apply.',
+    act_switchCodex: 'Switch Codex',
+    act_model: 'Model…',
+    codexNoModel: 'No model — Codex default',
+    codexModelSet: '✓ Model for "{name}" → {model}.',
+    noCodexProfiles: 'No Codex providers yet.',
     cli_notFound: 'No provider matches "{q}".',
     cli_needTty: 'The interactive menu needs a terminal. Use "claude-providers help" for scriptable commands.',
   },
@@ -194,11 +212,29 @@ Options:
   current              Провайдер, который использует claude CLI
   use <имя|#n>         Переключить claude CLI (~/.claude/settings.json)
       --vscode         …и заодно расширение VS Code
+  codex list           Список провайдеров Codex и активный
+  codex current        Провайдер, который использует Codex
+  codex use <имя|#n>   Переключить Codex (~/.codex/config.toml: CLI и расширение)
+  codex default        Вернуть Codex его собственные настройки config.toml
   help                 Эта справка
 
 Параметры:
   --settings <путь>    settings.json VS Code (по умолчанию ищется сам;
                        также переменная CLAUDE_PROVIDERS_VSCODE_SETTINGS)`,
+    // Codex
+    hdr_codex: 'Codex (config.toml):     {name}',
+    codexSep: 'Codex',
+    codex_default: 'по умолчанию (ваши настройки config.toml)',
+    mark_codex: '● Codex',
+    menu_addCodex: 'Добавить провайдера Codex…',
+    menu_codexReset: 'Codex: вернуть ваши настройки',
+    switchedCodex: '✓ Codex → {name}. Начните новую сессию Codex, чтобы применить.',
+    codexResetDone: '✓ Codex → ваши настройки config.toml. Начните новую сессию Codex, чтобы применить.',
+    act_switchCodex: 'Переключить Codex',
+    act_model: 'Модель…',
+    codexNoModel: 'Без модели — по умолчанию Codex',
+    codexModelSet: '✓ Модель для «{name}» → {model}.',
+    noCodexProfiles: 'Провайдеров Codex пока нет.',
     cli_notFound: 'Нет провайдера, подходящего под «{q}».',
     cli_needTty: 'Интерактивному меню нужен терминал. Команды для скриптов: «claude-providers help».',
   },
@@ -293,11 +329,29 @@ Options:
   current              显示 claude CLI 正在使用的服务商
   use <名称|#n>        切换 claude CLI（~/.claude/settings.json）
       --vscode         …同时切换 VS Code 扩展
+  codex list           列出 Codex 服务商及当前激活的服务商
+  codex current        显示 Codex 正在使用的服务商
+  codex use <名称|#n>  切换 Codex（~/.codex/config.toml：CLI 与扩展）
+  codex default        恢复 Codex 自己的 config.toml 设置
   help                 显示此帮助
 
 选项：
   --settings <路径>    要使用的 VS Code settings.json（默认自动查找；
                        也可用环境变量 CLAUDE_PROVIDERS_VSCODE_SETTINGS）`,
+    // Codex
+    hdr_codex: 'Codex (config.toml)： {name}',
+    codexSep: 'Codex',
+    codex_default: '默认（你自己的 config.toml 设置）',
+    mark_codex: '● Codex',
+    menu_addCodex: '添加 Codex 服务商…',
+    menu_codexReset: 'Codex：恢复你自己的设置',
+    switchedCodex: '✓ Codex → {name}。开始新的 Codex 会话以生效。',
+    codexResetDone: '✓ Codex → 你自己的 config.toml 设置。开始新的 Codex 会话以生效。',
+    act_switchCodex: '切换 Codex',
+    act_model: '模型…',
+    codexNoModel: '不指定 — 使用 Codex 默认',
+    codexModelSet: '✓ "{name}" 的模型 → {model}。',
+    noCodexProfiles: '尚无 Codex 服务商。',
     cli_notFound: '没有匹配 "{q}" 的服务商。',
     cli_needTty: '交互式菜单需要终端。可用于脚本的命令见 "claude-providers help"。',
   },

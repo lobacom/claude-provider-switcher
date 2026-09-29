@@ -6,7 +6,7 @@
 
 const vscode = require('vscode');
 const { SELF } = require('./constants');
-const { getProfiles, cachedToken, setToken, isActiveProfile } = require('./profiles');
+const { getProfiles, keyedProfiles, cachedToken, setToken, isActiveProfile } = require('./profiles');
 const { keyDir, readKeyFile, writeKeyFile } = require('./keyfile');
 
 function shareKeysEnabled() {
@@ -18,7 +18,7 @@ function shareKeysEnabled() {
 function exportSharedKeys() {
   if (!shareKeysEnabled()) return;
   const keys = {};
-  for (const p of getProfiles()) if (p.id && cachedToken(p)) keys[p.id] = cachedToken(p);
+  for (const p of keyedProfiles()) if (p.id && cachedToken(p)) keys[p.id] = cachedToken(p);
   try {
     writeKeyFile(keys);
   } catch (e) {
@@ -35,11 +35,12 @@ async function syncSharedKeys({ preferFile, reapply } = {}) {
   if (!shareKeysEnabled()) return false;
   const file = readKeyFile();
   let changed = false;
-  for (const p of getProfiles()) {
+  const claudeIds = new Set(getProfiles().map((p) => p.id)); // Codex keys reach config.toml via the caller
+  for (const p of keyedProfiles()) {
     const fromFile = p.id && file[p.id];
     if (!fromFile || fromFile === cachedToken(p)) continue;
     if (!preferFile && cachedToken(p)) continue;
-    const wasActive = isActiveProfile(p);
+    const wasActive = claudeIds.has(p.id) && isActiveProfile(p);
     await setToken(p.id, fromFile);
     changed = true;
     if (wasActive && reapply) await reapply(p);

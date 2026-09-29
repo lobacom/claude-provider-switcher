@@ -23,5 +23,16 @@
   "cmd.switchAndReload": "切换服务商并重新加载窗口",
   "cmd.checkHealth": "检查服务商可达性",
   "cmd.manageCustomProviders": "管理自定义服务商…",
-  "cmd.resetUsageStats": "重置使用统计"
+  "cmd.resetUsageStats": "重置使用统计",
+  "category.codex": "Codex 服务商",
+  "view.codexName": "Codex",
+  "welcome.codex": "尚无 Codex 服务商。\n[添加 Codex 服务商](command:claudeProviderSwitcher.addCodex)\n\n切换会把服务商写入 `~/.codex/config.toml`，`codex` CLI 和 Codex 扩展都会读取它。",
+  "cmd.selectCodex": "选择 Codex 服务商…",
+  "cmd.addCodex": "添加 Codex 服务商",
+  "cmd.refreshCodex": "刷新",
+  "cmd.switchCodexTo": "将 Codex 切换到此服务商",
+  "cmd.deleteCodex": "删除 Codex 服务商",
+  "cmd.setCodexKey": "设置 API 密钥…",
+  "cmd.setCodexModel": "更换模型…",
+  "cmd.resetCodex": "使用 Codex 默认（你自己的 config.toml 设置）"
 }

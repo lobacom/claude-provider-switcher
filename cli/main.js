@@ -2,8 +2,9 @@
 // An arrow-key menu (no numbered items) over the same profiles VS Code uses:
 // switch the `claude` CLI (and/or the VS Code extension), add / edit / delete /
 // reorder providers, manage API keys, test connections, check health and change
-// the extension's settings — all without VS Code running. A few plain
-// subcommands (list / current / use) cover scripting.
+// the extension's settings — all without VS Code running. It also switches
+// Codex (~/.codex/config.toml, read by the `codex` CLI and the Codex extension).
+// A few plain subcommands (list / current / use, codex …) cover scripting.
 
 const fs = require('fs');
 const os = require('os');
@@ -11,10 +12,11 @@ const path = require('path');
 const tui = require('./tui');
 const jsonc = require('./jsonc');
 const { t, setLang } = require('./strings');
-const { Store, HOTKEYS, uniqueName } = require('./store');
+const { Store, HOTKEYS, uniqueName, firstFreeBadge } = require('./store');
 const { CLAUDE_API_URL, COLOR_CHOICES, MANAGED_ENV_KEYS } = require('../src/constants');
 const { keyFilePath } = require('../src/keyfile');
 const { probeModelsList, httpProbe } = require('../src/http');
+const codex = require('../src/agents/codex');
 
 const { style } = tui;
 let store;
@@ -148,6 +150,8 @@ async function mainMenu() {
         name: fs.existsSync(store.settingsPath) ? envStatus(store.vscodeEnv(), vsIdx, profiles) : t('notFound'),
       }),
     ];
+    const showCodex = codexVisible();
+    if (showCodex) header.push(t('hdr_codex', { name: codexStatus() }));
     if (store.settingsError) {
       header.push(fail(t('parseError', { path: store.settingsPath, msg: store.settingsError })), t('parseErrorHint'));
     }
@@ -172,9 +176,11 @@ async function mainMenu() {
         value: { profile: p.id },
       });
     });
+    if (showCodex) items.push(...codexMenuItems());
     items.push(
       { separator: true, label: '' },
       { label: t('menu_add'), value: 'add' },
+      ...(showCodex ? [{ label: t('menu_addCodex'), value: 'addCodex' }] : []),
       { label: t('menu_health'), value: 'health', disabled: !profiles.length },
       { label: t('menu_settings'), value: 'settings' },
       { label: t('menu_quit'), value: 'quit' }
@@ -193,7 +199,16 @@ async function mainMenu() {
     cursor = res.index;
     const v = res.item.value;
 
-    if (v && v.profile) {
+    if (v && v.codex) {
+      const p = store.codexProfiles().find((x) => x.id === v.codex);
+      const n = res.action === 'actions' ? await codexMenu(p.id) : await switchCodex(p);
+      if (n) notice.push(n);
+    } else if (v === 'codexReset') {
+      notice.push(resetCodex());
+    } else if (v === 'addCodex') {
+      const n = await addCodexProvider();
+      if (n) notice.push(n);
+    } else if (v && v.profile) {
       const p = profiles.find((x) => x.id === v.profile);
       if (res.action === 'actions') {
         const n = await profileMenu(p.id);
@@ -209,6 +224,276 @@ async function mainMenu() {
       await healthCheck();
     } else if (v === 'settings') {
       await settingsMenu();
+    }
+  }
+}
+
+// ---- Codex ------------------------------------------------------------------------
+// Codex profiles (`codexProfiles`) switch ~/.codex/config.toml through the
+// module the extension uses (src/agents/codex.js). One file serves both the
+// `codex` CLI and the Codex extension, so there's no terminal / VS Code split.
+
+function codexDescribe(p) {
+  const c = p.codex || {};
+  return [codex.baseUrl(p) || t('codexBuiltin'), c.model].filter(Boolean).join(' · ');
+}
+function codexStatus() {
+  const id = store.codexActiveId();
+  const p = store.codexProfiles().find((x) => x.id === id);
+  return p ? displayName(p) : t('codex_default');
+}
+// The Codex section shows once Codex is installed (its home exists) or there
+// are Codex profiles.
+function codexVisible() {
+  return store.codexProfiles().length > 0 || fs.existsSync(codex.codexHome());
+}
+function codexMenuItems() {
+  const active = store.codexActiveId();
+  const list = store.codexProfiles();
+  const items = [{ separator: true, label: t('codexSep') }];
+  if (!list.length) items.push({ label: t('noCodexProfiles'), disabled: true });
+  for (const p of list) {
+    const missing = codex.needsKey(p) && !store.codexToken(p);
+    items.push({
+      label: displayName(p),
+      hint: [p.id === active ? style.green(t('mark_codex')) : '', codexDescribe(p), missing ? style.yellow(t('key_missing')) : '']
+        .filter(Boolean).join('  '),
+      value: { codex: p.id },
+    });
+  }
+  if (active) items.push({ label: t('menu_codexReset'), value: 'codexReset' });
+  return items;
+}
+
+// Run a config.toml write; turn a thrown error into a red notice line.
+function guardCodex(fn) {
+  try {
+    return fn();
+  } catch (e) {
+    if (e && ['inlineTable', 'conflict', 'valueType'].includes(e.code)) {
+      return fail(t(`codexErr_${e.code}`, { path: codex.configPath(), detail: e.detail }));
+    }
+    return fail(t('error', { msg: e.message }));
+  }
+}
+
+async function switchCodex(p) {
+  if (codex.needsKey(p) && !store.codexToken(p)) {
+    const v = await tui.prompt({
+      title: t('noKeyTitle', { name: p.name }),
+      header: [style.dim(t('keyNote', { path: keyFilePath() }))],
+      label: t('noKeyLabel'),
+      mask: true,
+      footer: t('footer_input'),
+    });
+    if (v === null) return null;
+    if (v.trim()) store.setToken(p.id, v);
+  }
+  return guardCodex(() => {
+    store.syncCodex(p.id);
+    return ok(t('switchedCodex', { name: p.name }));
+  });
+}
+function resetCodex() {
+  return guardCodex(() => {
+    store.syncCodex(null);
+    return ok(t('codexResetDone'));
+  });
+}
+
+function updateCodexProfile(id, fn) {
+  store.reload();
+  const list = store.codexProfiles();
+  const x = list.find((p) => p.id === id);
+  if (!x) return;
+  fn(x);
+  store.saveCodexProfiles(list);
+}
+
+// Pick a model from the endpoint's list, or type it. '' = Codex's default;
+// null = cancelled.
+async function pickCodexModel(p, token) {
+  const cur = (p.codex && p.codex.model) || '';
+  const title = `${p.name} — ${t('act_model')}`;
+  const manual = async (header) => {
+    const v = await tui.prompt({
+      title,
+      header,
+      label: t('codexModelPrompt', { name: p.name }),
+      value: cur,
+      footer: t('footer_input'),
+    });
+    return v === null ? null : v.trim();
+  };
+  const url = codex.baseUrl(p);
+  if (!url) return manual();
+  const r = await tui.busy(title, t('fetchingModels', { name: p.name }), probeModelsList(url, token));
+  if (!r.ok || !r.models.length) {
+    const reason = !r.reachable ? t('reason_unreachable')
+      : r.auth ? t('reason_auth')
+        : r.serverError ? t('reason_serverError') : t('reason_noList');
+    return manual([style.yellow(t('couldntListModels', { reason }))]);
+  }
+  const items = [
+    { label: t('enterManually'), value: { manual: true } },
+    { label: t('codexNoModel'), value: { v: '' } },
+    { separator: true, label: t('modelsCount', { n: r.models.length }) },
+    ...r.models.map((id) => ({ label: id, hint: id === cur ? t('current') : '', value: { v: id } })),
+  ];
+  const idx = cur ? items.findIndex((x) => x.value && x.value.v === cur) : -1;
+  const res = await tui.select({ title, items, index: idx >= 0 ? idx : 0, footer: t('footer_menu') });
+  if (!res) return null;
+  return res.item.value.manual ? manual() : res.item.value.v;
+}
+
+function bundledCodexPresets() {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'providers.json'), 'utf8'));
+    const c = j.codex || {};
+    return { remote: c.remote || [], local: c.local || [] };
+  } catch {
+    return { remote: [], local: [] };
+  }
+}
+
+async function addCodexProvider() {
+  const b = bundledCodexPresets();
+  const preset = (pr) => ({
+    label: pr.name,
+    hint: (pr.codex && pr.codex.base_url) || '',
+    value: { name: pr.name, codex: { ...(pr.codex || {}) } },
+  });
+  const items = [
+    { label: t('customLabel'), hint: t('codexCustomDesc'), value: { name: 'Custom', codex: {}, custom: true } },
+    { separator: true, label: t('codexSepBuiltin') },
+    { label: t('codexBuiltin'), hint: t('codexBuiltinDesc'), value: { name: 'OpenAI', codex: {} } },
+    { separator: true, label: t('codexSepRemote') },
+    ...b.remote.map(preset),
+    { separator: true, label: t('sepLocal') },
+    ...b.local.map(preset),
+  ];
+  const res = await tui.select({ title: t('codexAddPlaceholder'), items, footer: t('footer_menu') });
+  if (!res) return null;
+  const tpl = res.item.value;
+  const list = store.codexProfiles();
+  const p = {
+    id: require('crypto').randomUUID(),
+    name: uniqueName(tpl.name, list),
+    color: firstFreeBadge(list),
+    codex: tpl.codex,
+  };
+  if (tpl.custom) {
+    const url = await tui.prompt({
+      title: t('codexAddPlaceholder'),
+      label: t('codexBaseUrlPrompt'),
+      placeholder: 'https://host/v1',
+      validate: (v) => (/^https?:\/\/\S+$/i.test(v.trim()) ? '' : t('codexBaseUrlInvalid')),
+      footer: t('footer_input'),
+    });
+    if (url === null) return null;
+    p.codex.base_url = url.trim().replace(/\/+$/, '');
+  }
+  let token = '';
+  if (codex.needsKey(p)) {
+    const v = await tui.prompt({
+      title: p.name,
+      header: [style.dim(t('keyNote', { path: keyFilePath() }))],
+      label: t('keyLabel', { name: p.name }),
+      mask: true,
+      footer: t('footer_input'),
+    });
+    if (v === null) return null;
+    token = v.trim();
+  }
+  const model = await pickCodexModel(p, token);
+  if (model === null) return null;
+  if (model) p.codex.model = model;
+  return guardCodex(() => {
+    codex.assignKey(p, list);
+    list.push(p);
+    store.saveCodexProfiles(list);
+    if (token) store.setToken(p.id, token);
+    store.syncCodex(undefined);
+    return ok(t('added', { name: p.name }));
+  });
+}
+
+async function codexMenu(id) {
+  let cursor = 0;
+  let notice = [];
+  for (;;) {
+    store.reload();
+    const list = store.codexProfiles();
+    const p = list.find((x) => x.id === id);
+    if (!p) return null;
+    const needs = codex.needsKey(p);
+    const items = [
+      { label: t('act_switchCodex'), value: 'switch' },
+      { separator: true, label: '' },
+      { label: t('act_model'), hint: (p.codex && p.codex.model) || t('tip_codexModelDefault'), value: 'model' },
+      { label: t('act_key'), hint: needs ? (store.codexToken(p) ? t('key_set') : t('key_missing')) : '', value: 'key', disabled: !needs },
+      { label: t('act_delete'), value: 'delete' },
+      { separator: true, label: '' },
+      { label: t('back'), value: 'back' },
+    ];
+    const res = await tui.select({
+      title: displayName(p),
+      header: [style.dim(codexDescribe(p)), ...notice],
+      items,
+      index: cursor,
+      footer: t('footer_menu'),
+    });
+    notice = [];
+    if (!res || res.item.value === 'back') return null;
+    cursor = res.index;
+    const a = res.item.value;
+
+    if (a === 'switch') {
+      const n = await switchCodex(p);
+      if (n) return n;
+    } else if (a === 'model') {
+      const m = await pickCodexModel(p, store.codexToken(p));
+      if (m !== null) {
+        notice.push(guardCodex(() => {
+          updateCodexProfile(id, (x) => {
+            x.codex = { ...(x.codex || {}) };
+            if (m) x.codex.model = m;
+            else delete x.codex.model;
+          });
+          store.syncCodex(undefined); // re-applies it when this profile is active
+          return ok(t('codexModelSet', { name: p.name, model: m || t('tip_codexModelDefault') }));
+        }));
+      }
+    } else if (a === 'key') {
+      const v = await tui.prompt({
+        title: displayName(p),
+        header: [style.dim(t('keyNote', { path: keyFilePath() }))],
+        label: t('keyLabel', { name: p.name }),
+        value: store.codexToken(p),
+        mask: true,
+        footer: t('footer_input'),
+      });
+      if (v !== null) {
+        notice.push(guardCodex(() => {
+          store.setToken(p.id, v);
+          store.syncCodex(undefined);
+          return ok(t(v.trim() ? 'keySaved' : 'keyRemoved', { name: p.name }));
+        }));
+      }
+    } else if (a === 'delete') {
+      const yes = await tui.select({
+        title: t('deleteConfirm', { name: p.name }),
+        items: [{ label: t('cancel'), value: false }, { label: t('deleteBtn'), value: true }],
+        footer: t('footer_menu'),
+      });
+      if (yes && yes.item.value) {
+        return guardCodex(() => {
+          store.saveCodexProfiles(list.filter((x) => x.id !== id));
+          if (store.hasStoredToken(p)) store.setToken(id, '');
+          store.syncCodex(undefined); // the active one is gone → the user's own settings return
+          return ok(t('deleted', { name: p.name }));
+        });
+      }
     }
   }
 }
@@ -773,6 +1058,7 @@ function runCommand(cmd, args) {
     console.log(envStatus(store.cliEnv(), store.cliActiveIndex(), profiles));
     return 0;
   }
+  if (cmd === 'codex') return runCodexCommand(args[0], args.slice(1));
   if (cmd === 'use' || cmd === 'switch') {
     const vscode = args.includes('--vscode');
     const q = args.filter((a) => a !== '--vscode').join(' ');
@@ -789,6 +1075,58 @@ function runCommand(cmd, args) {
   }
   console.log(t('usage'));
   return cmd === 'help' || cmd === '--help' || cmd === '-h' ? 0 : 1;
+}
+
+function findCodexProfile(q) {
+  const list = store.codexProfiles();
+  const m = /^#?(\d+)$/.exec(q);
+  if (m) return list[Number(m[1]) - 1];
+  const lq = q.toLowerCase();
+  return list.find((p) => p.name.toLowerCase() === lq) || list.find((p) => p.name.toLowerCase().includes(lq));
+}
+
+// `claude-providers codex list | current | use <name|#n> | default`
+function runCodexCommand(sub, args) {
+  const list = store.codexProfiles();
+  if (sub === 'list' || sub === 'ls') {
+    const active = store.codexActiveId();
+    list.forEach((p, i) => {
+      console.log(`${String(i + 1).padStart(2)}. ${displayName(p)}  ${codexDescribe(p)}${p.id === active ? '  ' + t('mark_codex') : ''}`);
+    });
+    if (!list.length) console.log(t('noCodexProfiles'));
+    return 0;
+  }
+  if (sub === 'current') {
+    console.log(codexStatus());
+    return 0;
+  }
+  if (sub === 'use' || sub === 'switch') {
+    const q = args.join(' ');
+    const p = q && findCodexProfile(q);
+    if (!p) {
+      console.error(t('cli_notFound', { q }));
+      return 1;
+    }
+    const err = guardCodex(() => { store.syncCodex(p.id); return ''; });
+    if (err) {
+      console.error(err);
+      return 1;
+    }
+    if (codex.needsKey(p) && !store.codexToken(p)) console.error(style.yellow(`${t('noKeyTitle', { name: p.name })} — ${t('act_key')}`));
+    console.log(t('switchedCodex', { name: p.name }));
+    return 0;
+  }
+  if (sub === 'default' || sub === 'reset') {
+    const err = guardCodex(() => { store.syncCodex(null); return ''; });
+    if (err) {
+      console.error(err);
+      return 1;
+    }
+    console.log(t('codexResetDone'));
+    return 0;
+  }
+  console.log(t('usage'));
+  return 1;
 }
 
 // ---- entry point -------------------------------------------------------------------

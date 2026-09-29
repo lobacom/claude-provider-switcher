@@ -22,6 +22,7 @@ const { SELF } = require('./constants');
 // mapping. They stay empty until activation if the file can't be read.
 let PROVIDER_PRESETS = []; // hosted Anthropic-compatible gateways
 let LOCAL_PRESETS = [];    // localhost servers (placeholder token baked in)
+let CODEX_PRESETS = { remote: [], local: [] }; // Codex (OpenAI Responses API) endpoints
 
 // Read the bundled catalog once at activation. readFileSync keeps it synchronous
 // so the presets are ready before the first menu/tooltip renders. A malformed or
@@ -34,6 +35,11 @@ function loadBundledProviders(extensionUri) {
     const json = JSON.parse(require('fs').readFileSync(fsPath, 'utf8'));
     PROVIDER_PRESETS = Array.isArray(json.remote) ? json.remote : [];
     LOCAL_PRESETS = Array.isArray(json.local) ? json.local : [];
+    const cx = json.codex || {};
+    CODEX_PRESETS = {
+      remote: Array.isArray(cx.remote) ? cx.remote : [],
+      local: Array.isArray(cx.local) ? cx.local : [],
+    };
   } catch (e) {
     console.warn('claude-provider-switcher: could not load providers.json —', e.message);
   }
@@ -74,4 +80,9 @@ function allLocalPresets() {
   return [...LOCAL_PRESETS, ...getCustomPresets().local];
 }
 
-module.exports = { loadBundledProviders, allRemotePresets, allLocalPresets };
+// The Codex catalog ({ remote, local } of { name, icon, codex: { base_url } }).
+function codexPresets() {
+  return CODEX_PRESETS;
+}
+
+module.exports = { loadBundledProviders, allRemotePresets, allLocalPresets, codexPresets };

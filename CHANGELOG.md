@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- **Codex provider switcher (stage 1 / MVP).** A second switcher for OpenAI **Codex** next to the
+  Claude one: a **Codex** view in the sidebar, a **Codex** status-bar item and a `claude-providers`
+  section (plus `claude-providers codex list | current | use <name|#n> | default`).
+  - Switching writes `model_provider`, `model` and `model_reasoning_effort` into Codex's
+    `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`) — the one file both the `codex` CLI and
+    the Codex IDE extension read — plus a managed `[model_providers.*]` block. The rest of the
+    file is left byte for byte; your own values come back with *Codex default*, and a one-time
+    backup (`config.toml.cps-backup`) is kept before the first write.
+  - Built-in catalog: OpenAI (built-in, `codex login`), OpenAI API, OpenRouter, LM Studio, Ollama,
+    vLLM, or any endpoint that serves the OpenAI **Responses API** (Codex no longer supports
+    Chat Completions). Models can be picked from the endpoint's `/v1/models` list.
+  - API keys are kept in SecretStorage (shared with the terminal app through
+    `shareKeysWithTerminal`); only the active provider's key is written into `config.toml`
+    (`experimental_bearer_token`).
+  - New settings: `codexProfiles`, `showCodexStatusBarItem`.
+
 ## 0.9.1
 
 - **Updated provider presets** to the current model generations (applies to profiles created from

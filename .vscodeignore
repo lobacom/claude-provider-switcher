@@ -5,3 +5,4 @@ TODO.md
 node_modules/**
 media/screenshot.png
 media/screenshots/**
+test/**

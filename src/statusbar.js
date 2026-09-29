@@ -4,16 +4,22 @@
 const vscode = require('vscode');
 const { t } = require('./i18n');
 const { SELF } = require('./constants');
-const { getProfiles, getActiveEnv, activeProfileIndex } = require('./profiles');
+const { getProfiles, getActiveEnv, activeProfileIndex, getCodexProfiles } = require('./profiles');
 const { badgeTextPrefix, profileTooltip } = require('./badges');
 const { healthOf, healthLabel } = require('./health');
+const { codexActiveId, codexTooltip } = require('./codex');
 
 let statusItem;
+let codexItem;
 
 function initStatusBar(context) {
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusItem.command = `${SELF}.select`;
   context.subscriptions.push(statusItem);
+  // Codex gets its own item right next to Claude's, with its own menu.
+  codexItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+  codexItem.command = `${SELF}.selectCodex`;
+  context.subscriptions.push(codexItem);
 }
 
 // Set true on every switch; drives the "restart the session to apply" hint in the
@@ -27,6 +33,7 @@ function markRestartPending() {
 }
 
 function updateStatus() {
+  updateCodexStatus();
   if (!statusItem) return;
   const profiles = getProfiles();
   if (vscode.workspace.getConfiguration(SELF).get('showStatusBarItem') === false || profiles.length === 0) {
@@ -64,6 +71,27 @@ function updateStatus() {
     statusItem.tooltip = profileTooltip({ name: t('statusDefault'), env: { ANTHROPIC_BASE_URL: base || '' } }, restartLines);
   }
   statusItem.show();
+}
+
+// The Codex item: shown once there are Codex profiles (hidden by
+// `showCodexStatusBarItem`); names the provider config.toml uses.
+function updateCodexStatus() {
+  if (!codexItem) return;
+  const profiles = getCodexProfiles();
+  if (vscode.workspace.getConfiguration(SELF).get('showCodexStatusBarItem') === false || profiles.length === 0) {
+    codexItem.hide();
+    return;
+  }
+  const id = codexActiveId();
+  const p = profiles.find((x) => x.id === id);
+  if (p) {
+    codexItem.text = `$(plug) ${t('codexStatus', { name: `${badgeTextPrefix(p.color)}${p.name}` })}`;
+    codexItem.tooltip = codexTooltip(p, ['', t('tip_codexRestart'), '', t('tip_clickToSwitch')]);
+  } else {
+    codexItem.text = `$(plug) ${t('codexStatusDefault')}`;
+    codexItem.tooltip = t('tip_clickToSwitch');
+  }
+  codexItem.show();
 }
 
 module.exports = { initStatusBar, markRestartPending, updateStatus };

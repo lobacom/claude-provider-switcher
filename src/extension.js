@@ -35,10 +35,23 @@ const { exportProfiles, importProfiles } = require('./transfer');
 const { restartHealthTimer, disposeHealthTimer, checkHealthCommand, testProfile } = require('./health');
 const { manageCustomProviders, relocalizeCustomProvidersPanel } = require('./customProviders');
 const { syncKeybindings } = require('./keybindings');
-const { ProfilesProvider } = require('./tree');
+const { ProfilesProvider, CodexProfilesProvider } = require('./tree');
 const { initUsage, resumeUsage, tickUsage, resetUsage } = require('./usage');
 const { initTokens, scanTokens, resetTokens } = require('./tokens');
 const { shareKeysEnabled, exportSharedKeys, syncSharedKeys, watchSharedKeys } = require('./sharedKeys');
+const {
+  onCodexChanged,
+  syncCodex,
+  switchCodexTo,
+  resetCodex,
+  selectCodex,
+  addCodexProfile,
+  deleteCodexProfile,
+  setCodexKey,
+  setCodexModel,
+  updateCodexContext,
+  watchCodexConfig,
+} = require('./codex');
 
 // Token scanning reads Claude Code's transcripts; gated so users who turn it off
 // pay nothing (no file reads at all).
@@ -77,10 +90,20 @@ function activate(context) {
   loadBundledProviders(context.extensionUri); // populate the preset catalog from providers.json
 
   const provider = new ProfilesProvider();
+  const codexProvider = new CodexProfilesProvider();
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider(`${SELF}.view`, provider)
+    vscode.window.registerTreeDataProvider(`${SELF}.view`, provider),
+    vscode.window.registerTreeDataProvider(`${SELF}.codexView`, codexProvider)
   );
   initStatusBar(context);
+  const repaintCodex = () => {
+    codexProvider.refresh();
+    updateStatus();
+  };
+  onCodexChanged(repaintCodex);
+  updateCodexContext();
+  // config.toml edited elsewhere (the terminal app, Codex, by hand) → repaint.
+  context.subscriptions.push(watchCodexConfig(repaintCodex));
 
   const reg = (name, fn) =>
     context.subscriptions.push(vscode.commands.registerCommand(`${SELF}.${name}`, fn));
@@ -121,6 +144,14 @@ function activate(context) {
     provider.refresh();
     updateStatus();
   });
+  reg('selectCodex', selectCodex);
+  reg('addCodex', addCodexProfile);
+  reg('switchCodexTo', switchCodexTo);
+  reg('deleteCodex', deleteCodexProfile);
+  reg('setCodexKey', setCodexKey);
+  reg('setCodexModel', setCodexModel);
+  reg('resetCodex', resetCodex);
+  reg('refreshCodex', repaintCodex);
 
   // Keys shared with the terminal app: pick up edits it makes to the key file.
   // A key that changed on the live provider is re-written into the active env.
@@ -131,6 +162,7 @@ function activate(context) {
     if (keysReady && await syncSharedKeys({ preferFile: true, reapply: reapplyEnv })) {
       provider.refresh();
       updateStatus();
+      syncCodex(undefined); // a new key for the active Codex provider goes into config.toml
     }
   };
   context.subscriptions.push(watchSharedKeys(() => pullSharedKeys()));
@@ -159,7 +191,7 @@ function activate(context) {
       await scanTokens();
     }
     provider.refresh();
-    updateStatus();
+    repaintCodex(); // key status in the Codex tooltips needs the primed cache
     // Arm health checks only after the token cache is primed. Otherwise the
     // first periodic probe races the (async) token load, sends no key, and marks
     // every authed provider as unreachable until the user hits the ❤ button.
@@ -183,6 +215,7 @@ function activate(context) {
       if (e.affectsConfiguration(`${SELF}.language`)) {
         applyLanguage();
         provider.refresh();
+        codexProvider.refresh();
         updateStatus();
         // Re-render the custom-providers table (if open) in the new language.
         relocalizeCustomProvidersPanel();
@@ -202,6 +235,17 @@ function activate(context) {
           pullSharedKeys();
         }
       }
+      // Codex profiles changed (here, in the terminal app or by hand in
+      // settings.json) → rewrite config.toml's managed block to match.
+      if (e.affectsConfiguration(`${SELF}.codexProfiles`)) {
+        updateCodexContext();
+        if (keysReady) {
+          pullSharedKeys();
+          syncCodex(undefined);
+        }
+        repaintCodex();
+      }
+      if (e.affectsConfiguration(`${SELF}.showCodexStatusBarItem`)) updateStatus();
       if (
         e.affectsConfiguration(`${SELF}.healthCheck`) ||
         e.affectsConfiguration(`${SELF}.healthCheckIntervalMinutes`)

@@ -23,5 +23,16 @@
   "cmd.switchAndReload": "Переключиться и перезагрузить окно",
   "cmd.checkHealth": "Проверить доступность провайдеров",
   "cmd.manageCustomProviders": "Управление своими провайдерами…",
-  "cmd.resetUsageStats": "Сбросить статистику использования"
+  "cmd.resetUsageStats": "Сбросить статистику использования",
+  "category.codex": "Провайдер Codex",
+  "view.codexName": "Codex",
+  "welcome.codex": "Провайдеров Codex пока нет.\n[Добавить провайдера Codex](command:claudeProviderSwitcher.addCodex)\n\nПереключение записывает провайдера в `~/.codex/config.toml`, который читают и CLI `codex`, и расширение Codex.",
+  "cmd.selectCodex": "Выбрать провайдера Codex…",
+  "cmd.addCodex": "Добавить провайдера Codex",
+  "cmd.refreshCodex": "Обновить",
+  "cmd.switchCodexTo": "Переключить Codex на этого провайдера",
+  "cmd.deleteCodex": "Удалить провайдера Codex",
+  "cmd.setCodexKey": "Задать API-ключ…",
+  "cmd.setCodexModel": "Сменить модель…",
+  "cmd.resetCodex": "Codex по умолчанию (ваши настройки config.toml)"
 }

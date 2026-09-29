@@ -3,6 +3,8 @@
 //  - VS Code's user settings.json — the profiles, the extension's settings and
 //    `claudeCode.environmentVariables` (the VS Code extension's active env);
 //  - ~/.claude/settings.json — the `env` the `claude` CLI reads;
+//  - Codex's ~/.codex/config.toml — via src/agents/codex.js, shared with the
+//    extension (the `codex` CLI and the Codex extension both read it);
 //  - the shared key file (src/keyfile.js) — API keys, since VS Code's
 //    SecretStorage can't be read from outside the editor.
 
@@ -13,6 +15,7 @@ const crypto = require('crypto');
 const jsonc = require('./jsonc');
 const { SELF, CLAUDE_SECTION, CLAUDE_KEY, MANAGED_ENV_KEYS, COLOR_CHOICES } = require('../src/constants');
 const { readKeyFile, writeKeyFile, keyDir } = require('../src/keyfile');
+const codex = require('../src/agents/codex');
 
 const VSCODE_ENV_KEY = `${CLAUDE_SECTION}.${CLAUDE_KEY}`;
 
@@ -136,6 +139,43 @@ class Store {
   saveProfiles(list) {
     for (const p of list) if (!p.id) p.id = crypto.randomUUID();
     this.set('profiles', list);
+  }
+
+  // ---- Codex ----
+
+  codexProfiles() {
+    const list = this.get('codexProfiles', []);
+    return Array.isArray(list) ? list.filter((p) => p && typeof p === 'object') : [];
+  }
+  // Every profile gets an id (links it to its key). The config.toml key is set
+  // once, when a profile is created (codex.assignKey) — never re-derived here,
+  // or renaming / hand-edited profiles would lose track of the active one.
+  saveCodexProfiles(list) {
+    for (const p of list) if (!p.id) p.id = crypto.randomUUID();
+    this.set('codexProfiles', list);
+  }
+  // A Codex profile's key: the shared key file, else the one config.toml holds
+  // for it (only the active profile has one there).
+  codexToken(p) {
+    if (!p) return '';
+    return (p.id && this.keys[p.id]) || codex.tokenInConfig(p);
+  }
+  codexActiveId() {
+    try {
+      return codex.activeId(this.codexProfiles());
+    } catch {
+      return null;
+    }
+  }
+  // Write config.toml: `activate` = an id, null (back to the user's own
+  // settings) or undefined (keep the active one, refresh the block). Throws a
+  // CodexConfigError on conflicts.
+  syncCodex(activate) {
+    return codex.syncConfig({
+      profiles: this.codexProfiles(),
+      activate,
+      tokenFor: (p) => (p.id && this.keys[p.id]) || '',
+    });
   }
 
   // ---- terminal-app preferences ----

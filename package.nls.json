@@ -23,5 +23,16 @@
   "cmd.switchAndReload": "Switch provider & reload window",
   "cmd.checkHealth": "Check provider health",
   "cmd.manageCustomProviders": "Manage custom providers…",
-  "cmd.resetUsageStats": "Reset usage statistics"
+  "cmd.resetUsageStats": "Reset usage statistics",
+  "category.codex": "Codex Provider",
+  "view.codexName": "Codex",
+  "welcome.codex": "No Codex providers yet.\n[Add Codex provider](command:claudeProviderSwitcher.addCodex)\n\nSwitching writes the provider into Codex's `~/.codex/config.toml`, used by both the `codex` CLI and the Codex extension.",
+  "cmd.selectCodex": "Select Codex provider…",
+  "cmd.addCodex": "Add Codex provider",
+  "cmd.refreshCodex": "Refresh",
+  "cmd.switchCodexTo": "Switch Codex to this provider",
+  "cmd.deleteCodex": "Delete Codex provider",
+  "cmd.setCodexKey": "Set API key…",
+  "cmd.setCodexModel": "Change model…",
+  "cmd.resetCodex": "Use Codex default (your own config.toml settings)"
 }

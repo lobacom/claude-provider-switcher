@@ -17,6 +17,24 @@ function cloneProfiles() {
 async function saveProfiles(list) {
   await vscode.workspace.getConfiguration(SELF).update('profiles', list, vscode.ConfigurationTarget.Global);
 }
+// Codex profiles live in their own list: the Claude code paths (active match,
+// cycling, hotkeys) never see them. Same shape minus `env`, plus `key` (their
+// name in Codex's config.toml) and `codex` ({ base_url, model, … }).
+function getCodexProfiles() {
+  const list = vscode.workspace.getConfiguration(SELF).get('codexProfiles');
+  return Array.isArray(list) ? list.filter((p) => p && typeof p === 'object') : [];
+}
+function cloneCodexProfiles() {
+  return JSON.parse(JSON.stringify(getCodexProfiles()));
+}
+async function saveCodexProfiles(list) {
+  await vscode.workspace.getConfiguration(SELF).update('codexProfiles', list, vscode.ConfigurationTarget.Global);
+}
+// Every profile that can own an API key (Claude and Codex) — keys are stored by
+// profile id, so both lists share SecretStorage and the terminal key file.
+function keyedProfiles() {
+  return [...getProfiles(), ...getCodexProfiles()];
+}
 function getActiveEnv() {
   return vscode.workspace.getConfiguration(CLAUDE_SECTION).get(CLAUDE_KEY) || {};
 }
@@ -116,7 +134,7 @@ async function setToken(id, value) {
 async function refreshTokenCache() {
   if (!secretStorage) return;
   const next = new Map();
-  for (const p of getProfiles()) {
+  for (const p of keyedProfiles()) {
     if (p.id) next.set(p.id, (await secretStorage.get(tokenKey(p.id))) || '');
   }
   tokenCache = next;
@@ -139,6 +157,13 @@ async function migrateProfiles() {
     }
   }
   if (changed) await saveProfiles(draft);
+  // Codex profiles need an id too (their key in SecretStorage and, when no
+  // `key` is set, their name in config.toml derive from it).
+  const codexDraft = cloneCodexProfiles();
+  if (codexDraft.some((p) => !p.id)) {
+    for (const p of codexDraft) if (!p.id) p.id = crypto.randomUUID();
+    await saveCodexProfiles(codexDraft);
+  }
 }
 
 // Does `p` match the currently-applied env? Exact match against fullEnv(), plus
@@ -166,6 +191,10 @@ module.exports = {
   getProfiles,
   cloneProfiles,
   saveProfiles,
+  getCodexProfiles,
+  cloneCodexProfiles,
+  saveCodexProfiles,
+  keyedProfiles,
   getActiveEnv,
   envEqual,
   managedEnvKeys,

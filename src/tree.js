@@ -3,10 +3,11 @@
 const vscode = require('vscode');
 const { t } = require('./i18n');
 const { SELF } = require('./constants');
-const { getProfiles, activeProfileIndex } = require('./profiles');
+const { getProfiles, activeProfileIndex, getCodexProfiles } = require('./profiles');
 const { badgeTextPrefix, profileTooltip } = require('./badges');
 const { healthOf, healthLabel, healthColor } = require('./health');
 const { getPinnedId } = require('./pinning');
+const { codexActiveId, codexTooltip, describe } = require('./codex');
 
 class ProfilesProvider {
   constructor() {
@@ -46,4 +47,29 @@ class ProfilesProvider {
   }
 }
 
-module.exports = { ProfilesProvider };
+// The Codex view: one row per Codex profile; clicking a row switches Codex
+// (config.toml) to it. The filled circle marks the provider config.toml uses.
+class CodexProfilesProvider {
+  constructor() {
+    this._emitter = new vscode.EventEmitter();
+    this.onDidChangeTreeData = this._emitter.event;
+  }
+  refresh() { this._emitter.fire(); }
+  getTreeItem(item) { return item; }
+  getChildren() {
+    const active = codexActiveId();
+    return getCodexProfiles().map((p) => {
+      const it = new vscode.TreeItem(`${badgeTextPrefix(p.color)}${p.name}`);
+      it.id = `codex-${p.id}`;
+      it.profileId = p.id; // command argument (see findCodex)
+      it.contextValue = 'codexProfile';
+      it.description = describe(p);
+      it.iconPath = new vscode.ThemeIcon(p.id === active ? 'pass-filled' : 'circle-large-outline');
+      it.tooltip = codexTooltip(p, p.id === active ? ['', t('tip_codexRestart')] : ['', t('tip_clickToSwitch')]);
+      it.command = { command: `${SELF}.switchCodexTo`, title: 'Switch Codex to this provider', arguments: [p.id] };
+      return it;
+    });
+  }
+}
+
+module.exports = { ProfilesProvider, CodexProfilesProvider };
