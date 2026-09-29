@@ -53,6 +53,10 @@
 - **Codex catalog: Z.ai (GLM).** Z.ai's `devpack/latest-model` documents an OpenAI Responses
   endpoint at `https://api.z.ai/api/v1` for Codex (with `reasoning_effort`). Verified:
   `POST /api/v1/responses` returns 200 with a key requirement error, so the route is live.
+- **Codex catalog: Vercel AI Gateway.** Vercel documents a separate Codex-compatibility endpoint
+  at `https://ai-gateway.vercel.sh/codex/v1` (`wire_api = "responses"`, models in
+  `provider/model` form, `env_key = "AI_GATEWAY_API_KEY"`). Verified: `GET /codex/v1/models`
+  returns 200, `POST /codex/v1/responses` requires auth — so the route is live.
 
 ## 0.9.1
 

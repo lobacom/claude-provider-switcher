@@ -175,6 +175,14 @@
         }
       },
       {
+        "name": "Vercel AI Gateway",
+        "icon": "vercel.png",
+        "codex": {
+          "base_url": "https://ai-gateway.vercel.sh/codex/v1",
+          "model": "openai/gpt-6-astra"
+        }
+      },
+      {
         "name": "OpenAI API",
         "icon": "cloud",
         "codex": { "base_url": "https://api.openai.com/v1" }
