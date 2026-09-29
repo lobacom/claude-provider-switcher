@@ -41,6 +41,16 @@ test('setTopLevel replaces in place and keeps a trailing comment', () => {
   assert.equal(toml.setTopLevel(text, 'profile', '"new"'), 'a = 1\nprofile = "new" # mine\nb = 2\n');
 });
 
+test('setTopLevel puts a new key next to a related one when asked', () => {
+  const text = 'a = 1\nmodel = "m"\nb = 2\n\n[t]\nx = 1\n';
+  assert.equal(toml.setTopLevel(text, 'effort', '"e"', { after: ['nope', 'model'] }), 'a = 1\nmodel = "m"\neffort = "e"\nb = 2\n\n[t]\nx = 1\n');
+  assert.equal(toml.setTopLevel(text, 'first', '"f"', { before: ['model'] }), 'a = 1\nfirst = "f"\nmodel = "m"\nb = 2\n\n[t]\nx = 1\n');
+  // No anchor present: the usual place, before the first table.
+  assert.equal(toml.setTopLevel(text, 'z', '1', { after: ['nope'] }), 'a = 1\nmodel = "m"\nb = 2\nz = 1\n\n[t]\nx = 1\n');
+  // A key inside a table is not an anchor.
+  assert.equal(toml.setTopLevel(text, 'y', '1', { after: ['x'] }), 'a = 1\nmodel = "m"\nb = 2\ny = 1\n\n[t]\nx = 1\n');
+});
+
 test('multi-line arrays and strings do not look like tables or keys', () => {
   const text = [
     'notify = [',

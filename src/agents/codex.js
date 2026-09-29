@@ -361,11 +361,19 @@ function valuesFor(p, previous) {
   };
 }
 
+// `model` and `model_reasoning_effort` are usually the user's own keys, and a
+// third-party profile may remove them; when set again they go back next to each
+// other rather than to the end of the top level.
+const NEIGHBOURS = {
+  model: { before: ['model_reasoning_effort'] },
+  model_reasoning_effort: { after: ['model'] },
+};
+
 function applyValues(text, values) {
   let out = text;
   for (const k of MANAGED_KEYS) {
     out = values[k] !== undefined
-      ? toml.setTopLevel(out, k, toml.tomlString(values[k]))
+      ? toml.setTopLevel(out, k, toml.tomlString(values[k]), NEIGHBOURS[k])
       : toml.removeTopLevel(out, k);
   }
   return out;

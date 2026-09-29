@@ -37,7 +37,7 @@ test('switching sets the top-level keys and the provider tables; keys stay out o
   const r = codex.syncConfig({ profiles: all, activate: 'id-deep', tokenFor });
   assert.equal(r.changed, true);
   const text = read();
-  assert.ok(text.startsWith('# my config\nmodel = "ds-chat"\nmodel_provider = "cps-deepseek"\nmodel_reasoning_effort = "high"\n\n[tui]\nnotifications = true\n'), text);
+  assert.ok(text.startsWith('# my config\nmodel = "ds-chat"\nmodel_reasoning_effort = "high"\nmodel_provider = "cps-deepseek"\n\n[tui]\nnotifications = true\n'), text);
   assert.match(text, /# active-profile = "cps-deepseek"\n# active-provider = "cps-deepseek"\n# previous model = "gpt-5"\n/);
   assert.match(text, /\[model_providers\.cps-deepseek\]\nname = "DeepSeek"\nbase_url = "https:\/\/api\.example\.com\/v1"\nwire_api = "responses"\nauth = \{ command = "(cat|cmd)", args = \[.*id-deep\.key"\] \}/);
   assert.ok(!text.includes('sk-deep'), 'no key in config.toml');
@@ -92,6 +92,15 @@ test('reset restores the user\'s values and removes the ones they did not have',
   assert.equal(codex.activeId(all, text), null);
   assert.ok(!text.includes('previous'));
   assert.match(text, /\[model_providers\.mine\]/);
+});
+
+test('keys a profile removed go back to their old place on reset', () => {
+  const initial = 'sandbox_mode = "x"\n\nmodel = "gpt-5"\nmodel_reasoning_effort = "high"\nservice_tier = "default"\n\nnotify = ["a"]\n\n[tui]\nnotifications = true\n';
+  tempHome(initial);
+  codex.syncConfig({ profiles: all, activate: 'id-oll', tokenFor }); // removes the effort
+  codex.syncConfig({ profiles: all, activate: 'id-oai2', tokenFor }); // puts it back
+  codex.syncConfig({ profiles: all, activate: null, tokenFor });
+  assert.equal(toml.setBlock(read(), codex.BLOCK_BEGIN, codex.BLOCK_END, null), initial);
 });
 
 test('a hand edit of model_provider hands control back to the user', () => {

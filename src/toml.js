@@ -154,9 +154,10 @@ function hasTopLevelKey(text, key) {
 
 // Set a top-level key to an already-serialized TOML value (see tomlString).
 // An existing definition is replaced in place (a trailing comment on its line is
-// kept); a new one goes right before the first table header — never after it,
-// where TOML would read it as a key of that table.
-function setTopLevel(text, key, valueToml) {
+// kept); a new one goes next to a related key (`after` / `before`), else right
+// before the first table header — never after it, where TOML would read it as a
+// key of that table.
+function setTopLevel(text, key, valueToml, { after = [], before = [] } = {}) {
   const sc = scan(text);
   const line = `${tomlKey(key)} = ${valueToml}`;
   const span = topLevelSpan(sc, key);
@@ -165,6 +166,23 @@ function setTopLevel(text, key, valueToml) {
     const comment = span[0] === span[1] ? /(\s+#[^"']*)$/.exec(old) : null;
     sc.lines.splice(span[0], span[1] - span[0] + 1, line + (comment ? comment[1] : ''));
     return sc.lines.join(sc.eol);
+  }
+  // A new key goes next to a related one when present (right after the first of
+  // `after`, else right before the first of `before`), so a key that was removed
+  // and is put back returns to its old place.
+  for (const k of after) {
+    const s = topLevelSpan(sc, k);
+    if (s) {
+      sc.lines.splice(s[1] + 1, 0, line);
+      return sc.lines.join(sc.eol);
+    }
+  }
+  for (const k of before) {
+    const s = topLevelSpan(sc, k);
+    if (s) {
+      sc.lines.splice(s[0], 0, line);
+      return sc.lines.join(sc.eol);
+    }
   }
   const at = firstTableIndex(sc);
   if (at === sc.lines.length) {
