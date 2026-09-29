@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.1
+
+- **Updated provider presets** to the current model generations (applies to profiles created from
+  the *Add provider* menu; existing profiles are not changed):
+  - **Xiaomi MiMo:** `mimo-v2.6-pro` (Opus, Sonnet) / `mimo-v2.6-flash` (Haiku), was
+    `mimo-v2.5-pro` / `mimo-v2-pro` / `mimo-v2-flash`. **Heads-up:** `mimo-v2.5-pro` and `mimo-v2.5`
+    are deprecated on **21 October 2026** — update existing MiMo profiles before then.
+  - **DeepSeek:** Sonnet and Haiku → `deepseek-flash` (V4.1 Flash); `deepseek-v4-flash` is only a
+    temporary alias now. Opus stays `deepseek-v4-pro`.
+  - **Kimi (Moonshot):** all tiers → `kimi-k3` (was `kimi-k2.5`).
+  - **Z.ai / Zhipu:** Opus and Sonnet → `glm-5.3`, Haiku → `glm-5.3-flash` (was `glm-5.2` /
+    `glm-4.7` / `glm-4.5-air`).
+  - **MiniMax (both):** Sonnet and Haiku → `MiniMax-M3` (was `MiniMax-M2.7`).
+  - **Qwen (Alibaba):** `qwen3.8-max` / `qwen3.7-plus` / `qwen3.7-flash` (was `qwen3-max` /
+    `qwen3-coder-plus` / `qwen3.5-flash`).
+
 ## 0.9.0
 
 - **Terminal app `claude-providers`:** manage the switcher without VS Code — a full-screen menu driven
