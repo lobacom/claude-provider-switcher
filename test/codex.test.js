@@ -8,8 +8,11 @@ const toml = require('../src/toml');
 
 function tempHome(initial) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cps-codex-'));
-  process.env.CODEX_HOME = dir;
-  if (initial !== undefined) fs.writeFileSync(path.join(dir, 'config.toml'), initial);
+  process.env.HOME = dir; // key files live under ~/.claude-provider-switcher
+  process.env.USERPROFILE = dir;
+  process.env.CODEX_HOME = path.join(dir, '.codex');
+  fs.mkdirSync(process.env.CODEX_HOME);
+  if (initial !== undefined) fs.writeFileSync(path.join(process.env.CODEX_HOME, 'config.toml'), initial);
   return dir;
 }
 const read = () => fs.readFileSync(codex.configPath(), 'utf8');
@@ -29,14 +32,19 @@ test('assignKey derives a unique slug from the name', () => {
   assert.deepEqual(list.map((p) => p.key), ['cps-open-router', 'cps-open-router-2', 'cps-provider']);
 });
 
-test('switching sets the top-level keys, the provider tables and only the active key', () => {
+test('switching sets the top-level keys and the provider tables; keys stay out of config.toml', () => {
   tempHome('# my config\nmodel = "gpt-5"\n\n[tui]\nnotifications = true\n');
   const r = codex.syncConfig({ profiles: all, activate: 'id-deep', tokenFor });
   assert.equal(r.changed, true);
   const text = read();
   assert.ok(text.startsWith('# my config\nmodel = "ds-chat"\nmodel_provider = "cps-deepseek"\nmodel_reasoning_effort = "high"\n\n[tui]\nnotifications = true\n'), text);
   assert.match(text, /# active-profile = "cps-deepseek"\n# active-provider = "cps-deepseek"\n# previous model = "gpt-5"\n/);
-  assert.match(text, /\[model_providers\.cps-deepseek\]\nname = "DeepSeek"\nbase_url = "https:\/\/api\.example\.com\/v1"\nwire_api = "responses"\nexperimental_bearer_token = "sk-deep"/);
+  assert.match(text, /\[model_providers\.cps-deepseek\]\nname = "DeepSeek"\nbase_url = "https:\/\/api\.example\.com\/v1"\nwire_api = "responses"\nauth = \{ command = "(cat|cmd)", args = \[.*id-deep\.key"\] \}/);
+  assert.ok(!text.includes('sk-deep'), 'no key in config.toml');
+  const keyFile = codex.keyFilePathFor(deepseek);
+  assert.equal(fs.readFileSync(keyFile, 'utf8'), 'sk-deep');
+  if (process.platform !== 'win32') assert.equal(fs.statSync(keyFile).mode & 0o777, 0o600);
+  assert.ok(!/cps-ollama\]\n[^[]*auth =/.test(text), 'no auth for a provider without a key');
   assert.match(text, /\[model_providers\.cps-ollama\]/);
   assert.ok(!/cps-openai\]/.test(text), 'the built-in provider needs no table');
   assert.ok(!/^profile\s*=/m.test(text), 'no legacy profile selector');
@@ -47,7 +55,7 @@ test('switching sets the top-level keys, the provider tables and only the active
   const t2 = read();
   assert.equal(codex.activeId(all), 'id-oll');
   assert.equal(top('model_reasoning_effort', t2), undefined, 'unset effort is removed on a third-party provider');
-  assert.ok(!t2.includes('sk-deep'), 'the inactive key is removed');
+  assert.match(t2, /id-deep\.key/, 'the inactive profile keeps its key (for codex --profile)');
   assert.match(t2, /# previous model = "gpt-5"/, 'previous values survive switches');
   assert.equal(codex.syncConfig({ profiles: all, activate: 'id-oll', tokenFor }).changed, false, 'idempotent');
 });
@@ -108,11 +116,47 @@ test('profile edits re-apply the active profile; deleting it restores the user\'
   assert.equal(read(), 'model = "gpt-5"\n');
 });
 
-test('a client without the key keeps the key already in the file', () => {
+test('a client without the key keeps the key already on disk', () => {
   tempHome('');
   codex.syncConfig({ profiles: all, activate: 'id-deep', tokenFor });
   codex.syncConfig({ profiles: all, activate: undefined, tokenFor: () => '' });
   assert.equal(codex.tokenInConfig(deepseek), 'sk-deep');
+  assert.match(read(), /id-deep\.key/);
+});
+
+test('config mode: only the active key, as experimental_bearer_token; key files removed', () => {
+  tempHome('');
+  codex.syncConfig({ profiles: all, activate: 'id-deep', tokenFor });
+  codex.syncConfig({ profiles: all, activate: undefined, tokenFor, keyStorage: 'config' });
+  const text = read();
+  assert.match(text, /experimental_bearer_token = "sk-deep"/);
+  assert.ok(!/auth = /.test(text));
+  assert.equal(codex.hasKeyFile(deepseek), false);
+  codex.syncConfig({ profiles: all, activate: 'id-oll', tokenFor, keyStorage: 'config' });
+  assert.ok(!read().includes('sk-deep'), 'the inactive key is removed');
+});
+
+test('a key a previous version left in config.toml moves to a key file', () => {
+  tempHome('');
+  codex.syncConfig({ profiles: all, activate: 'id-deep', tokenFor, keyStorage: 'config' });
+  codex.syncConfig({ profiles: all, activate: undefined, tokenFor: () => '' });
+  assert.equal(codex.readKeyFileFor(deepseek), 'sk-deep');
+  assert.ok(!read().includes('sk-deep'));
+});
+
+test('profile files for codex --profile: written, kept in sync, never over the user\'s own', () => {
+  tempHome('');
+  fs.writeFileSync(codex.profileFilePath('cps-ollama'), 'model = "mine"\n'); // the user's file
+  codex.syncConfig({ profiles: all, activate: 'id-deep', tokenFor });
+  const deep = fs.readFileSync(codex.profileFilePath('cps-deepseek'), 'utf8');
+  assert.match(deep, /^# Managed by claude-provider-switcher/);
+  assert.match(deep, /\nmodel_provider = "cps-deepseek"\nmodel = "ds-chat"\nmodel_reasoning_effort = "high"\n$/);
+  assert.match(fs.readFileSync(codex.profileFilePath('cps-openai'), 'utf8'), /model_provider = "openai"/);
+  assert.equal(fs.readFileSync(codex.profileFilePath('cps-ollama'), 'utf8'), 'model = "mine"\n');
+  codex.syncConfig({ profiles: [ollama, openai], activate: undefined, tokenFor });
+  assert.equal(fs.existsSync(codex.profileFilePath('cps-deepseek')), false, 'removed with its profile');
+  assert.equal(codex.hasKeyFile(deepseek), false, 'its key file too');
+  assert.equal(fs.existsSync(codex.profileFilePath('cps-ollama')), true);
 });
 
 test('nothing to do leaves a foreign file byte for byte', () => {

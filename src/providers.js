@@ -49,6 +49,8 @@ function loadBundledProviders(extensionUri) {
 // shape the rest of the code uses. Returns null for entries missing a name.
 function customEntryToPreset(c) {
   if (!c || typeof c.name !== 'string' || !c.name.trim()) return null;
+  // A Codex-only row (Codex Base URL, no Anthropic one) isn't a Claude provider.
+  if (c.codexBaseUrl && String(c.codexBaseUrl).trim() && !(c.baseUrl && String(c.baseUrl).trim())) return null;
   const env = {};
   if (c.baseUrl && String(c.baseUrl).trim()) env.ANTHROPIC_BASE_URL = String(c.baseUrl).trim();
   if (c.opusModel) env.ANTHROPIC_DEFAULT_OPUS_MODEL = String(c.opusModel);
@@ -80,9 +82,18 @@ function allLocalPresets() {
   return [...LOCAL_PRESETS, ...getCustomPresets().local];
 }
 
-// The Codex catalog ({ remote, local } of { name, icon, codex: { base_url } }).
+// The Codex catalog ({ remote, local } of { name, icon, codex: { base_url } }):
+// the bundled entries plus custom providers that have a Codex Base URL.
 function codexPresets() {
-  return CODEX_PRESETS;
+  const remote = [...CODEX_PRESETS.remote];
+  const local = [...CODEX_PRESETS.local];
+  const list = vscode.workspace.getConfiguration(SELF).get('customProviders');
+  for (const c of Array.isArray(list) ? list : []) {
+    const url = c && typeof c.codexBaseUrl === 'string' && c.codexBaseUrl.trim();
+    if (!url || typeof c.name !== 'string' || !c.name.trim()) continue;
+    (c.local ? local : remote).push({ name: c.name.trim(), icon: c.icon || 'server', codex: { base_url: url }, custom: true });
+  }
+  return { remote, local };
 }
 
 module.exports = { loadBundledProviders, allRemotePresets, allLocalPresets, codexPresets };

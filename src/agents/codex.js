@@ -19,8 +19,17 @@
 //   name = "DeepSeek"
 //   base_url = "https://…/v1"
 //   wire_api = "responses"
-//   experimental_bearer_token = "…"   ← only for the active profile
+//   auth = { command = "cat", args = ["…/codex-keys/<id>.key"] }
 //   # <<< claude-provider-switcher <<<
+//
+// API keys never go into config.toml by default: each one lives in its own
+// owner-only file (~/.claude-provider-switcher/codex-keys/<id>.key) and Codex
+// reads it through `auth = { command }` (`cat`, or `cmd /c type` on Windows —
+// no Node or PATH setup needed). The `codexKeyStorage = "config"` fallback
+// writes the active provider's key as experimental_bearer_token instead.
+//
+// Each profile also gets $CODEX_HOME/<key>.config.toml (a Codex "profile" file)
+// so `codex --profile <key>` runs it in parallel with whatever is active.
 //
 // A profile without a Base URL uses Codex's built-in `openai` provider (login
 // via `codex login`), so it needs no table. A switcher profile counts as active
@@ -31,6 +40,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const toml = require('../toml');
+const { keyDir } = require('../keyfile');
 
 const BLOCK_BEGIN = '# >>> claude-provider-switcher: managed block (edit via the extension or claude-providers) >>>';
 const BLOCK_END = '# <<< claude-provider-switcher <<<';
@@ -43,6 +53,9 @@ const BUILTIN_PROVIDER = 'openai';
 // Reasoning-effort values Codex accepts for `model_reasoning_effort`.
 const REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh'];
 
+// Hotkey slots for Codex profiles (Claude profiles use Ctrl+Alt+…).
+const CODEX_HOTKEYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((d) => `Ctrl+Shift+Alt+${d}`);
+
 function codexHome() {
   return process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
 }
@@ -51,6 +64,129 @@ function configPath() {
 }
 function backupPath() {
   return configPath() + '.cps-backup';
+}
+
+// ---- key files ------------------------------------------------------------------
+// One owner-only file per profile holding just its API key, read by Codex via
+// `auth = { command }`. Named by profile id (ids are UUIDs — file-name safe).
+
+const KEY_STORAGE_MODES = ['file', 'config'];
+
+function keyFilesDir() {
+  return path.join(keyDir(), 'codex-keys');
+}
+function keyFilePathFor(p) {
+  const id = String((p && p.id) || '').replace(/[^A-Za-z0-9_-]/g, '_');
+  return path.join(keyFilesDir(), `${id || 'unknown'}.key`);
+}
+function hasKeyFile(p) {
+  try {
+    return fs.statSync(keyFilePathFor(p)).size > 0;
+  } catch {
+    return false;
+  }
+}
+function readKeyFileFor(p) {
+  try {
+    return fs.readFileSync(keyFilePathFor(p), 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
+function writeKeyFileFor(p, token) {
+  const file = keyFilePathFor(p);
+  if (readKeyFileFor(p) === token) return;
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, token, { mode: 0o600 });
+  fs.renameSync(tmp, file);
+}
+// Drop a profile's key file (its key was removed, or the profile deleted).
+function forgetKey(p) {
+  try {
+    fs.unlinkSync(keyFilePathFor(p));
+  } catch { /* already gone */ }
+}
+// Remove key files that belong to no profile (keep = ids to keep; null = none).
+function pruneKeyFiles(keepIds) {
+  let names = [];
+  try {
+    names = fs.readdirSync(keyFilesDir());
+  } catch {
+    return;
+  }
+  const keep = new Set([...(keepIds || [])].map((id) => path.basename(keyFilePathFor({ id }))));
+  for (const n of names) {
+    if (n.endsWith('.key') && !keep.has(n)) {
+      try { fs.unlinkSync(path.join(keyFilesDir(), n)); } catch { /* ignore */ }
+    }
+  }
+}
+
+// The `auth` inline table that makes Codex read a key file.
+function authFor(p) {
+  const file = keyFilePathFor(p);
+  const cmd = process.platform === 'win32'
+    ? { command: 'cmd', args: ['/d', '/c', 'type', file] }
+    : { command: 'cat', args: [file] };
+  return `{ command = ${toml.tomlString(cmd.command)}, args = [${cmd.args.map(toml.tomlString).join(', ')}] }`;
+}
+
+// ---- profile files ----------------------------------------------------------------
+// $CODEX_HOME/<key>.config.toml, layered by Codex over config.toml when run with
+// `--profile <key>`. Ours start with PROFILE_MARK; a file without it is the
+// user's and is never touched.
+
+const PROFILE_MARK = '# Managed by claude-provider-switcher';
+const PROFILE_NAME_RE = /^[A-Za-z0-9_-]+$/; // what Codex accepts for --profile
+
+function profileFilePath(key) {
+  return path.join(codexHome(), `${key}.config.toml`);
+}
+function isOurProfileFile(file) {
+  try {
+    return fs.readFileSync(file, 'utf8').startsWith(PROFILE_MARK);
+  } catch {
+    return false;
+  }
+}
+function renderProfileFile(p) {
+  const k = profileKey(p);
+  const c = p.codex || {};
+  const lines = [
+    `${PROFILE_MARK} — run \`codex --profile ${k}\`. Changes here are overwritten.`,
+    `model_provider = ${toml.tomlString(providerOf(p))}`,
+  ];
+  if (c.model) lines.push(`model = ${toml.tomlString(c.model)}`);
+  if (c.reasoning_effort) lines.push(`model_reasoning_effort = ${toml.tomlString(c.reasoning_effort)}`);
+  return lines.join('\n') + '\n';
+}
+// Write every profile's file, remove ours that no profile owns any more.
+function syncProfileFiles(profiles) {
+  const want = new Map();
+  for (const p of profiles) {
+    const k = profileKey(p);
+    if (PROFILE_NAME_RE.test(k)) want.set(k, renderProfileFile(p));
+  }
+  let names = [];
+  try {
+    names = fs.readdirSync(codexHome());
+  } catch { /* no Codex home yet */ }
+  for (const n of names) {
+    const m = /^(.+)\.config\.toml$/.exec(n);
+    if (m && !want.has(m[1]) && isOurProfileFile(path.join(codexHome(), n))) {
+      try { fs.unlinkSync(path.join(codexHome(), n)); } catch { /* ignore */ }
+    }
+  }
+  for (const [k, text] of want) {
+    const file = profileFilePath(k);
+    let cur = null;
+    try { cur = fs.readFileSync(file, 'utf8'); } catch { /* new */ }
+    if (cur === text) continue;
+    if (cur !== null && !cur.startsWith(PROFILE_MARK)) continue; // the user's own file
+    fs.mkdirSync(codexHome(), { recursive: true });
+    fs.writeFileSync(file, text);
+  }
 }
 
 // ---- profiles -----------------------------------------------------------------
@@ -174,7 +310,7 @@ function activeId(profiles, text = readConfig().text) {
 // The API key config.toml currently holds for `p` (only the active profile has
 // one) — lets the terminal app switch without the shared key file.
 function tokenInConfig(p, text = readConfig().text) {
-  return blockInfo(text).tokens[profileKey(p)] || '';
+  return blockInfo(text).tokens[profileKey(p)] || readKeyFileFor(p);
 }
 
 // ---- writing ---------------------------------------------------------------------
@@ -235,7 +371,7 @@ function applyValues(text, values) {
   return out;
 }
 
-function renderBlock(profiles, { active, token, previous }) {
+function renderBlock(profiles, { active, token, previous, keyStorage = 'file' }) {
   const out = [];
   if (active) {
     out.push(`# active-profile = ${toml.tomlString(profileKey(active))}`);
@@ -254,7 +390,11 @@ function renderBlock(profiles, { active, token, previous }) {
     out.push(`name = ${toml.tomlString(p.name || k)}`);
     out.push(`base_url = ${toml.tomlString(url)}`);
     out.push('wire_api = "responses"');
-    if (active && p.id === active.id && token) out.push(`experimental_bearer_token = ${toml.tomlString(token)}`);
+    if (keyStorage === 'config') {
+      if (active && p.id === active.id && token) out.push(`experimental_bearer_token = ${toml.tomlString(token)}`);
+    } else if (hasKeyFile(p)) {
+      out.push(`auth = ${authFor(p)}`);
+    }
     if (c.http_headers && Object.keys(c.http_headers).length) {
       out.push(`http_headers = ${toml.tomlInlineStrings(c.http_headers)}`);
     }
@@ -271,11 +411,13 @@ function renderBlock(profiles, { active, token, previous }) {
 //               values; if our active profile was removed, restore the user's
 //               previous values); an id: make that profile active; null:
 //               restore the previous values (the "Codex default" choice);
-//   tokenFor  — p → its API key ('' when unknown: an existing key for it in the
-//               file is kept, so a client without the key doesn't drop it).
+//   tokenFor  — p → its API key ('' when unknown: a key already on disk for it
+//               is kept, so a client without the key doesn't drop it);
+//   keyStorage — 'file' (default: key files + auth.command) or 'config'
+//               (the active key as experimental_bearer_token).
 // Returns { changed, activeId }. Throws CodexConfigError on conflicts; the file
 // is then left untouched.
-function syncConfig({ profiles, activate, tokenFor = () => '' }) {
+function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'file' }) {
   const { text, exists } = readConfig();
   checkConflicts(text, profiles);
   const info = blockInfo(text);
@@ -292,8 +434,20 @@ function syncConfig({ profiles, activate, tokenFor = () => '' }) {
   const previous = curKey ? info.previous : typeof target === 'object' ? captureValues(text) : {};
 
   const active = typeof target === 'object' ? target : null;
-  const token = active ? tokenFor(active) || info.tokens[profileKey(active)] || '' : '';
-  const body = renderBlock(profiles, { active, token, previous });
+  let token = '';
+  if (keyStorage === 'config') {
+    token = active ? tokenFor(active) || info.tokens[profileKey(active)] || readKeyFileFor(active) : '';
+    pruneKeyFiles(null); // keys live in config.toml in this mode
+  } else {
+    // Refresh each key file from the keys we know (or a key a previous version
+    // left in config.toml); unknown keys keep whatever file exists.
+    for (const p of profiles) {
+      const tk = tokenFor(p) || info.tokens[profileKey(p)] || '';
+      if (tk && baseUrl(p)) writeKeyFileFor(p, tk);
+    }
+    pruneKeyFiles(profiles.filter((p) => baseUrl(p)).map((p) => p.id));
+  }
+  const body = renderBlock(profiles, { active, token, previous, keyStorage });
   if (!info.present && body === null && target === 'keep') return { changed: false, activeId: null };
 
   // Lift the block out first: top-level keys go before the first table, and the
@@ -304,6 +458,7 @@ function syncConfig({ profiles, activate, tokenFor = () => '' }) {
   next = toml.setBlock(next, BLOCK_BEGIN, BLOCK_END, body);
 
   if (next !== text) writeConfig(next, exists && !info.present);
+  syncProfileFiles(profiles);
   return { changed: next !== text, activeId: active ? active.id : null };
 }
 
@@ -333,6 +488,7 @@ module.exports = {
   MANAGED_KEYS,
   BUILTIN_PROVIDER,
   REASONING_EFFORTS,
+  CODEX_HOTKEYS,
   CodexConfigError,
   codexHome,
   configPath,
@@ -351,4 +507,10 @@ module.exports = {
   tokenInConfig,
   renderBlock,
   syncConfig,
+  KEY_STORAGE_MODES,
+  keyFilePathFor,
+  hasKeyFile,
+  readKeyFileFor,
+  forgetKey,
+  profileFilePath,
 };

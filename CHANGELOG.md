@@ -14,9 +14,26 @@
     vLLM, or any endpoint that serves the OpenAI **Responses API** (Codex no longer supports
     Chat Completions). Models can be picked from the endpoint's `/v1/models` list.
   - API keys are kept in SecretStorage (shared with the terminal app through
-    `shareKeysWithTerminal`); only the active provider's key is written into `config.toml`
-    (`experimental_bearer_token`).
+    `shareKeysWithTerminal`).
   - New settings: `codexProfiles`, `showCodexStatusBarItem`.
+- **Codex switcher, stage 2 — on par with the Claude one.**
+  - **Keys out of `config.toml`:** each Codex key lives in its own owner-only file
+    (`~/.claude-provider-switcher/codex-keys/<id>.key`) and Codex reads it through
+    `auth = { command }` (`cat`, or `cmd /c type` on Windows — no Node or PATH setup). The new
+    `codexKeyStorage` setting (`file` | `config`) switches back to writing the active key as
+    `experimental_bearer_token`; keys an earlier build wrote there move to key files automatically.
+  - **Parallel runs:** every profile also gets `~/.codex/<key>.config.toml`, so
+    `codex --profile <key>` uses it next to whatever is active (your own profile files are never
+    touched).
+  - **Editor** for every field (name, badge, hotkey, fallback, Base URL, API key, model from the
+    endpoint's list, reasoning effort, HTTP headers, query parameters), in the sidebar and in
+    `claude-providers`.
+  - **Test connection** (a tiny `POST /responses`), **health check** (Codex rows get the 🟢/🔴 tint),
+    **Switch with fallback** / `autoFallbackOnApply`, **Switch & reload window**, `switchAction`.
+  - **Hotkeys** `Ctrl+Shift+Alt+1…0` per profile, **cycle** with `Ctrl+Shift+Alt+]` / `[`
+    (macOS `Cmd+Shift+Alt+…`); **duplicate** and **move up / down**.
+  - **Custom providers:** a *Codex Base URL* column; rows with it appear in the Codex *Add* menu
+    (extension and terminal app).
 
 ## 0.9.1
 

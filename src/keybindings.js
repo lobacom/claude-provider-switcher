@@ -6,7 +6,7 @@
 
 const vscode = require('vscode');
 const { SELF } = require('./constants');
-const { getProfiles } = require('./profiles');
+const { getProfiles, getCodexProfiles } = require('./profiles');
 
 const KB_FILE = 'keybindings.json';
 
@@ -15,6 +15,9 @@ async function syncKeybindings() {
   const profiles = getProfiles();
   const desired = new Map();
   profiles.forEach((p, i) => { if (p.hotkey) desired.set(p.hotkey, i); });
+  // Codex profiles have their own slots (Ctrl+Shift+Alt+…) and command.
+  const codexDesired = new Map();
+  getCodexProfiles().forEach((p, i) => { if (p.hotkey) codexDesired.set(p.hotkey, i); });
 
   // Resolve the User keybindings.json location.
   // On Windows VS Code stores it under %APPDATA%\Code\User\keybindings.json;
@@ -39,9 +42,13 @@ async function syncKeybindings() {
   if (!Array.isArray(userList)) userList = [];
 
   // Remove our managed entries, keep the rest of the user's file intact.
-  const kept = userList.filter((e) => !(e && e.command && e.command.startsWith(`${SELF}.switchToIndex`)));
+  const managed = [`${SELF}.switchToIndex`, `${SELF}.switchCodexToIndex`];
+  const kept = userList.filter((e) => !(e && e.command && managed.includes(e.command)));
   for (const [hk, idx] of desired) {
     kept.push({ key: hk.toLowerCase(), command: `${SELF}.switchToIndex`, args: idx });
+  }
+  for (const [hk, idx] of codexDesired) {
+    kept.push({ key: hk.toLowerCase(), command: `${SELF}.switchCodexToIndex`, args: idx });
   }
   const newUserText = JSON.stringify(kept, null, 4);
   if (newUserText !== oldUserText) {

@@ -7,6 +7,7 @@ const { t, setLang } = require('./i18n');
 const { SELF, CLAUDE_SECTION, CLAUDE_KEY } = require('./constants');
 const {
   getProfiles,
+  getCodexProfiles,
   getActiveEnv,
   initSecrets,
   onTokensChanged,
@@ -51,7 +52,15 @@ const {
   setCodexModel,
   updateCodexContext,
   watchCodexConfig,
+  switchCodexAndReload,
+  switchCodexToIndex,
+  cycleCodex,
+  switchCodexWithFallback,
+  testCodexProfile,
+  duplicateCodexProfile,
+  moveCodexProfile,
 } = require('./codex');
+const { editCodexProfile } = require('./codexEditor');
 
 // Token scanning reads Claude Code's transcripts; gated so users who turn it off
 // pay nothing (no file reads at all).
@@ -152,6 +161,16 @@ function activate(context) {
   reg('setCodexModel', setCodexModel);
   reg('resetCodex', resetCodex);
   reg('refreshCodex', repaintCodex);
+  reg('editCodex', editCodexProfile);
+  reg('testCodex', testCodexProfile);
+  reg('duplicateCodex', duplicateCodexProfile);
+  reg('moveCodexUp', (arg) => moveCodexProfile(arg, -1));
+  reg('moveCodexDown', (arg) => moveCodexProfile(arg, 1));
+  reg('switchCodexToIndex', async (idx) => switchCodexToIndex(typeof idx === 'number' ? idx : parseInt(idx, 10)));
+  reg('nextCodex', async () => cycleCodex(1));
+  reg('previousCodex', async () => cycleCodex(-1));
+  reg('switchCodexWithFallback', switchCodexWithFallback);
+  reg('switchCodexAndReload', switchCodexAndReload);
 
   // Keys shared with the terminal app: pick up edits it makes to the key file.
   // A key that changed on the live provider is re-written into the active env.
@@ -191,6 +210,9 @@ function activate(context) {
       await scanTokens();
     }
     provider.refresh();
+    // Bring config.toml up to date with this version (key files, profile files)
+    // now that the keys are loaded; a no-op when nothing changed.
+    if (getCodexProfiles().length) syncCodex(undefined);
     repaintCodex(); // key status in the Codex tooltips needs the primed cache
     // Arm health checks only after the token cache is primed. Otherwise the
     // first periodic probe races the (async) token load, sends no key, and marks
@@ -239,6 +261,7 @@ function activate(context) {
       // settings.json) → rewrite config.toml's managed block to match.
       if (e.affectsConfiguration(`${SELF}.codexProfiles`)) {
         updateCodexContext();
+        syncKeybindings(); // Codex hotkeys (Ctrl+Shift+Alt+…)
         if (keysReady) {
           pullSharedKeys();
           syncCodex(undefined);
@@ -246,6 +269,7 @@ function activate(context) {
         repaintCodex();
       }
       if (e.affectsConfiguration(`${SELF}.showCodexStatusBarItem`)) updateStatus();
+      if (e.affectsConfiguration(`${SELF}.codexKeyStorage`)) syncCodex(undefined);
       if (
         e.affectsConfiguration(`${SELF}.healthCheck`) ||
         e.affectsConfiguration(`${SELF}.healthCheckIntervalMinutes`)

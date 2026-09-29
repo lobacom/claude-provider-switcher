@@ -64,7 +64,8 @@ class CodexProfilesProvider {
       it.profileId = p.id; // command argument (see findCodex)
       it.contextValue = 'codexProfile';
       it.description = describe(p);
-      it.iconPath = new vscode.ThemeIcon(p.id === active ? 'pass-filled' : 'circle-large-outline');
+      // shape marks active/inactive; color (when checked) marks health
+      it.iconPath = new vscode.ThemeIcon(p.id === active ? 'pass-filled' : 'circle-large-outline', healthColor(healthOf(p)));
       it.tooltip = codexTooltip(p, p.id === active ? ['', t('tip_codexRestart')] : ['', t('tip_clickToSwitch')]);
       it.command = { command: `${SELF}.switchCodexTo`, title: 'Switch Codex to this provider', arguments: [p.id] };
       return it;

@@ -34,5 +34,15 @@
   "cmd.deleteCodex": "Delete Codex provider",
   "cmd.setCodexKey": "Set API key…",
   "cmd.setCodexModel": "Change model…",
-  "cmd.resetCodex": "Use Codex default (your own config.toml settings)"
+  "cmd.resetCodex": "Use Codex default (your own config.toml settings)",
+  "cmd.editCodex": "Edit Codex provider",
+  "cmd.testCodex": "Test Codex connection",
+  "cmd.duplicateCodex": "Duplicate Codex provider",
+  "cmd.moveCodexUp": "Move up",
+  "cmd.moveCodexDown": "Move down",
+  "cmd.switchCodexToIndex": "Switch Codex provider (by index)",
+  "cmd.nextCodex": "Switch to next Codex provider",
+  "cmd.previousCodex": "Switch to previous Codex provider",
+  "cmd.switchCodexWithFallback": "Switch Codex with fallback",
+  "cmd.switchCodexAndReload": "Switch Codex provider & reload window"
 }

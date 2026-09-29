@@ -149,6 +149,45 @@ function httpProbe(baseUrl, token, model) {
   });
 }
 
+// ---- Responses API probe (Codex) ---------------------------------------------
+// Codex speaks the OpenAI Responses API, so its "Test connection" fires one small
+// POST <base_url>/responses (base_url already ends in /v1). Same result shape as
+// httpProbe: any HTTP reply proves the host; the status tells us about the key.
+// `extra` carries the profile's http_headers / query_params.
+
+function httpProbeResponses(baseUrl, token, model, extra = {}) {
+  return new Promise((resolve) => {
+    let url;
+    try {
+      url = new (require('url').URL)(normalizeUrl(baseUrl) + '/responses');
+      for (const [k, v] of Object.entries(extra.query || {})) url.searchParams.set(k, v);
+    } catch {
+      resolve({ kind: 'error', msg: 'Invalid Base URL' });
+      return;
+    }
+    const lib = url.protocol === 'http:' ? require('http') : require('https');
+    const body = JSON.stringify({
+      model: model || 'gpt-5-mini',
+      input: 'ping',
+      max_output_tokens: 16,
+    });
+    const headers = {
+      ...(extra.headers || {}),
+      'content-type': 'application/json',
+      'content-length': Buffer.byteLength(body),
+    };
+    if (token) headers['authorization'] = `Bearer ${token}`;
+    const req = lib.request(url, { method: 'POST', headers, timeout: 20000 }, (res) => {
+      res.on('data', () => {});
+      res.on('end', () => resolve({ kind: 'status', status: res.statusCode }));
+    });
+    req.on('timeout', () => { req.destroy(); resolve({ kind: 'error', msg: 'Timed out after 20s' }); });
+    req.on('error', (e) => resolve({ kind: 'error', msg: e.message }));
+    req.write(body);
+    req.end();
+  });
+}
+
 // "Healthy" for fallback purposes = HTTP 200 or 400 (endpoint + key work; a 400
 // like "unknown model" still proves the route is good).
 function probeHealthy(r) {
@@ -156,4 +195,4 @@ function probeHealthy(r) {
   return r.status === 200 || r.status === 400;
 }
 
-module.exports = { normalizeUrl, probeModelsList, httpProbe, probeHealthy };
+module.exports = { normalizeUrl, probeModelsList, httpProbe, httpProbeResponses, probeHealthy };

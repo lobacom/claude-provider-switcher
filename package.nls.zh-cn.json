@@ -34,5 +34,15 @@
   "cmd.deleteCodex": "删除 Codex 服务商",
   "cmd.setCodexKey": "设置 API 密钥…",
   "cmd.setCodexModel": "更换模型…",
-  "cmd.resetCodex": "使用 Codex 默认（你自己的 config.toml 设置）"
+  "cmd.resetCodex": "使用 Codex 默认（你自己的 config.toml 设置）",
+  "cmd.editCodex": "编辑 Codex 服务商",
+  "cmd.testCodex": "测试 Codex 连接",
+  "cmd.duplicateCodex": "复制 Codex 服务商",
+  "cmd.moveCodexUp": "上移",
+  "cmd.moveCodexDown": "下移",
+  "cmd.switchCodexToIndex": "切换 Codex 服务商（按序号）",
+  "cmd.nextCodex": "切换到下一个 Codex 服务商",
+  "cmd.previousCodex": "切换到上一个 Codex 服务商",
+  "cmd.switchCodexWithFallback": "带回退切换 Codex",
+  "cmd.switchCodexAndReload": "切换 Codex 服务商并重新加载窗口"
 }

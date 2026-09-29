@@ -10,7 +10,8 @@
 const vscode = require('vscode');
 const { t } = require('./i18n');
 const { SELF } = require('./constants');
-const { getProfiles, cachedToken, resolveIndex } = require('./profiles');
+const { getProfiles, getCodexProfiles, cachedToken, resolveIndex } = require('./profiles');
+const cx = require('./agents/codex');
 const { probeModelsList, httpProbe } = require('./http');
 
 const healthCache = new Map(); // profile.id → 'ok' | 'down' (absent = unknown/not checked)
@@ -41,20 +42,35 @@ async function checkOneHealth(p) {
   return 'ok'; // host answered (e.g. 404 — no model list), but it's up
 }
 
-// Probe every profile concurrently and update the cache.
+// The same verdict for a Codex profile (its OpenAI-compatible Base URL). The
+// built-in OpenAI provider can't be probed — assumed up.
+async function checkOneCodexHealth(p) {
+  const base = cx.baseUrl(p);
+  if (!base) return 'ok';
+  const r = await probeModelsList(base, cachedToken(p) || cx.tokenInConfig(p));
+  if (r.ok) return 'ok';
+  if (!r.reachable || r.auth || r.serverError) return 'down';
+  return 'ok';
+}
+
+// Probe every profile (Claude and Codex) concurrently and update the cache.
 async function checkAllHealth() {
-  await Promise.all(
-    getProfiles().map(async (p) => {
+  await Promise.all([
+    ...getProfiles().map(async (p) => {
       if (!p.id) return;
       healthCache.set(p.id, await checkOneHealth(p));
-    })
-  );
+    }),
+    ...getCodexProfiles().map(async (p) => {
+      if (!p.id) return;
+      healthCache.set(p.id, await checkOneCodexHealth(p));
+    }),
+  ]);
 }
 
 // Manual "Check health" command — runs the probe with a progress toast and
 // reports a summary.
 async function checkHealthCommand() {
-  const profiles = getProfiles();
+  const profiles = [...getProfiles(), ...getCodexProfiles()];
   if (!profiles.length) {
     vscode.window.showInformationMessage(t('noProviders'));
     return;
@@ -64,6 +80,7 @@ async function checkHealthCommand() {
     () => checkAllHealth()
   );
   vscode.commands.executeCommand(`${SELF}.refresh`);
+  vscode.commands.executeCommand(`${SELF}.refreshCodex`);
   const down = profiles.filter((p) => healthOf(p) === 'down').map((p) => p.name);
   if (down.length) {
     vscode.window.showWarningMessage(
@@ -87,6 +104,7 @@ function restartHealthTimer() {
   const run = async () => {
     await checkAllHealth();
     vscode.commands.executeCommand(`${SELF}.refresh`);
+    vscode.commands.executeCommand(`${SELF}.refreshCodex`);
   };
   run(); // check once immediately so the indicators populate
   healthTimer = setInterval(run, mins * 60 * 1000);
@@ -118,6 +136,12 @@ async function testProfile(arg) {
     { location: vscode.ProgressLocation.Notification, title: t('testing', { name: p.name }) },
     () => httpProbe(base, cachedToken(p), model)
   );
+  reportProbe(p.name, r);
+}
+
+// Tell the user what a test probe found (shared by the Claude and Codex tests).
+function reportProbe(name, r) {
+  const p = { name };
   if (r.kind === 'error') {
     vscode.window.showErrorMessage(t('testUnreachable', { name: p.name, msg: r.msg }));
     return;
@@ -139,6 +163,8 @@ async function testProfile(arg) {
 }
 
 module.exports = {
+  checkOneCodexHealth,
+  reportProbe,
   healthOf,
   healthLabel,
   healthColor,

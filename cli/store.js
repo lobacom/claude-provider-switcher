@@ -175,6 +175,7 @@ class Store {
       profiles: this.codexProfiles(),
       activate,
       tokenFor: (p) => (p.id && this.keys[p.id]) || '',
+      keyStorage: codex.KEY_STORAGE_MODES.includes(this.get('codexKeyStorage')) ? this.get('codexKeyStorage') : 'file',
     });
   }
 

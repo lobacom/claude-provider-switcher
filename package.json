@@ -189,6 +189,10 @@
                 "type": "string",
                 "description": "ANTHROPIC_BASE_URL for the provider's Anthropic-compatible endpoint (e.g. https://api.example.com/anthropic). Leave empty for a native-subscription-style entry."
               },
+              "codexBaseUrl": {
+                "type": "string",
+                "description": "Optional: the provider's OpenAI Responses API endpoint (e.g. https://api.example.com/v1). When set, it also appears in the Codex view's Add menu. A row with only this (no baseUrl) is Codex-only."
+              },
               "local": {
                 "type": "boolean",
                 "default": false,
@@ -271,6 +275,14 @@
                     }
                   }
                 }
+              },
+              "hotkey": {
+                "type": "string",
+                "description": "Optional Ctrl+Shift+Alt+<n> shortcut."
+              },
+              "fallbackId": {
+                "type": "string",
+                "description": "Id of the Codex profile to switch to when this one is unreachable."
               }
             }
           }
@@ -284,6 +296,19 @@
           "type": "boolean",
           "default": true,
           "description": "Show the active Codex provider in the status bar (once you have Codex profiles)."
+        },
+        "claudeProviderSwitcher.codexKeyStorage": {
+          "type": "string",
+          "enum": [
+            "file",
+            "config"
+          ],
+          "default": "file",
+          "enumDescriptions": [
+            "Each Codex API key lives in its own owner-only file (~/.claude-provider-switcher/codex-keys/<id>.key); config.toml only references it through `auth = { command }` (`cat`, or `cmd /c type` on Windows). Every profile keeps its key, so `codex --profile <key>` works for all of them.",
+            "The active provider's key is written into config.toml as `experimental_bearer_token` (plain text). Only the active profile has a key there."
+          ],
+          "markdownDescription": "Where the Codex switcher puts API keys for Codex to read. Keys are always kept in VS Code SecretStorage as well."
         },
         "claudeProviderSwitcher.showUsageStats": {
           "type": "boolean",
@@ -509,6 +534,58 @@
         "command": "claudeProviderSwitcher.resetCodex",
         "title": "%cmd.resetCodex%",
         "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.editCodex",
+        "title": "%cmd.editCodex%",
+        "category": "%category.codex%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "claudeProviderSwitcher.testCodex",
+        "title": "%cmd.testCodex%",
+        "category": "%category.codex%",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "claudeProviderSwitcher.duplicateCodex",
+        "title": "%cmd.duplicateCodex%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.moveCodexUp",
+        "title": "%cmd.moveCodexUp%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.moveCodexDown",
+        "title": "%cmd.moveCodexDown%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchCodexToIndex",
+        "title": "%cmd.switchCodexToIndex%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.nextCodex",
+        "title": "%cmd.nextCodex%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.previousCodex",
+        "title": "%cmd.previousCodex%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchCodexWithFallback",
+        "title": "%cmd.switchCodexWithFallback%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.switchCodexAndReload",
+        "title": "%cmd.switchCodexAndReload%",
+        "category": "%category.codex%"
       }
     ],
     "menus": {
@@ -562,6 +639,11 @@
           "command": "claudeProviderSwitcher.resetCodex",
           "when": "view == claudeProviderSwitcher.codexView",
           "group": "1_reset@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.checkHealth",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -631,12 +713,12 @@
           "group": "3_danger@1"
         },
         {
-          "command": "claudeProviderSwitcher.setCodexModel",
+          "command": "claudeProviderSwitcher.testCodex",
           "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
           "group": "inline@2"
         },
         {
-          "command": "claudeProviderSwitcher.setCodexKey",
+          "command": "claudeProviderSwitcher.editCodex",
           "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
           "group": "inline@3"
         },
@@ -651,14 +733,49 @@
           "group": "0_switch@1"
         },
         {
-          "command": "claudeProviderSwitcher.setCodexModel",
+          "command": "claudeProviderSwitcher.switchCodexAndReload",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "0_switch@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.editCodex",
           "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
           "group": "1_edit@1"
         },
         {
-          "command": "claudeProviderSwitcher.setCodexKey",
+          "command": "claudeProviderSwitcher.setCodexModel",
           "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
           "group": "1_edit@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.setCodexKey",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "1_edit@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.duplicateCodex",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "1_edit@4"
+        },
+        {
+          "command": "claudeProviderSwitcher.testCodex",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "1_edit@5"
+        },
+        {
+          "command": "claudeProviderSwitcher.switchCodexWithFallback",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "1_edit@6"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveCodexUp",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "2_order@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveCodexDown",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "2_order@2"
         },
         {
           "command": "claudeProviderSwitcher.deleteCodex",
@@ -718,6 +835,26 @@
         {
           "command": "claudeProviderSwitcher.refreshCodex",
           "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.editCodex",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.duplicateCodex",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveCodexUp",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.moveCodexDown",
+          "when": "false"
+        },
+        {
+          "command": "claudeProviderSwitcher.switchCodexToIndex",
+          "when": "false"
         }
       ]
     },
@@ -731,6 +868,16 @@
         "command": "claudeProviderSwitcher.previous",
         "key": "ctrl+alt+[",
         "mac": "cmd+alt+["
+      },
+      {
+        "command": "claudeProviderSwitcher.nextCodex",
+        "key": "ctrl+shift+alt+]",
+        "mac": "cmd+shift+alt+]"
+      },
+      {
+        "command": "claudeProviderSwitcher.previousCodex",
+        "key": "ctrl+shift+alt+[",
+        "mac": "cmd+shift+alt+["
       }
     ]
   }

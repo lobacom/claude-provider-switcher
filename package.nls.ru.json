@@ -34,5 +34,15 @@
   "cmd.deleteCodex": "Удалить провайдера Codex",
   "cmd.setCodexKey": "Задать API-ключ…",
   "cmd.setCodexModel": "Сменить модель…",
-  "cmd.resetCodex": "Codex по умолчанию (ваши настройки config.toml)"
+  "cmd.resetCodex": "Codex по умолчанию (ваши настройки config.toml)",
+  "cmd.editCodex": "Изменить провайдера Codex",
+  "cmd.testCodex": "Проверить соединение Codex",
+  "cmd.duplicateCodex": "Дублировать провайдера Codex",
+  "cmd.moveCodexUp": "Переместить вверх",
+  "cmd.moveCodexDown": "Переместить вниз",
+  "cmd.switchCodexToIndex": "Переключить провайдера Codex (по номеру)",
+  "cmd.nextCodex": "Следующий провайдер Codex",
+  "cmd.previousCodex": "Предыдущий провайдер Codex",
+  "cmd.switchCodexWithFallback": "Переключить Codex с резервом",
+  "cmd.switchCodexAndReload": "Переключить провайдера Codex и перезагрузить окно"
 }

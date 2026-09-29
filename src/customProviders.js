@@ -19,6 +19,7 @@ function sanitizeCustomProviders(list) {
     const o = { name: c.name.trim() };
     const str = (v) => (v == null ? '' : String(v).trim());
     if (str(c.baseUrl)) o.baseUrl = str(c.baseUrl);
+    if (str(c.codexBaseUrl)) o.codexBaseUrl = str(c.codexBaseUrl).replace(/\/+$/, '');
     if (c.local) o.local = true;
     if (str(c.icon)) o.icon = str(c.icon);
     if (str(c.opusModel)) o.opusModel = str(c.opusModel);
@@ -129,6 +130,7 @@ function customProvidersHtml(webview) {
       <tr>
         <th>${t('cp_col_name')}</th>
         <th>${t('cp_col_baseUrl')}</th>
+        <th title="${t('cp_col_codexBaseUrlHint')}">${t('cp_col_codexBaseUrl')}</th>
         <th class="center col-narrow">${t('cp_col_local')}</th>
         <th>${t('cp_col_icon')}</th>
         <th>${t('cp_col_opus')}</th>
@@ -167,7 +169,7 @@ function customProvidersHtml(webview) {
     if (!state.length) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 8; td.className = 'muted center';
+      td.colSpan = 9; td.className = 'muted center';
       td.style.padding = '14px';
       td.textContent = L.empty;
       tr.appendChild(td); tbody.appendChild(tr); return;
@@ -176,6 +178,7 @@ function customProvidersHtml(webview) {
       const tr = document.createElement('tr');
       tr.appendChild(txt(row, 'name', 'My Gateway'));
       tr.appendChild(txt(row, 'baseUrl', 'https://api.example.com/anthropic'));
+      tr.appendChild(txt(row, 'codexBaseUrl', 'https://api.example.com/v1'));
       const tdL = document.createElement('td'); tdL.className = 'center';
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!row.local;
       cb.addEventListener('change', (e) => { row.local = e.target.checked; });

@@ -18,7 +18,8 @@ const {
 } = require('./profiles');
 const { codexPresets } = require('./providers');
 const { firstFreeBadge, badgeTextPrefix, providerIcon } = require('./badges');
-const { probeModelsList } = require('./http');
+const { probeModelsList, httpProbeResponses, probeHealthy } = require('./http');
+const { healthOf, reportProbe } = require('./health');
 const cx = require('./agents/codex');
 
 // Repaint hook (tree + status bar), set by extension.js.
@@ -44,6 +45,13 @@ function invalidateCodexActive() {
   activeCache = undefined;
 }
 
+// Where Codex API keys go: 'file' (owner-only key files read via auth.command)
+// or 'config' (the active key in config.toml as experimental_bearer_token).
+function keyStorage() {
+  const v = vscode.workspace.getConfiguration(SELF).get('codexKeyStorage');
+  return cx.KEY_STORAGE_MODES.includes(v) ? v : 'file';
+}
+
 function errorText(e) {
   const path = cx.configPath();
   if (e && e.code && ['inlineTable', 'conflict', 'valueType'].includes(e.code)) {
@@ -57,7 +65,7 @@ function errorText(e) {
 function syncCodex(activate) {
   let ok = true;
   try {
-    cx.syncConfig({ profiles: getCodexProfiles(), activate, tokenFor: cachedToken });
+    cx.syncConfig({ profiles: getCodexProfiles(), activate, tokenFor: cachedToken, keyStorage: keyStorage() });
   } catch (e) {
     ok = false;
     vscode.window.showWarningMessage(errorText(e));
@@ -88,18 +96,178 @@ async function promptKey(p) {
   });
   if (v === undefined) return false;
   await setToken(p.id, v);
+  if (!v.trim()) cx.forgetKey(p); // an empty key removes it for Codex too
   return true;
 }
 
-async function switchCodexTo(arg) {
+// A remote provider without any known key: ask now rather than write a config
+// Codex would fail on. Returns false when the user cancelled.
+async function ensureKey(p) {
+  if (!cx.needsKey(p) || cachedToken(p) || cx.tokenInConfig(p)) return true;
+  return promptKey(p);
+}
+
+function applyCodex(p) {
+  const ok = syncCodex(p.id);
+  if (ok) vscode.window.setStatusBarMessage(t('codexApplyMessage', { name: p.name }), 5000);
+  return ok;
+}
+
+// User-initiated switch (row click, menu, hotkey, cycle). Follows the same
+// settings as Claude switches: `autoFallbackOnApply` probes the target and walks
+// its fallback chain; `switchAction = switchAndReload` reloads the window after.
+async function switchCodexTo(arg, { reload } = {}) {
   const p = findCodex(arg);
   if (!p) return;
-  // A remote provider without any known key: ask now rather than write a
-  // config Codex would fail on.
-  if (cx.needsKey(p) && !cachedToken(p) && !cx.tokenInConfig(p)) {
-    if (!(await promptKey(p))) return;
+  if (!(await ensureKey(p))) return;
+  const cfg = vscode.workspace.getConfiguration(SELF);
+  if (cfg.get('autoFallbackOnApply') === true) await applyCodexWithFallback(p);
+  else applyCodex(p);
+  if (reload || cfg.get('switchAction') === 'switchAndReload') {
+    await vscode.commands.executeCommand('workbench.action.reloadWindow');
   }
-  if (syncCodex(p.id)) vscode.window.setStatusBarMessage(t('codexApplyMessage', { name: p.name }), 5000);
+}
+
+// Pick a profile (or take the tree row) and run `fn` on it.
+async function withCodexTarget(arg, placeHolder, fn) {
+  let p = findCodex(arg);
+  if (!p) {
+    const profiles = getCodexProfiles();
+    if (!profiles.length) {
+      vscode.window.showInformationMessage(t('noCodexProviders'));
+      return;
+    }
+    const pick = await vscode.window.showQuickPick(
+      profiles.map((x) => ({ label: `${badgeTextPrefix(x.color)}${x.name}`, description: describe(x), _id: x.id })),
+      { placeHolder }
+    );
+    if (!pick) return;
+    p = findCodex(pick._id);
+  }
+  await fn(p);
+}
+
+async function switchCodexAndReload(arg) {
+  await withCodexTarget(arg, t('switchReloadPlaceholder'), (p) => switchCodexTo(p.id, { reload: true }));
+}
+
+async function switchCodexToIndex(n) {
+  const p = getCodexProfiles()[n];
+  if (p) await switchCodexTo(p.id);
+  else vscode.window.showInformationMessage(t('providerNotDefined', { n: n + 1 }));
+}
+
+// Next (dir=1) / previous (dir=-1) Codex profile, wrapping around; with nothing
+// of ours active, dir=1 lands on the first profile and dir=-1 on the last.
+async function cycleCodex(dir) {
+  const profiles = getCodexProfiles();
+  if (!profiles.length) {
+    vscode.window.showInformationMessage(t('noCodexProviders'));
+    return;
+  }
+  const cur = profiles.findIndex((p) => p.id === codexActiveId());
+  const start = cur < 0 ? (dir > 0 ? -1 : 0) : cur;
+  await switchCodexTo(profiles[(start + dir + profiles.length) % profiles.length].id);
+}
+
+// ---- fallback / test -------------------------------------------------------------
+
+function probeExtra(p) {
+  const c = p.codex || {};
+  return { headers: c.http_headers || {}, query: c.query_params || {} };
+}
+function codexProbe(p) {
+  return httpProbeResponses(cx.baseUrl(p), cachedToken(p) || cx.tokenInConfig(p), (p.codex || {}).model, probeExtra(p));
+}
+
+// Probe `startP` and walk its fallback chain (fallbackId), applying the first
+// provider that answers (HTTP 200/400). The built-in OpenAI provider can't be
+// probed and counts as up — a natural end of a chain.
+async function applyCodexWithFallback(startP) {
+  const profiles = getCodexProfiles();
+  const chain = [];
+  const seen = new Set();
+  for (let p = startP; p && !seen.has(p.id); p = p.fallbackId ? profiles.find((x) => x.id === p.fallbackId) : null) {
+    seen.add(p.id);
+    chain.push(p);
+  }
+  const skipped = [];
+  for (const cand of chain) {
+    let healthy = true;
+    if (cx.baseUrl(cand)) {
+      const r = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: t('checking', { name: cand.name }) },
+        () => codexProbe(cand)
+      );
+      healthy = probeHealthy(r);
+    }
+    if (healthy) {
+      applyCodex(cand);
+      if (skipped.length) {
+        vscode.window.showWarningMessage(t('fellBack', { skipped: skipped.join(', '), name: cand.name }));
+      }
+      return cand;
+    }
+    skipped.push(`"${cand.name}"`);
+  }
+  applyCodex(startP);
+  vscode.window.showErrorMessage(
+    skipped.length > 1
+      ? t('noReachableChain', { chain: skipped.join(' → '), name: startP.name })
+      : t('unreachableNoFallback', { name: startP.name })
+  );
+  return startP;
+}
+
+async function switchCodexWithFallback(arg) {
+  await withCodexTarget(arg, t('switchFallbackPlaceholder'), async (p) => {
+    if (await ensureKey(p)) await applyCodexWithFallback(p);
+  });
+}
+
+// A real (tiny) POST /responses — verifies the endpoint and the key.
+async function testCodexProfile(arg) {
+  await withCodexTarget(arg, t('codexSelectPlaceholder'), async (p) => {
+    if (!cx.baseUrl(p)) {
+      vscode.window.showInformationMessage(t('codexNothingToTest', { name: p.name }));
+      return;
+    }
+    const r = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: t('testing', { name: p.name }) },
+      () => codexProbe(p)
+    );
+    reportProbe(p.name, r);
+  });
+}
+
+// ---- duplicate / reorder -----------------------------------------------------------
+
+async function duplicateCodexProfile(arg) {
+  const src = findCodex(arg);
+  if (!src) return;
+  const list = cloneCodexProfiles();
+  const i = list.findIndex((x) => x.id === src.id);
+  const copy = JSON.parse(JSON.stringify(list[i]));
+  copy.id = crypto.randomUUID();
+  copy.name = uniqueName(`${src.name} copy`, list);
+  delete copy.key; // a key of its own in config.toml
+  delete copy.hotkey;
+  cx.assignKey(copy, list);
+  list.splice(i + 1, 0, copy);
+  await saveCodexProfiles(list);
+  if (cachedToken(src)) await setToken(copy.id, cachedToken(src));
+  syncCodex(undefined);
+}
+
+async function moveCodexProfile(arg, dir) {
+  const p = findCodex(arg);
+  if (!p) return;
+  const list = cloneCodexProfiles();
+  const i = list.findIndex((x) => x.id === p.id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  await saveCodexProfiles(list);
 }
 
 async function resetCodex() {
@@ -132,7 +300,7 @@ async function pickCodexTemplate() {
   const sep = (label) => ({ label, kind: vscode.QuickPickItemKind.Separator });
   const preset = (pr) => ({
     label: pr.name,
-    description: (pr.codex && pr.codex.base_url) || '',
+    description: ((pr.codex && pr.codex.base_url) || '') + (pr.custom ? `   ${t('customTag')}` : ''),
     iconPath: providerIcon(pr.icon),
     _tpl: { name: pr.name, codex: { ...(pr.codex || {}) } },
   });
@@ -223,6 +391,8 @@ async function addCodexProfile() {
   if (model === undefined) return;
   if (model) p.codex.model = model;
   cx.assignKey(p, list);
+  const hk = firstFreeCodexHotkey(list);
+  if (hk) p.hotkey = hk;
   list.push(p);
   await saveCodexProfiles(list);
   if (token) await setToken(p.id, token);
@@ -263,6 +433,16 @@ async function setCodexModel(arg) {
   syncCodex(undefined); // re-applies the model when this profile is the active one
 }
 
+// ---- hotkeys ---------------------------------------------------------------------
+// Codex profiles get their own slots, Ctrl+Shift+Alt+1…9, 0 (Claude uses
+// Ctrl+Alt+…), synced into keybindings.json by keybindings.js.
+
+const CODEX_HOTKEYS = cx.CODEX_HOTKEYS;
+function firstFreeCodexHotkey(list, exceptId) {
+  const used = new Set(list.filter((x) => x.id !== exceptId).map((x) => x.hotkey).filter(Boolean));
+  return CODEX_HOTKEYS.find((h) => !used.has(h)) || '';
+}
+
 // ---- tooltip -----------------------------------------------------------------------
 
 function codexTooltip(p, extraLines) {
@@ -273,6 +453,14 @@ function codexTooltip(p, extraLines) {
   if (cx.needsKey(p)) {
     lines.push(t('tip_codexKey', { v: cachedToken(p) || cx.tokenInConfig(p) ? t('codexKeyStored') : t('codexKeyMissing') }));
   }
+  if (p.hotkey) lines.push(t('tip_hotkey', { hotkey: p.hotkey }));
+  if (p.fallbackId) {
+    const tgt = getCodexProfiles().find((x) => x.id === p.fallbackId);
+    if (tgt) lines.push(t('tip_fallback', { name: tgt.name }));
+  }
+  const st = healthOf(p);
+  if (st !== 'unknown') lines.push(t('tip_status', { status: st === 'ok' ? t('health_reachable') : t('health_unreachable') }));
+  if (cx.baseUrl(p) || p.codex) lines.push(t('tip_codexParallel', { key: cx.profileKey(p) }));
   lines.push(t('tip_codexConfig', { path: cx.configPath() }));
   if (extraLines) lines.push(...extraLines);
   const md = new vscode.MarkdownString();
@@ -312,6 +500,18 @@ function watchCodexConfig(onChange) {
 }
 
 module.exports = {
+  CODEX_HOTKEYS,
+  firstFreeCodexHotkey,
+  findCodex,
+  promptKey,
+  pickCodexModel,
+  switchCodexAndReload,
+  switchCodexToIndex,
+  cycleCodex,
+  switchCodexWithFallback,
+  testCodexProfile,
+  duplicateCodexProfile,
+  moveCodexProfile,
   onCodexChanged,
   codexActiveId,
   invalidateCodexActive,

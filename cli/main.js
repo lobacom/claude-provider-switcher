@@ -15,7 +15,7 @@ const { t, setLang } = require('./strings');
 const { Store, HOTKEYS, uniqueName, firstFreeBadge } = require('./store');
 const { CLAUDE_API_URL, COLOR_CHOICES, MANAGED_ENV_KEYS } = require('../src/constants');
 const { keyFilePath } = require('../src/keyfile');
-const { probeModelsList, httpProbe } = require('../src/http');
+const { probeModelsList, httpProbe, httpProbeResponses, probeHealthy } = require('../src/http');
 const codex = require('../src/agents/codex');
 
 const { style } = tui;
@@ -181,7 +181,7 @@ async function mainMenu() {
       { separator: true, label: '' },
       { label: t('menu_add'), value: 'add' },
       ...(showCodex ? [{ label: t('menu_addCodex'), value: 'addCodex' }] : []),
-      { label: t('menu_health'), value: 'health', disabled: !profiles.length },
+      { label: t('menu_health'), value: 'health', disabled: !profiles.length && !store.codexProfiles().length },
       { label: t('menu_settings'), value: 'settings' },
       { label: t('menu_quit'), value: 'quit' }
     );
@@ -289,11 +289,256 @@ async function switchCodex(p) {
     if (v === null) return null;
     if (v.trim()) store.setToken(p.id, v);
   }
+  // Same setting as the extension: probe first and follow the fallback chain.
+  if (store.get('autoFallbackOnApply') === true) return codexWithFallback(p);
   return guardCodex(() => {
     store.syncCodex(p.id);
     return ok(t('switchedCodex', { name: p.name }));
   });
 }
+
+// A tiny POST <base_url>/responses — proves the endpoint and the key.
+function codexProbe(p) {
+  const c = p.codex || {};
+  return httpProbeResponses(codex.baseUrl(p), store.codexToken(p), c.model, {
+    headers: c.http_headers || {},
+    query: c.query_params || {},
+  });
+}
+
+// Probe `startP`, walk its fallback chain and switch to the first provider that
+// answers (the built-in OpenAI provider counts as up). Returns a notice line.
+async function codexWithFallback(startP) {
+  const list = store.codexProfiles();
+  const chain = [];
+  const seen = new Set();
+  for (let p = startP; p && !seen.has(p.id); p = p.fallbackId ? list.find((x) => x.id === p.fallbackId) : null) {
+    seen.add(p.id);
+    chain.push(p);
+  }
+  const skipped = [];
+  for (const cand of chain) {
+    const healthy = !codex.baseUrl(cand) ||
+      probeHealthy(await tui.busy(displayName(cand), t('checking', { name: cand.name }), codexProbe(cand)));
+    if (healthy) {
+      const err = guardCodex(() => {
+        store.syncCodex(cand.id);
+        return '';
+      });
+      if (err) return err;
+      // one notice line: the fall-back message already names where we ended up
+      return skipped.length
+        ? style.yellow(t('fellBack', { skipped: skipped.join(', '), name: cand.name }))
+        : ok(t('switchedCodex', { name: cand.name }));
+    }
+    skipped.push(`"${cand.name}"`);
+  }
+  guardCodex(() => store.syncCodex(startP.id));
+  return fail(skipped.length > 1
+    ? t('noReachableChain', { chain: skipped.join(' → '), name: startP.name })
+    : t('unreachableNoFallback', { name: startP.name }));
+}
+
+async function testCodexConnection(p) {
+  const r = await tui.busy(displayName(p), t('testing', { name: p.name }), codexProbe(p));
+  let line;
+  if (r.kind === 'error') line = fail(t('testUnreachable', { name: p.name, msg: r.msg }));
+  else if (r.status === 200) line = ok(t('testConnected', { name: p.name }));
+  else if (r.status === 401 || r.status === 403) line = fail(t('testAuthFailed', { name: p.name, s: r.status }));
+  else if (r.status === 404) line = fail(t('testNotFound', { name: p.name }));
+  else if (r.status === 400) line = ok(t('test400', { name: p.name }));
+  else if (r.status === 429) line = style.yellow(t('test429', { name: p.name }));
+  else line = style.yellow(t('testOther', { name: p.name, s: r.status }));
+  await tui.message({ title: displayName(p), lines: [line], footer: t('footer_msg') });
+}
+
+// ---- Codex profile editor ---------------------------------------------------------
+
+const CODEX_FIELDS = [
+  { key: 'name', label: 'field_name' },
+  { key: 'color', label: 'field_badge' },
+  { key: 'hotkey', label: 'field_codexHotkey' },
+  { key: 'fallback', label: 'field_fallback' },
+  { key: 'base_url', label: 'field_codexBaseUrl' },
+  { key: 'token', label: 'field_codexKey' },
+  { key: 'model', label: 'field_codexModel' },
+  { key: 'reasoning_effort', label: 'field_codexEffort' },
+  { key: 'http_headers', label: 'field_codexHeaders', map: true },
+  { key: 'query_params', label: 'field_codexQuery', map: true },
+];
+
+function codexFieldValue(p, key, list) {
+  const c = p.codex || {};
+  if (key === 'name') return p.name || '';
+  if (key === 'color') return p.color || '';
+  if (key === 'hotkey') return p.hotkey || '';
+  if (key === 'fallback') {
+    if (!p.fallbackId) return '';
+    const tgt = list.find((x) => x.id === p.fallbackId);
+    return tgt ? tgt.name : t('missing');
+  }
+  if (key === 'base_url') return c.base_url || t('codexBuiltin');
+  if (key === 'token') return !codex.needsKey(p) ? t('codexKeyNotNeeded') : store.codexToken(p) ? '••••••••' : '';
+  if (key === 'model' || key === 'reasoning_effort') return c[key] || t('tip_codexModelDefault');
+  const n = Object.keys(c[key] || {}).length;
+  return n ? t('extraEnvCount', { n }) : '';
+}
+
+// Save a change to Codex profile `id` and rewrite config.toml (re-applying the
+// profile when it is the active one). Returns a notice line, '' when fine.
+function saveCodexChange(id, fn) {
+  return guardCodex(() => {
+    updateCodexProfile(id, (x) => {
+      x.codex = { ...(x.codex || {}) };
+      fn(x);
+    });
+    store.syncCodex(undefined);
+    return '';
+  });
+}
+
+async function editCodexProfile(id) {
+  let cursor = 0;
+  let notice = [];
+  for (;;) {
+    store.reload();
+    const list = store.codexProfiles();
+    const p = list.find((x) => x.id === id);
+    if (!p) return;
+    const items = CODEX_FIELDS.map((f) => ({ label: t(f.label), hint: codexFieldValue(p, f.key, list) || t('empty'), value: f }));
+    items.push({ separator: true, label: '' }, { label: t('done'), value: 'done' });
+    const res = await tui.select({ title: t('editingPlaceholder', { name: p.name }), header: notice, items, index: cursor, footer: t('footer_menu') });
+    notice = [];
+    if (!res || res.item.value === 'done') return;
+    cursor = res.index;
+    const n = await editCodexField(p, res.item.value, list);
+    if (n) notice.push(n);
+  }
+}
+
+async function editCodexField(p, f, list) {
+  const title = `${p.name} — ${t(f.label)}`;
+  const pick = async (items, cur) => {
+    const idx = items.findIndex((x) => x.value === cur);
+    const r = await tui.select({ title, items, index: Math.max(0, idx), footer: t('footer_menu') });
+    return r ? r.item.value : undefined;
+  };
+  const c = p.codex || {};
+  if (f.key === 'name') {
+    const v = await tui.prompt({ title, label: t(f.label), value: p.name, footer: t('footer_input') });
+    if (v !== null && v.trim()) return saveCodexChange(p.id, (x) => { x.name = v.trim(); });
+  } else if (f.key === 'color') {
+    const v = await pick(COLOR_CHOICES.map((cc) => ({
+      label: cc.none ? t('noneLabel') : `${cc.value}  ${t('color_' + cc.color)}${cc.shape ? t('color_join') + t('shape_' + cc.shape) : ''}`,
+      hint: cc.value === (p.color || '') ? t('current') : '',
+      value: cc.value,
+    })), p.color || '');
+    if (v !== undefined) return saveCodexChange(p.id, (x) => { x.color = v; });
+  } else if (f.key === 'hotkey') {
+    const used = new Set(list.filter((x) => x.id !== p.id).map((x) => x.hotkey).filter(Boolean));
+    const v = await pick([
+      ...codex.CODEX_HOTKEYS.filter((h) => !used.has(h)).map((h) => ({ label: `⌨ ${h}`, hint: h === p.hotkey ? t('current') : t('free'), value: h })),
+      { label: t('noneLabel'), value: '' },
+    ], p.hotkey || '');
+    if (v !== undefined) return saveCodexChange(p.id, (x) => { if (v) x.hotkey = v; else delete x.hotkey; });
+  } else if (f.key === 'fallback') {
+    const v = await pick([
+      { label: t('noneLabel'), value: '' },
+      { separator: true, label: t('codexSep') },
+      ...list.filter((x) => x.id !== p.id).map((x) => ({
+        label: displayName(x),
+        hint: (x.id === p.fallbackId ? t('current') + '  ' : '') + codexDescribe(x),
+        value: x.id,
+      })),
+    ], p.fallbackId || '');
+    if (v !== undefined) return saveCodexChange(p.id, (x) => { if (v) x.fallbackId = v; else delete x.fallbackId; });
+  } else if (f.key === 'base_url') {
+    const v = await tui.prompt({
+      title,
+      label: t('codexBaseUrlPromptEdit'),
+      value: c.base_url || '',
+      placeholder: 'https://host/v1',
+      validate: (s) => (!s.trim() || /^https?:\/\/\S+$/i.test(s.trim()) ? '' : t('codexBaseUrlInvalid')),
+      footer: t('footer_input'),
+    });
+    if (v !== null) {
+      return saveCodexChange(p.id, (x) => {
+        const u = v.trim().replace(/\/+$/, '');
+        if (u) x.codex.base_url = u;
+        else delete x.codex.base_url;
+      });
+    }
+  } else if (f.key === 'token') {
+    if (!codex.needsKey(p)) return '';
+    const v = await tui.prompt({
+      title,
+      header: [style.dim(t('keyNote', { path: keyFilePath() }))],
+      label: t('keyLabel', { name: p.name }),
+      value: store.codexToken(p),
+      mask: true,
+      footer: t('footer_input'),
+    });
+    if (v !== null) {
+      return guardCodex(() => {
+        store.setToken(p.id, v);
+        if (!v.trim()) codex.forgetKey(p);
+        store.syncCodex(undefined);
+        return ok(t(v.trim() ? 'keySaved' : 'keyRemoved', { name: p.name }));
+      });
+    }
+  } else if (f.key === 'model') {
+    const m = await pickCodexModel(p, store.codexToken(p));
+    if (m !== null) return saveCodexChange(p.id, (x) => { if (m) x.codex.model = m; else delete x.codex.model; });
+  } else if (f.key === 'reasoning_effort') {
+    const v = await pick([
+      { label: t('tip_codexModelDefault'), value: '' },
+      ...codex.REASONING_EFFORTS.map((e) => ({ label: e, hint: e === c.reasoning_effort ? t('current') : '', value: e })),
+    ], c.reasoning_effort || '');
+    if (v !== undefined) return saveCodexChange(p.id, (x) => { if (v) x.codex.reasoning_effort = v; else delete x.codex.reasoning_effort; });
+  } else if (f.map) {
+    await editCodexMap(p.id, f);
+  }
+  return '';
+}
+
+// add / edit / clear entries of http_headers or query_params
+async function editCodexMap(id, f) {
+  for (;;) {
+    store.reload();
+    const p = store.codexProfiles().find((x) => x.id === id);
+    if (!p) return;
+    const map = (p.codex && p.codex[f.key]) || {};
+    const items = [
+      { label: t('mapAdd'), value: { add: true } },
+      ...Object.keys(map).sort().map((k) => ({ label: k, hint: String(map[k]), value: { key: k } })),
+      { separator: true, label: '' },
+      { label: t('done'), value: 'done' },
+    ];
+    const res = await tui.select({ title: t('mapPlaceholder', { label: t(f.label), name: p.name }), items, footer: t('footer_menu') });
+    if (!res || res.item.value === 'done') return;
+    let key = res.item.value.key;
+    if (res.item.value.add) {
+      key = await tui.prompt({
+        title: p.name,
+        label: t('mapKeyPrompt'),
+        validate: (v) => (/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(v.trim()) ? '' : t('mapKeyInvalid')),
+        footer: t('footer_input'),
+      });
+      if (key === null) continue;
+      key = key.trim();
+    }
+    const value = await tui.prompt({ title: p.name, label: t('mapValuePrompt', { key }), value: map[key] || '', footer: t('footer_input') });
+    if (value === null) continue;
+    saveCodexChange(id, (x) => {
+      const m = { ...(x.codex[f.key] || {}) };
+      if (value === '') delete m[key];
+      else m[key] = value;
+      if (Object.keys(m).length) x.codex[f.key] = m;
+      else delete x.codex[f.key];
+    });
+  }
+}
+
 function resetCodex() {
   return guardCodex(() => {
     store.syncCodex(null);
@@ -350,7 +595,15 @@ function bundledCodexPresets() {
   try {
     const j = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'providers.json'), 'utf8'));
     const c = j.codex || {};
-    return { remote: c.remote || [], local: c.local || [] };
+    const out = { remote: [...(c.remote || [])], local: [...(c.local || [])] };
+    // plus custom providers that carry a Codex Base URL
+    const list = store.get('customProviders', []);
+    for (const x of Array.isArray(list) ? list : []) {
+      const url = x && typeof x.codexBaseUrl === 'string' && x.codexBaseUrl.trim();
+      if (!url || typeof x.name !== 'string' || !x.name.trim()) continue;
+      (x.local ? out.local : out.remote).push({ name: x.name.trim(), codex: { base_url: url }, custom: true });
+    }
+    return out;
   } catch {
     return { remote: [], local: [] };
   }
@@ -360,7 +613,7 @@ async function addCodexProvider() {
   const b = bundledCodexPresets();
   const preset = (pr) => ({
     label: pr.name,
-    hint: (pr.codex && pr.codex.base_url) || '',
+    hint: ((pr.codex && pr.codex.base_url) || '') + (pr.custom ? `  ${t('customTag')}` : ''),
     value: { name: pr.name, codex: { ...(pr.codex || {}) } },
   });
   const items = [
@@ -410,6 +663,9 @@ async function addCodexProvider() {
   if (model) p.codex.model = model;
   return guardCodex(() => {
     codex.assignKey(p, list);
+    const used = new Set(list.map((x) => x.hotkey).filter(Boolean));
+    const hk = codex.CODEX_HOTKEYS.find((h) => !used.has(h));
+    if (hk) p.hotkey = hk; // next free Ctrl+Shift+Alt+<n>, as in the extension
     list.push(p);
     store.saveCodexProfiles(list);
     if (token) store.setToken(p.id, token);
@@ -427,11 +683,18 @@ async function codexMenu(id) {
     const p = list.find((x) => x.id === id);
     if (!p) return null;
     const needs = codex.needsKey(p);
+    const i = list.indexOf(p);
     const items = [
       { label: t('act_switchCodex'), value: 'switch' },
+      { label: t('act_switchFallback'), hint: p.fallbackId ? '' : t('noFallbackSet'), value: 'fallback' },
       { separator: true, label: '' },
+      { label: t('act_edit'), value: 'edit' },
       { label: t('act_model'), hint: (p.codex && p.codex.model) || t('tip_codexModelDefault'), value: 'model' },
       { label: t('act_key'), hint: needs ? (store.codexToken(p) ? t('key_set') : t('key_missing')) : '', value: 'key', disabled: !needs },
+      { label: t('act_test'), value: 'test', disabled: !codex.baseUrl(p) },
+      { label: t('act_duplicate'), value: 'duplicate' },
+      { label: t('act_moveUp'), value: 'up', disabled: i === 0 },
+      { label: t('act_moveDown'), value: 'down', disabled: i === list.length - 1 },
       { label: t('act_delete'), value: 'delete' },
       { separator: true, label: '' },
       { label: t('back'), value: 'back' },
@@ -451,6 +714,34 @@ async function codexMenu(id) {
     if (a === 'switch') {
       const n = await switchCodex(p);
       if (n) return n;
+    } else if (a === 'fallback') {
+      return codexWithFallback(p);
+    } else if (a === 'edit') {
+      await editCodexProfile(id);
+    } else if (a === 'test') {
+      await testCodexConnection(p);
+    } else if (a === 'duplicate') {
+      notice.push(guardCodex(() => {
+        const copy = JSON.parse(JSON.stringify(p));
+        copy.id = require('crypto').randomUUID();
+        copy.name = uniqueName(p.name + t('copySuffix'), list);
+        delete copy.key; // its own name in config.toml
+        delete copy.hotkey;
+        codex.assignKey(copy, list);
+        list.splice(i + 1, 0, copy);
+        store.saveCodexProfiles(list);
+        if (store.hasStoredToken(p)) store.setToken(copy.id, store.codexToken(p));
+        store.syncCodex(undefined);
+        return ok(t('duplicated', { name: p.name }));
+      }));
+    } else if (a === 'up' || a === 'down') {
+      const j = i + (a === 'up' ? -1 : 1);
+      notice.push(guardCodex(() => {
+        [list[i], list[j]] = [list[j], list[i]];
+        store.saveCodexProfiles(list);
+        cursor = items.findIndex((x) => x.value === a);
+        return '';
+      }));
     } else if (a === 'model') {
       const m = await pickCodexModel(p, store.codexToken(p));
       if (m !== null) {
@@ -476,6 +767,7 @@ async function codexMenu(id) {
       if (v !== null) {
         notice.push(guardCodex(() => {
           store.setToken(p.id, v);
+          if (!v.trim()) codex.forgetKey(p); // an empty key removes it for Codex too
           store.syncCodex(undefined);
           return ok(t(v.trim() ? 'keySaved' : 'keyRemoved', { name: p.name }));
         }));
@@ -623,9 +915,21 @@ async function checkOneHealth(p) {
   if (!r.reachable || r.auth || r.serverError) return 'down';
   return 'ok';
 }
+// The same verdict for a Codex profile (the built-in OpenAI provider counts as up).
+async function checkOneCodexHealth(p) {
+  const url = codex.baseUrl(p);
+  if (!url) return 'ok';
+  const r = await probeModelsList(url, store.codexToken(p));
+  if (r.ok) return 'ok';
+  if (!r.reachable || r.auth || r.serverError) return 'down';
+  return 'ok';
+}
 async function healthCheck() {
-  const profiles = store.profiles();
-  const res = await tui.busy(t('healthTitle'), t('checkingHealth'), Promise.all(profiles.map(checkOneHealth)));
+  const claude = store.profiles();
+  const profiles = [...claude, ...store.codexProfiles()];
+  const res = await tui.busy(t('healthTitle'), t('checkingHealth'), Promise.all(
+    profiles.map((p, i) => (i < claude.length ? checkOneHealth(p) : checkOneCodexHealth(p)))
+  ));
   const lines = profiles.map((p, i) =>
     `${res[i] === 'ok' ? t('health_reachable') : style.red(t('health_unreachable'))}   ${displayName(p)}`
   );
@@ -657,6 +961,7 @@ function customPresets() {
   if (!Array.isArray(list)) return out;
   for (const c of list) {
     if (!c || typeof c.name !== 'string' || !c.name.trim()) continue;
+    if (c.codexBaseUrl && String(c.codexBaseUrl).trim() && !(c.baseUrl && String(c.baseUrl).trim())) continue; // Codex-only row
     const env = {};
     if (c.baseUrl && String(c.baseUrl).trim()) env.ANTHROPIC_BASE_URL = String(c.baseUrl).trim();
     if (c.opusModel) env.ANTHROPIC_DEFAULT_OPUS_MODEL = String(c.opusModel);
