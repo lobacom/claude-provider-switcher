@@ -50,6 +50,9 @@
   `wire_api = "responses"`), so both belong in the Codex catalog with their recommended model and
   reasoning effort. (Anthropic-compatible endpoints from the Claude catalog still don't — Codex
   only speaks Responses.)
+- **Codex catalog: Z.ai (GLM).** Z.ai's `devpack/latest-model` documents an OpenAI Responses
+  endpoint at `https://api.z.ai/api/v1` for Codex (with `reasoning_effort`). Verified:
+  `POST /api/v1/responses` returns 200 with a key requirement error, so the route is live.
 
 ## 0.9.1
 
