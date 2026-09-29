@@ -12,8 +12,8 @@
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
         "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-flash",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash"
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-flash",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-flash"
       }
     },
     {
@@ -26,9 +26,9 @@
       "icon": "moonshot.png",
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.moonshot.ai/anthropic",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k2.5",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k2.5",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-k2.5"
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "kimi-k3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "kimi-k3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "kimi-k3"
       }
     },
     {
@@ -37,8 +37,8 @@
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.minimax.io/anthropic",
         "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M2.7",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M2.7"
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3"
       }
     },
     {
@@ -47,8 +47,8 @@
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
         "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M2.7",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M2.7"
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3"
       }
     },
     {
@@ -76,9 +76,9 @@
       "icon": "qwen.png",
       "env": {
         "ANTHROPIC_BASE_URL": "https://dashscope-intl.aliyuncs.com/apps/anthropic",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3-max",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3-coder-plus",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.5-flash"
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3.8-max",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3.7-plus",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.7-flash"
       }
     },
     {
@@ -96,9 +96,9 @@
       "icon": "hubot",
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.xiaomimimo.com/anthropic",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "mimo-v2.5-pro",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "mimo-v2-pro",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2-flash"
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "mimo-v2.6-pro",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "mimo-v2.6-pro",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2.6-flash"
       }
     },
     {
@@ -106,9 +106,9 @@
       "icon": "zai.png",
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air"
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash"
       }
     },
     {
@@ -116,9 +116,9 @@
       "icon": "zhipu.png",
       "env": {
         "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air"
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash"
       }
     }
   ],

@@ -143,7 +143,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | --- | --- |
 | Base URL | `https://api.deepseek.com/anthropic` |
 | Auth token | `YOUR_DEEPSEEK_API_KEY` |
-| Opus / Sonnet / Haiku | `deepseek-v4-pro` / `deepseek-v4-flash` / `deepseek-v4-flash` |
+| Opus / Sonnet / Haiku | `deepseek-v4-pro` / `deepseek-flash` / `deepseek-flash` |
 
 **MiniMax** (direct; models must be explicit):
 
@@ -151,7 +151,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | --- | --- |
 | Base URL | `https://api.minimax.io/anthropic` |
 | Auth token | `YOUR_MINIMAX_API_KEY` |
-| Opus / Sonnet / Haiku | `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M2.7` |
+| Opus / Sonnet / Haiku | `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M3` |
 
 **Local LM Studio** (offline) — enable the server (*Developer → Start Server*, port `1234`); use the exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty string:
 
@@ -181,8 +181,8 @@ You normally add these via the sidebar, but here are the values to enter (replac
       "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
       "ANTHROPIC_AUTH_TOKEN": "YOUR_DEEPSEEK_API_KEY",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
-      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-flash",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash"
+      "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-flash",
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-flash"
     }
   },
   {
@@ -192,7 +192,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
       "ANTHROPIC_AUTH_TOKEN": "YOUR_MINIMAX_API_KEY",
       "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M3",
       "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M3",
-      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M2.7"
+      "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3"
     }
   },
   {
@@ -382,8 +382,8 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 Обычно их добавляют через сайдбар, но вот значения для ввода (вместо `YOUR_*_KEY` — свои ключи):
 
 - **Нативная подписка** — все поля пустые (пустой Base URL).
-- **DeepSeek:** Base URL `https://api.deepseek.com/anthropic`, токен `YOUR_DEEPSEEK_API_KEY`, Opus/Sonnet/Haiku = `deepseek-v4-pro` / `deepseek-v4-flash` / `deepseek-v4-flash`.
-- **MiniMax:** Base URL `https://api.minimax.io/anthropic`, токен `YOUR_MINIMAX_API_KEY`, Opus/Sonnet/Haiku = `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M2.7`.
+- **DeepSeek:** Base URL `https://api.deepseek.com/anthropic`, токен `YOUR_DEEPSEEK_API_KEY`, Opus/Sonnet/Haiku = `deepseek-v4-pro` / `deepseek-flash` / `deepseek-flash`.
+- **MiniMax:** Base URL `https://api.minimax.io/anthropic`, токен `YOUR_MINIMAX_API_KEY`, Opus/Sonnet/Haiku = `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M3`.
 - **LM Studio:** Base URL `http://localhost:1234`, токен `lmstudio`, модель = точный `id` из `http://localhost:1234/v1/models` (включи сервер: *Developer → Start Server*).
 - **Свой шлюз:** Base URL `https://your-gateway.example`, токен `YOUR_GATEWAY_KEY`, модели — алиасы твоего шлюза.
 
@@ -560,8 +560,8 @@ claude-providers                                        # интерактивн
 ### 服务商示例（用自己的密钥替换 `YOUR_*_KEY`）
 
 - **原生 Claude 订阅** —— 所有字段留空（Base URL 为空）。
-- **DeepSeek：** Base URL `https://api.deepseek.com/anthropic`，令牌 `YOUR_DEEPSEEK_API_KEY`， Opus/Sonnet/Haiku = `deepseek-v4-pro` / `deepseek-v4-flash` / `deepseek-v4-flash`。
-- **MiniMax：** Base URL `https://api.minimax.io/anthropic`，令牌 `YOUR_MINIMAX_API_KEY`， Opus/Sonnet/Haiku = `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M2.7`。
+- **DeepSeek：** Base URL `https://api.deepseek.com/anthropic`，令牌 `YOUR_DEEPSEEK_API_KEY`， Opus/Sonnet/Haiku = `deepseek-v4-pro` / `deepseek-flash` / `deepseek-flash`。
+- **MiniMax：** Base URL `https://api.minimax.io/anthropic`，令牌 `YOUR_MINIMAX_API_KEY`， Opus/Sonnet/Haiku = `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M3`。
 - **本地 LM Studio：** Base URL `http://localhost:1234`，令牌 `lmstudio`，模型 = `http://localhost:1234/v1/models` 返回的精确 `id`（启动服务：*Developer → Start Server*）。
 - **自建网关：** Base URL `https://your-gateway.example`，令牌 `YOUR_GATEWAY_KEY`，模型 = 你网关的模型别名。
 
