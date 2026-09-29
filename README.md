@@ -4,6 +4,8 @@ Switches the official [**Claude Code**](https://marketplace.visualstudio.com/ite
 
 Pick a provider from the **built-in catalog**: the endpoint is pre-filled and the **model list is fetched from the provider itself**, so the only thing you usually type is your **API key** — while every connection parameter stays hand-editable when you need it.
 
+It also switches **OpenAI Codex** — the `codex` CLI and the Codex extension — between OpenAI (your ChatGPT sign-in) and any **OpenAI Responses API** endpoint (OpenAI API, OpenRouter, LM Studio, Ollama, vLLM, …), from a second status-bar item and its own **Codex** view. · Также переключает **OpenAI Codex** (CLI `codex` и расширение Codex). · 同样可以切换 **OpenAI Codex**（`codex` CLI 与 Codex 扩展）。
+
 **Languages:** [English](#english) · [Русский](#русский) · [中文](#zh)
 
 > **No accounts, no keys bundled.** This extension ships zero credentials. Your profiles — including any API keys — live only in *your* settings and are never sent anywhere. · **Никаких аккаунтов и ключей в пакете.** Профили (включая ключи) хранятся только в *твоих* настройках и никуда не отправляются. · **不含任何账号或密钥。** 本扩展不附带任何凭据；你的配置（包括 API 密钥）仅保存在*你自己的*设置中，绝不外发。
@@ -209,6 +211,19 @@ You normally add these via the sidebar, but here are the values to enter (replac
 ```
 </details>
 
+### Codex
+
+The same switcher works for **OpenAI Codex**. Codex reads one file — `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`) — for both the `codex` CLI and the Codex VS Code extension, so one switch covers both.
+
+- **Where:** a **Codex** view under the same Activity Bar icon (shown once Codex is installed or you have Codex profiles) and a second status-bar item, `Codex: <name>` — click it for the menu. **Codex default** gives Codex back your own `config.toml` settings.
+- **Add:** *OpenAI (built-in, `codex login`)* — your ChatGPT sign-in or OpenAI API key, as Codex normally works; *OpenAI API*, *OpenRouter*; local *LM Studio*, *Ollama*, *vLLM*; *Custom* for any other endpoint. Codex only speaks the OpenAI **Responses API** (`POST <base_url>/responses`; Chat Completions support was removed), so an endpoint must serve it — Anthropic-compatible URLs from the Claude catalog don't work. A row in the custom-providers table with a **Codex Base URL** also appears here.
+- **What a switch writes:** the top-level `model_provider`, `model` and `model_reasoning_effort` in `config.toml`, plus a marked block with one `[model_providers.cps-…]` table per profile. Everything else in the file stays byte for byte; your previous values are remembered in the block and restored by *Codex default*. A one-time `config.toml.cps-backup` is kept before the first write. A hand edit of `model_provider` hands control back to you.
+- **API keys never go into `config.toml`** (by default): each key is kept in SecretStorage and in its own owner-only file `~/.claude-provider-switcher/codex-keys/<id>.key`; Codex reads it through `auth = { command = "cat", … }` (`cmd /c type` on Windows). Set `codexKeyStorage` to `config` to write the active key as `experimental_bearer_token` instead.
+- **Parallel runs:** every profile also gets `~/.codex/<key>.config.toml`, so `codex --profile cps-deepseek` uses that provider in one terminal while another runs on the active one. Your own profile files are never touched.
+- **Everything the Claude side has:** field editor (Base URL, API key, model from the endpoint's `/v1/models`, reasoning effort, HTTP headers, query parameters, badge, hotkey, fallback), *Test connection* (a tiny `POST /responses`), the 🟢/🔴 health check, *Switch with fallback* and `autoFallbackOnApply`, *Switch & reload window* and `switchAction`, hotkeys **`Ctrl+Shift+Alt+1…0`** and cycling with **`Ctrl+Shift+Alt+]` / `[`** (macOS `Cmd+Shift+Alt+…`), duplicate / reorder, *Pin to this workspace*, and *Import / Export Codex providers* (its own `codex-providers.json`, keys excluded unless you ask).
+- **Token statistics** in the tooltip — today / 7 days / 30 days, per model — read from Codex's own session logs (`~/.codex/sessions/…/rollout-*.jsonl`). Each log names the provider it ran on, so usage is attributed exactly.
+- Like Claude Code, Codex reads its config when a session starts: start a new Codex session (or reload the window for the extension) after switching.
+
 ### Terminal app (`claude-providers`)
 
 Everything above also works **without VS Code**: `claude-providers` is a full-screen terminal menu driven by the arrow keys (no numbered items) over the same profiles. It switches the **`claude` CLI** (`~/.claude/settings.json`), the **VS Code extension** (`claudeCode.environmentVariables`) or both, and lets you add / edit / duplicate / reorder / delete providers, set API keys, pick models from the endpoint's list, test connections, check health and change the extension's settings.
@@ -221,7 +236,8 @@ claude-providers                                        # interactive menu
 No install needed if the extension is already there: `node ~/.vscode/extensions/alekseilobanov.claude-provider-switcher-*/bin/claude-providers.js`.
 
 - **Keys:** `↑`/`↓` move, `Enter` switches (the terminal, or terminal + VS Code — set in *Settings*), `→` opens the provider's actions, `Esc` goes back / quits.
-- **Scripting:** `claude-providers list`, `claude-providers current`, `claude-providers use <name|#n> [--vscode]`.
+- **Scripting:** `claude-providers list`, `claude-providers current`, `claude-providers use <name|#n> [--vscode]`; for Codex: `claude-providers codex list | current | use <name|#n> | default`.
+- **Codex:** the menu has a Codex section with the same actions (switch, switch with fallback, edit, API key, test, duplicate, reorder, delete) and *Add Codex provider…*.
 - **Where it reads from:** VS Code's user `settings.json` (auto-detected for VS Code, Insiders, VSCodium, Cursor, Windsurf; override with `--settings <path>` or `CLAUDE_PROVIDERS_VSCODE_SETTINGS`). Edits are surgical — comments and formatting in that file are preserved, and a running VS Code picks them up live.
 - **API keys:** VS Code keeps keys in its encrypted SecretStorage, which other programs can't read. Turn on **`shareKeysWithTerminal`** and the extension mirrors them to `~/.claude-provider-switcher/keys.json` (owner-only permissions) and picks up keys you enter in the terminal. Without it the app asks for a key the first time you switch to a provider (and can reuse the one already in an applied env).
 
@@ -230,7 +246,7 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 | Setting | Default | Description |
 | --- | --- | --- |
 | `claudeProviderSwitcher.profiles` | `[]` | Provider profiles `{ name, color?, hotkey?, env }`. Managed via the sidebar. |
-| `claudeProviderSwitcher.customProviders` | `[]` | Extra providers added to the **Add provider** menu `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Use this to add a provider that isn't built in; edit it as a table in the Settings UI. |
+| `claudeProviderSwitcher.customProviders` | `[]` | Extra providers added to the **Add provider** menu `{ name, baseUrl?, codexBaseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Use this to add a provider that isn't built in; edit it as a table in the Settings UI. |
 | `claudeProviderSwitcher.language` | `auto` | UI language for the extension's own menus, notifications, sidebar, status bar and custom-providers table: `auto` / `en` / `ru` / `zh`. `auto` follows VS Code, falling back to English. Switches live. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Show the active-provider indicator in the status bar. |
 | `claudeProviderSwitcher.showUsageStats` | `true` | Show per-provider usage statistics (switch count + active time) in the tooltips. |
@@ -238,6 +254,9 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 | `claudeProviderSwitcher.switchAction` | `switch` | What happens on every switch (sidebar click, hotkey, cycle, menu): `switch` — switch the provider, then remind to restart the session; `switchAndReload` — switch and immediately reload the window so the next session picks up the new provider. |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | Also mirror the active provider into the Claude Code **CLI** config at `~/.claude/settings.json` (under `env`), so `claude` in a plain terminal uses the same provider. Only the keys this extension manages are touched; the rest of the file is preserved. Writes the active API key there in plain text. |
 | `claudeProviderSwitcher.shareKeysWithTerminal` | `false` | Share API keys with the `claude-providers` terminal app via `~/.claude-provider-switcher/keys.json` (owner-only permissions, plain text), both ways. |
+| `claudeProviderSwitcher.codexProfiles` | `[]` | Codex provider profiles `{ name, color?, hotkey?, fallbackId?, codex: { base_url?, model?, reasoning_effort?, http_headers?, query_params? } }`. Managed via the Codex view. |
+| `claudeProviderSwitcher.showCodexStatusBarItem` | `true` | Show the active Codex provider in the status bar (once you have Codex profiles). |
+| `claudeProviderSwitcher.codexKeyStorage` | `file` | Where Codex API keys go: `file` — owner-only key files read via `auth = { command }`, nothing secret in `config.toml`; `config` — the active key as `experimental_bearer_token` in `config.toml` (plain text). |
 | `claudeProviderSwitcher.showRestartHint` | `true` | After switching, tint the status bar item and remind you the Claude Code session must restart (new chat / Reload Window) to take effect. Clears on reload. |
 | `claudeProviderSwitcher.applyPinnedOnOpen` | `true` | When a workspace has a pinned provider, automatically switch to it on open. |
 | `claudeProviderSwitcher.autoFallbackOnApply` | `false` | Probe the target on every switch and, if it's unreachable, fall back to its configured fallback provider. When off, use *Switch with fallback* for on-demand failover. |
@@ -389,6 +408,19 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 
 Полный пример `settings.json` см. в свёрнутом блоке английской секции выше.
 
+### Codex
+
+Тот же переключатель работает для **OpenAI Codex**. Codex читает один файл — `~/.codex/config.toml` (или `$CODEX_HOME/config.toml`) — и для CLI `codex`, и для расширения Codex в VS Code, так что одно переключение действует на оба.
+
+- **Где:** представление **Codex** под той же иконкой Activity Bar (появляется, если Codex установлен или есть профили Codex), и второй элемент статус-бара `Codex: <имя>` — клик открывает меню. **Codex по умолчанию** возвращает Codex ваши собственные настройки `config.toml`.
+- **Добавление:** *OpenAI (встроенный, `codex login`)* — вход через ChatGPT или ключ OpenAI API, как Codex работает обычно; *OpenAI API*, *OpenRouter*; локальные *LM Studio*, *Ollama*, *vLLM*; *Свой* — любой другой эндпоинт. Codex говорит только по **OpenAI Responses API** (`POST <base_url>/responses`; поддержку Chat Completions убрали), поэтому эндпоинт должен его поддерживать — Anthropic-совместимые адреса из каталога Claude не подойдут. Строка таблицы своих провайдеров с **Codex Base URL** тоже появляется здесь.
+- **Что пишет переключение:** верхнеуровневые `model_provider`, `model` и `model_reasoning_effort` в `config.toml` и помеченный блок с таблицей `[model_providers.cps-…]` на каждый профиль. Остальной файл не меняется; ваши прежние значения запоминаются в блоке и возвращаются командой *Codex по умолчанию*. Перед первой записью сохраняется `config.toml.cps-backup`. Ручная правка `model_provider` возвращает управление вам.
+- **API-ключи не попадают в `config.toml`** (по умолчанию): ключ хранится в SecretStorage и в отдельном файле `~/.claude-provider-switcher/codex-keys/<id>.key` с правами только владельца; Codex читает его через `auth = { command = "cat", … }` (`cmd /c type` на Windows). `codexKeyStorage` = `config` — писать активный ключ как `experimental_bearer_token`.
+- **Параллельный запуск:** у каждого профиля есть ещё `~/.codex/<key>.config.toml`, так что `codex --profile cps-deepseek` в одном терминале работает с этим провайдером, пока в другом — активный. Ваши собственные файлы профилей не трогаются.
+- **Всё, что есть у Claude:** редактор полей (Base URL, API-ключ, модель из `/v1/models`, reasoning effort, HTTP-заголовки, query-параметры, бейдж, хоткей, резерв), *Проверить соединение* (маленький `POST /responses`), индикатор 🟢/🔴, *Переключить с резервом* и `autoFallbackOnApply`, *Переключить и перезагрузить окно* и `switchAction`, хоткеи **`Ctrl+Shift+Alt+1…0`** и перебор **`Ctrl+Shift+Alt+]` / `[`** (macOS `Cmd+Shift+Alt+…`), дублирование и порядок, *Закрепить за папкой*, *Импорт / экспорт провайдеров Codex* (свой файл `codex-providers.json`, ключи — только по запросу).
+- **Статистика токенов** в подсказке — сегодня / 7 / 30 дней, по моделям — из журналов сессий самого Codex (`~/.codex/sessions/…/rollout-*.jsonl`). В каждом журнале записан провайдер, поэтому учёт точный.
+- Как и Claude Code, Codex читает конфиг при старте сессии: после переключения начните новую сессию Codex (или перезагрузите окно для расширения).
+
 ### Терминальное приложение (`claude-providers`)
 
 Всё то же самое работает и **без VS Code**: `claude-providers` — полноэкранное меню в терминале, управляемое стрелками (без номеров), поверх тех же профилей. Оно переключает **`claude` CLI** (`~/.claude/settings.json`), **расширение VS Code** (`claudeCode.environmentVariables`) или оба сразу, а также позволяет добавлять / редактировать / дублировать / переупорядочивать / удалять провайдеров, задавать API-ключи, выбирать модели из списка эндпоинта, проверять соединение и доступность и менять настройки расширения.
@@ -401,7 +433,8 @@ claude-providers                                        # интерактивн
 Если расширение уже установлено, ставить ничего не нужно: `node ~/.vscode/extensions/alekseilobanov.claude-provider-switcher-*/bin/claude-providers.js`.
 
 - **Клавиши:** `↑`/`↓` — выбор, `Enter` — переключить (терминал или терминал + VS Code — задаётся в *Настройках*), `→` — действия с провайдером, `Esc` — назад / выход.
-- **Для скриптов:** `claude-providers list`, `claude-providers current`, `claude-providers use <имя|#n> [--vscode]`.
+- **Для скриптов:** `claude-providers list`, `claude-providers current`, `claude-providers use <имя|#n> [--vscode]`; для Codex: `claude-providers codex list | current | use <имя|#n> | default`.
+- **Codex:** в меню есть секция Codex с теми же действиями (переключить, с резервом, редактировать, API-ключ, проверить, дублировать, порядок, удалить) и *Добавить провайдера Codex…*.
 - **Откуда берутся данные:** пользовательский `settings.json` VS Code (ищется сам для VS Code, Insiders, VSCodium, Cursor, Windsurf; другой путь — `--settings <путь>` или `CLAUDE_PROVIDERS_VSCODE_SETTINGS`). Правки точечные — комментарии и форматирование файла сохраняются, запущенный VS Code подхватывает их сразу.
 - **API-ключи:** VS Code хранит ключи в зашифрованном SecretStorage, недоступном другим программам. Включите **`shareKeysWithTerminal`** — расширение продублирует их в `~/.claude-provider-switcher/keys.json` (права только владельцу) и будет подхватывать ключи, введённые в терминале. Без этого приложение спросит ключ при первом переключении на провайдера (или возьмёт его из уже применённого env).
 
@@ -410,7 +443,7 @@ claude-providers                                        # интерактивн
 | Настройка | По умолчанию | Описание |
 | --- | --- | --- |
 | `claudeProviderSwitcher.profiles` | `[]` | Профили `{ name, color?, hotkey?, env }`. Управляются через сайдбар. |
-| `claudeProviderSwitcher.customProviders` | `[]` | Свои провайдеры для меню **Add provider** `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Добавляйте недостающего провайдера; редактируется таблицей в UI настроек. |
+| `claudeProviderSwitcher.customProviders` | `[]` | Свои провайдеры для меню **Add provider** `{ name, baseUrl?, codexBaseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`. Добавляйте недостающего провайдера; редактируется таблицей в UI настроек. |
 | `claudeProviderSwitcher.language` | `auto` | Язык интерфейса расширения (меню, уведомления, сайдбар, статус-бар, таблица провайдеров): `auto` / `en` / `ru` / `zh`. `auto` следует языку VS Code с откатом на английский. Переключается на лету. |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | Показывать индикатор активного провайдера в статус-баре. |
 | `claudeProviderSwitcher.showUsageStats` | `true` | Показывать статистику использования по провайдеру (число переключений + время активности) в подсказках. |
@@ -418,6 +451,9 @@ claude-providers                                        # интерактивн
 | `claudeProviderSwitcher.switchAction` | `switch` | Что делать при каждом переключении (клик в сайдбаре, хоткей, цикл, меню): `switch` — переключить и напомнить о перезапуске сессии; `switchAndReload` — переключить и сразу перезагрузить окно, чтобы новая сессия стартовала на новом провайдере. |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | Дублировать активного провайдера в **CLI**-конфиг Claude Code `~/.claude/settings.json` (в ключ `env`), чтобы `claude` в обычном терминале использовал того же провайдера. Трогаются только управляемые расширением ключи; остальное в файле сохраняется. Активный API-ключ пишется туда открытым текстом. |
 | `claudeProviderSwitcher.shareKeysWithTerminal` | `false` | Делиться API-ключами с терминальным приложением `claude-providers` через `~/.claude-provider-switcher/keys.json` (права только владельцу, открытый текст), в обе стороны. |
+| `claudeProviderSwitcher.codexProfiles` | `[]` | Профили Codex `{ name, color?, hotkey?, fallbackId?, codex: { base_url?, model?, reasoning_effort?, http_headers?, query_params? } }`. Управляются из представления Codex. |
+| `claudeProviderSwitcher.showCodexStatusBarItem` | `true` | Показывать активного провайдера Codex в статус-баре (когда есть профили Codex). |
+| `claudeProviderSwitcher.codexKeyStorage` | `file` | Куда класть API-ключи Codex: `file` — файлы-ключи с правами владельца, читаются через `auth = { command }`, в `config.toml` секретов нет; `config` — активный ключ как `experimental_bearer_token` в `config.toml` (открытым текстом). |
 | `claudeProviderSwitcher.showRestartHint` | `true` | После переключения подсвечивать индикатор в статус-баре и напоминать, что сессию Claude Code нужно перезапустить (новый чат / Reload Window). Сбрасывается при перезагрузке окна. |
 | `claudeProviderSwitcher.applyPinnedOnOpen` | `true` | Если у workspace есть закреплённый провайдер — автоматически переключаться на него при открытии. |
 | `claudeProviderSwitcher.autoFallbackOnApply` | `false` | При каждом переключении проверять провайдера и, если он недоступен, переключаться на его резервного. Если выключено — failover по запросу командой *Switch with fallback*. |
@@ -565,6 +601,19 @@ claude-providers                                        # интерактивн
 - **本地 LM Studio：** Base URL `http://localhost:1234`，令牌 `lmstudio`，模型 = `http://localhost:1234/v1/models` 返回的精确 `id`（启动服务：*Developer → Start Server*）。
 - **自建网关：** Base URL `https://your-gateway.example`，令牌 `YOUR_GATEWAY_KEY`，模型 = 你网关的模型别名。
 
+### Codex
+
+同一个切换器也适用于 **OpenAI Codex**。`codex` CLI 和 Codex VS Code 扩展都只读取一个文件 —— `~/.codex/config.toml`（或 `$CODEX_HOME/config.toml`），所以一次切换同时作用于两者。
+
+- **位置：** 同一 Activity Bar 图标下的 **Codex** 视图（安装了 Codex 或已有 Codex 配置时显示），以及第二个状态栏项 `Codex: <名称>` —— 点击打开菜单。**Codex 默认** 会恢复你自己的 `config.toml` 设置。
+- **添加：** *OpenAI（内置，`codex login`）* —— 即 Codex 平常的 ChatGPT 登录或 OpenAI API 密钥；*OpenAI API*、*OpenRouter*；本地 *LM Studio*、*Ollama*、*vLLM*；*自定义* 任意其他端点。Codex 只使用 **OpenAI Responses API**（`POST <base_url>/responses`；Chat Completions 支持已移除），端点必须支持它 —— Claude 目录中的 Anthropic 兼容地址不可用。自定义服务商表中填写了 **Codex Base URL** 的行也会出现在这里。
+- **切换写入的内容：** `config.toml` 顶层的 `model_provider`、`model` 和 `model_reasoning_effort`，以及一个带标记的区块，每个配置一张 `[model_providers.cps-…]` 表。文件其余部分保持不变；你原来的值记录在区块中，*Codex 默认* 时恢复。首次写入前会保留一份 `config.toml.cps-backup`。手动修改 `model_provider` 即把控制权交还给你。
+- **API 密钥默认不写入 `config.toml`：** 密钥保存在 SecretStorage 和仅所有者可读的独立文件 `~/.claude-provider-switcher/codex-keys/<id>.key` 中；Codex 通过 `auth = { command = "cat", … }`（Windows 上为 `cmd /c type`）读取。将 `codexKeyStorage` 设为 `config` 则把当前密钥写成 `experimental_bearer_token`。
+- **并行运行：** 每个配置还会生成 `~/.codex/<key>.config.toml`，因此在一个终端用 `codex --profile cps-deepseek` 使用该服务商，另一个终端仍用当前服务商。你自己的配置文件不会被改动。
+- **与 Claude 一侧功能一致：** 字段编辑器（Base URL、API 密钥、来自 `/v1/models` 的模型、推理强度、HTTP 头、查询参数、徽标、快捷键、回退）、*测试连接*（一个很小的 `POST /responses`）、🟢/🔴 健康检查、*带回退切换* 与 `autoFallbackOnApply`、*切换并重新加载窗口* 与 `switchAction`、快捷键 **`Ctrl+Shift+Alt+1…0`** 与 **`Ctrl+Shift+Alt+]` / `[`** 循环切换（macOS 为 `Cmd+Shift+Alt+…`）、复制与排序、*固定到此工作区*，以及 *导入 / 导出 Codex 服务商*（独立的 `codex-providers.json`，默认不含密钥）。
+- **Token 统计** 显示在提示中 —— 今天 / 7 天 / 30 天，按模型 —— 读取自 Codex 自己的会话日志（`~/.codex/sessions/…/rollout-*.jsonl`）。每个日志都记录了所用服务商，因此统计是精确的。
+- 与 Claude Code 一样，Codex 在会话开始时读取配置：切换后请开始新的 Codex 会话（扩展则重新加载窗口）。
+
 ### 终端应用（`claude-providers`）
 
 以上功能**无需 VS Code** 也能使用：`claude-providers` 是一个用方向键操作（无编号）的全屏终端菜单，使用同一套配置。它可以切换 **`claude` CLI**（`~/.claude/settings.json`）、**VS Code 扩展**（`claudeCode.environmentVariables`）或两者，并支持添加 / 编辑 / 复制 / 排序 / 删除服务商、设置 API 密钥、从端点列表选择模型、测试连接、检查可用性以及修改扩展设置。
@@ -578,6 +627,7 @@ claude-providers                                        # 交互式菜单
 
 - **按键：** `↑`/`↓` 移动，`Enter` 切换（终端，或终端 + VS Code —— 在*设置*中选择），`→` 打开服务商操作，`Esc` 返回 / 退出。
 - **脚本：** `claude-providers list`、`claude-providers current`、`claude-providers use <名称|#n> [--vscode]`。
+- **Codex：** 菜单中有 Codex 分区，操作相同（切换、带回退切换、编辑、API 密钥、测试、复制、排序、删除），以及 *添加 Codex 服务商…*；脚本：`claude-providers codex list | current | use <名称|#n> | default`。
 - **数据来源：** VS Code 用户 `settings.json`（自动查找 VS Code、Insiders、VSCodium、Cursor、Windsurf；可用 `--settings <路径>` 或 `CLAUDE_PROVIDERS_VSCODE_SETTINGS` 指定）。修改是精确的 —— 文件中的注释和格式会保留，运行中的 VS Code 会立即读取。
 - **API 密钥：** VS Code 将密钥保存在加密的 SecretStorage 中，其他程序无法读取。开启 **`shareKeysWithTerminal`** 后，扩展会把密钥同步到 `~/.claude-provider-switcher/keys.json`（仅所有者可读），并读取在终端中输入的密钥。未开启时，首次切换到某服务商时应用会询问密钥（或复用已应用环境变量中的密钥）。
 
@@ -586,7 +636,7 @@ claude-providers                                        # 交互式菜单
 | 设置 | 默认 | 说明 |
 | --- | --- | --- |
 | `claudeProviderSwitcher.profiles` | `[]` | 服务商配置 `{ name, color?, hotkey?, env }`，通过侧边栏管理。 |
-| `claudeProviderSwitcher.customProviders` | `[]` | 添加到 **Add provider** 菜单的自定义服务商 `{ name, baseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`，用于添加内置列表中没有的服务商；可在设置界面以表格形式编辑。 |
+| `claudeProviderSwitcher.customProviders` | `[]` | 添加到 **Add provider** 菜单的自定义服务商 `{ name, baseUrl?, codexBaseUrl?, local?, icon?, opusModel?, sonnetModel?, haikuModel? }`，用于添加内置列表中没有的服务商；可在设置界面以表格形式编辑。 |
 | `claudeProviderSwitcher.language` | `auto` | 扩展自身界面（菜单、通知、侧边栏、状态栏、自定义服务商表格）的语言：`auto` / `en` / `ru` / `zh`。`auto` 跟随 VS Code，回退到英语。实时切换。 |
 | `claudeProviderSwitcher.showStatusBarItem` | `true` | 在状态栏显示当前服务商指示器。 |
 | `claudeProviderSwitcher.showUsageStats` | `true` | 在悬浮提示中显示每个服务商的使用统计（切换次数 + 活跃时长）。 |
@@ -594,6 +644,9 @@ claude-providers                                        # 交互式菜单
 | `claudeProviderSwitcher.switchAction` | `switch` | 每次切换（侧边栏点击、快捷键、循环、菜单）时执行的操作：`switch` —— 切换后提醒重启会话；`switchAndReload` —— 切换后立即重新加载窗口，使新会话使用新服务商。 |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | 同时将活动服务商写入 Claude Code **CLI** 配置 `~/.claude/settings.json`（`env` 键），让普通终端中的 `claude` 使用同一服务商。仅修改本扩展管理的键，文件其余内容保持不变。活动 API 密钥会以明文写入该文件。 |
 | `claudeProviderSwitcher.shareKeysWithTerminal` | `false` | 通过 `~/.claude-provider-switcher/keys.json`（仅所有者可读，明文）与终端应用 `claude-providers` 双向共享 API 密钥。 |
+| `claudeProviderSwitcher.codexProfiles` | `[]` | Codex 服务商配置 `{ name, color?, hotkey?, fallbackId?, codex: { base_url?, model?, reasoning_effort?, http_headers?, query_params? } }`。通过 Codex 视图管理。 |
+| `claudeProviderSwitcher.showCodexStatusBarItem` | `true` | 在状态栏显示当前 Codex 服务商（有 Codex 配置时）。 |
+| `claudeProviderSwitcher.codexKeyStorage` | `file` | Codex API 密钥的存放方式：`file` —— 仅所有者可读的密钥文件，经 `auth = { command }` 读取，`config.toml` 中不含密钥；`config` —— 当前密钥以 `experimental_bearer_token` 明文写入 `config.toml`。 |
 | `claudeProviderSwitcher.showRestartHint` | `true` | 切换后高亮状态栏项并提醒 Claude Code 会话需要重启（新建对话 / 重新加载窗口）才能生效。重载窗口后清除。 |
 | `claudeProviderSwitcher.applyPinnedOnOpen` | `true` | 工作区有绑定的服务商时，打开即自动切换到它。 |
 | `claudeProviderSwitcher.autoFallbackOnApply` | `false` | 每次切换前先探测目标，不可达则自动切到其回退服务商；关闭时可用 *Switch with fallback* 按需回退。 |

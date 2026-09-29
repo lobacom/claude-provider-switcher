@@ -586,6 +586,21 @@
         "command": "claudeProviderSwitcher.switchCodexAndReload",
         "title": "%cmd.switchCodexAndReload%",
         "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.pinCodexToWorkspace",
+        "title": "%cmd.pinCodexToWorkspace%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.exportCodex",
+        "title": "%cmd.exportCodex%",
+        "category": "%category.codex%"
+      },
+      {
+        "command": "claudeProviderSwitcher.importCodex",
+        "title": "%cmd.importCodex%",
+        "category": "%category.codex%"
       }
     ],
     "menus": {
@@ -644,6 +659,26 @@
           "command": "claudeProviderSwitcher.checkHealth",
           "when": "view == claudeProviderSwitcher.codexView",
           "group": "navigation@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.importCodex",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "1_io@2"
+        },
+        {
+          "command": "claudeProviderSwitcher.exportCodex",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "1_io@3"
+        },
+        {
+          "command": "claudeProviderSwitcher.manageCustomProviders",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "1_io@4"
+        },
+        {
+          "command": "claudeProviderSwitcher.resetUsageStats",
+          "when": "view == claudeProviderSwitcher.codexView",
+          "group": "2_usage@1"
         }
       ],
       "view/item/context": [
@@ -781,6 +816,11 @@
           "command": "claudeProviderSwitcher.deleteCodex",
           "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
           "group": "3_danger@1"
+        },
+        {
+          "command": "claudeProviderSwitcher.pinCodexToWorkspace",
+          "when": "view == claudeProviderSwitcher.codexView && viewItem == codexProfile",
+          "group": "1_edit@7"
         }
       ],
       "commandPalette": [

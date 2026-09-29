@@ -44,5 +44,8 @@
   "cmd.nextCodex": "Switch to next Codex provider",
   "cmd.previousCodex": "Switch to previous Codex provider",
   "cmd.switchCodexWithFallback": "Switch Codex with fallback",
-  "cmd.switchCodexAndReload": "Switch Codex provider & reload window"
+  "cmd.switchCodexAndReload": "Switch Codex provider & reload window",
+  "cmd.pinCodexToWorkspace": "Pin Codex provider to this workspace",
+  "cmd.exportCodex": "Export Codex providers…",
+  "cmd.importCodex": "Import Codex providers…"
 }

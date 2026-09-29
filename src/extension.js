@@ -32,13 +32,14 @@ const {
 } = require('./switching');
 const { initPinning, applyPinnedProfile, pinToWorkspace } = require('./pinning');
 const { addProfile, editProfile, deleteProfile, duplicateProfile, moveProfile } = require('./crud');
-const { exportProfiles, importProfiles } = require('./transfer');
+const { exportProfiles, importProfiles, exportCodexProfiles, importCodexProfiles } = require('./transfer');
 const { restartHealthTimer, disposeHealthTimer, checkHealthCommand, testProfile } = require('./health');
 const { manageCustomProviders, relocalizeCustomProvidersPanel } = require('./customProviders');
 const { syncKeybindings } = require('./keybindings');
 const { ProfilesProvider, CodexProfilesProvider } = require('./tree');
 const { initUsage, resumeUsage, tickUsage, resetUsage } = require('./usage');
 const { initTokens, scanTokens, resetTokens } = require('./tokens');
+const { initCodexTokens, scanCodexTokens, resetCodexTokens } = require('./codexTokens');
 const { shareKeysEnabled, exportSharedKeys, syncSharedKeys, watchSharedKeys } = require('./sharedKeys');
 const {
   onCodexChanged,
@@ -52,6 +53,9 @@ const {
   setCodexModel,
   updateCodexContext,
   watchCodexConfig,
+  initCodexPinning,
+  applyPinnedCodexProfile,
+  pinCodexToWorkspace,
   switchCodexAndReload,
   switchCodexToIndex,
   cycleCodex,
@@ -92,8 +96,10 @@ function applyLanguage() {
 function activate(context) {
   initSecrets(context.secrets);
   initPinning(context.workspaceState);
+  initCodexPinning(context.workspaceState);
   initUsage(context.globalState);
   initTokens(context.globalState);
+  initCodexTokens(context.globalState);
   initBadges(context.extensionUri);
   applyLanguage(); // resolve the UI language before anything renders
   loadBundledProviders(context.extensionUri); // populate the preset catalog from providers.json
@@ -145,6 +151,7 @@ function activate(context) {
     if (r !== yes) return;
     await resetUsage();
     await resetTokens();
+    await resetCodexTokens();
     provider.refresh();
     updateStatus();
     vscode.window.setStatusBarMessage(t('resetUsageDone'), 2500);
@@ -162,6 +169,9 @@ function activate(context) {
   reg('resetCodex', resetCodex);
   reg('refreshCodex', repaintCodex);
   reg('editCodex', editCodexProfile);
+  reg('pinCodexToWorkspace', pinCodexToWorkspace);
+  reg('exportCodex', exportCodexProfiles);
+  reg('importCodex', importCodexProfiles);
   reg('testCodex', testCodexProfile);
   reg('duplicateCodex', duplicateCodexProfile);
   reg('moveCodexUp', (arg) => moveCodexProfile(arg, -1));
@@ -200,6 +210,7 @@ function activate(context) {
     // If this workspace pins a provider, switch to it now (before a Claude Code
     // session starts). Runs after the token cache so fullEnv() matches correctly.
     await applyPinnedProfile();
+    await applyPinnedCodexProfile();
     // Resume usage timing for whatever provider is active now (a pin switch above
     // already counted its switch; this only restarts the active-time clock).
     const ai = activeProfileIndex();
@@ -208,6 +219,7 @@ function activate(context) {
     // sessions attribute correctly. Repaint once it's in.
     if (tokenStatsEnabled()) {
       await scanTokens();
+      await scanCodexTokens();
     }
     provider.refresh();
     // Bring config.toml up to date with this version (key files, profile files)
@@ -227,7 +239,12 @@ function activate(context) {
   // token stats (tokens.js — incremental, only re-reads changed transcripts).
   usageTimer = setInterval(() => {
     tickUsage();
-    if (tokenStatsEnabled()) scanTokens().then(() => { provider.refresh(); updateStatus(); });
+    if (tokenStatsEnabled()) {
+      Promise.all([scanTokens(), scanCodexTokens()]).then(() => {
+        provider.refresh();
+        repaintCodex();
+      });
+    }
   }, USAGE_HEARTBEAT_MS);
   context.subscriptions.push({ dispose: () => clearInterval(usageTimer) });
 

@@ -34,6 +34,16 @@
     (macOS `Cmd+Shift+Alt+…`); **duplicate** and **move up / down**.
   - **Custom providers:** a *Codex Base URL* column; rows with it appear in the Codex *Add* menu
     (extension and terminal app).
+- **Codex switcher, stage 3.**
+  - **Token statistics** for Codex profiles (today / 7 days / 30 days, in / out / cached, per
+    model) in the tooltip, read from Codex's own session logs
+    (`~/.codex/sessions/…/rollout-*.jsonl`). Each log records the provider it ran on, so usage
+    is attributed exactly; gated by `showTokenStats`, cleared by *Reset usage statistics*.
+  - **Pin to this workspace** for Codex profiles (📌 in the Codex view, honours
+    `applyPinnedOnOpen`).
+  - **Import / Export Codex providers** — a separate `codex-providers.json` (keys only on request),
+    so older versions never misread Codex entries; the Claude importer skips them.
+  - README (EN / RU / ZH): a Codex section, the new settings and the `codex` subcommands.
 
 ## 0.9.1
 

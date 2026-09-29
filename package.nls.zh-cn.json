@@ -44,5 +44,8 @@
   "cmd.nextCodex": "切换到下一个 Codex 服务商",
   "cmd.previousCodex": "切换到上一个 Codex 服务商",
   "cmd.switchCodexWithFallback": "带回退切换 Codex",
-  "cmd.switchCodexAndReload": "切换 Codex 服务商并重新加载窗口"
+  "cmd.switchCodexAndReload": "切换 Codex 服务商并重新加载窗口",
+  "cmd.pinCodexToWorkspace": "将 Codex 服务商固定到此工作区",
+  "cmd.exportCodex": "导出 Codex 服务商…",
+  "cmd.importCodex": "导入 Codex 服务商…"
 }

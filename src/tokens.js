@@ -205,7 +205,12 @@ function modelMatcher(days, model) {
 // model is summed (used for the per-tier breakdown, matched per modelMatcher);
 // otherwise all models are combined.
 function tokenWindows(id, model) {
-  const days = read().byProvider[id] || {};
+  return windowTotals(read().byProvider[id] || {}, model);
+}
+
+// The window math behind tokenWindows, over any { day: { model: totals } } map
+// (shared with the Codex stats, src/codexTokens.js).
+function windowTotals(days, model) {
   const matches = model ? modelMatcher(days, model) : null;
   const today = dayKey(Date.now());
   const weekStart = dayKey(Date.now() - 6 * 24 * 60 * 60 * 1000);
@@ -232,7 +237,11 @@ function tokenWindows(id, model) {
 // (native subscription) — there are no opus/sonnet/haiku lines to annotate, so the
 // tooltip lists what was really used instead.
 function modelsUsed(id) {
-  const days = read().byProvider[id] || {};
+  return modelsIn(read().byProvider[id] || {});
+}
+
+// Per-model 30-day breakdown of any { day: { model: totals } } map.
+function modelsIn(days) {
   const today = dayKey(Date.now());
   const weekStart = dayKey(Date.now() - 6 * 24 * 60 * 60 * 1000);
   const monthStart = dayKey(Date.now() - 29 * 24 * 60 * 60 * 1000);
@@ -267,4 +276,8 @@ module.exports = {
   tokenWindows,
   modelsUsed,
   formatTokens,
+  windowTotals,
+  modelsIn,
+  mergeDays,
+  ZERO,
 };

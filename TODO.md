@@ -5,6 +5,11 @@
 ---
 
 ## Done
+- Codex provider switcher (stages 1–3): `src/agents/codex.js` + `src/toml.js` write
+  `~/.codex/config.toml` (top-level `model_provider` / `model` / effort, managed
+  `[model_providers.*]` block, key files via `auth.command`, `<key>.config.toml` profile files);
+  Codex view, status bar item, editor, test / health / fallback, hotkeys, pinning,
+  import / export, token stats from rollout logs; `claude-providers codex …`.
 - Terminal app (`claude-providers`, `cli/`) — arrow-key TUI over the same profiles: switch the
   claude CLI / VS Code extension, CRUD, keys, models, test, health, settings; `list/current/use`
   subcommands. Keys shared via opt-in `shareKeysWithTerminal` (`src/sharedKeys.js`, `src/keyfile.js`).

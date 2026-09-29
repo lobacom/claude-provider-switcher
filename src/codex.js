@@ -21,6 +21,8 @@ const { firstFreeBadge, badgeTextPrefix, providerIcon } = require('./badges');
 const { probeModelsList, httpProbeResponses, probeHealthy } = require('./http');
 const { healthOf, reportProbe } = require('./health');
 const cx = require('./agents/codex');
+const { codexTokenWindows, codexModelsUsed } = require('./codexTokens');
+const { formatTokens } = require('./tokens');
 
 // Repaint hook (tree + status bar), set by extension.js.
 let repaint = () => {};
@@ -402,6 +404,70 @@ async function addCodexProfile() {
   if (r === go) await switchCodexTo(p.id);
 }
 
+// ---- pin to workspace --------------------------------------------------------------
+// Like the Claude pin (pinning.js): a workspace can pin one Codex profile, kept
+// in workspaceState; opening the workspace switches Codex to it (honours
+// `applyPinnedOnOpen`). Codex's config.toml is global, so — as with Claude —
+// the pin switches Codex for every window, on open.
+
+const CODEX_PIN_KEY = `${SELF}.pinnedCodexProfileId`;
+let workspaceState;
+function initCodexPinning(state) {
+  workspaceState = state;
+}
+function getPinnedCodexId() {
+  return workspaceState ? workspaceState.get(CODEX_PIN_KEY) : undefined;
+}
+async function setPinnedCodexId(id) {
+  if (workspaceState) await workspaceState.update(CODEX_PIN_KEY, id || undefined);
+}
+
+async function applyPinnedCodexProfile() {
+  if (!workspaceState || !(vscode.workspace.workspaceFolders || []).length) return;
+  if (vscode.workspace.getConfiguration(SELF).get('applyPinnedOnOpen') === false) return;
+  const p = findCodex(getPinnedCodexId());
+  if (!p || p.id === codexActiveId()) return;
+  applyCodex(p); // quiet: no key prompt, no reload while the window opens
+}
+
+async function pinCodexToWorkspace(arg) {
+  if (!workspaceState) return;
+  const folders = vscode.workspace.workspaceFolders || [];
+  if (!folders.length) {
+    vscode.window.showInformationMessage(t('openFolderFirst'));
+    return;
+  }
+  const folder = folders[0].name;
+  const pinned = getPinnedCodexId();
+  let p = findCodex(arg);
+  if (!p) {
+    const pick = await vscode.window.showQuickPick(
+      [
+        { label: t('dontAutoSwitch'), description: pinned ? '' : t('current'), _unpin: true },
+        { label: t('codexSelectPlaceholder'), kind: vscode.QuickPickItemKind.Separator },
+        ...getCodexProfiles().map((x) => ({
+          label: `${badgeTextPrefix(x.color)}${x.name}`,
+          description: (x.id === pinned ? t('pinnedMarker') : '') + describe(x),
+          _id: x.id,
+        })),
+      ],
+      { placeHolder: t('pinPlaceholder', { folder }), ignoreFocusOut: true }
+    );
+    if (!pick) return;
+    if (pick._unpin) {
+      await setPinnedCodexId(undefined);
+      vscode.window.showInformationMessage(t('unpinnedMsg', { folder }));
+      repaint();
+      return;
+    }
+    p = findCodex(pick._id);
+  }
+  await setPinnedCodexId(p.id);
+  if (await ensureKey(p)) applyCodex(p);
+  vscode.window.showInformationMessage(t('pinnedMsg', { name: p.name, folder }));
+  repaint();
+}
+
 async function deleteCodexProfile(arg) {
   const p = findCodex(arg);
   if (!p) return;
@@ -410,6 +476,7 @@ async function deleteCodexProfile(arg) {
   if (ok !== del) return;
   await saveCodexProfiles(cloneCodexProfiles().filter((x) => x.id !== p.id));
   await setToken(p.id, '');
+  if (getPinnedCodexId() === p.id) await setPinnedCodexId(undefined); // clear a stale pin
   syncCodex(undefined); // the active one is gone → the user's own settings come back
 }
 
@@ -445,6 +512,26 @@ function firstFreeCodexHotkey(list, exceptId) {
 
 // ---- tooltip -----------------------------------------------------------------------
 
+// Token lines for the tooltip (same format as Claude's): totals for today / 7 /
+// 30 days, the in / out / cached split, and the models used. Read from Codex's
+// session logs (codexTokens.js); gated by `showTokenStats`.
+function tokenLines(p) {
+  if (vscode.workspace.getConfiguration(SELF).get('showTokenStats') === false) return [];
+  const profiles = getCodexProfiles();
+  const { today, week, month } = codexTokenWindows(p, profiles);
+  if (!(month.input || month.output || month.cacheRead || month.cacheCreate)) return [];
+  const io = (x) => formatTokens(x.input + x.output);
+  const lines = [t('tip_tokens', { today: io(today), week: io(week), month: io(month) })];
+  if (week.input || week.output || week.cacheRead) {
+    lines.push(t('tip_tokensBreakdown', { in: formatTokens(week.input), out: formatTokens(week.output), cache: formatTokens(week.cacheRead + week.cacheCreate) }));
+  }
+  lines.push(t('tip_tokensBreakdown30', { in: formatTokens(month.input), out: formatTokens(month.output), cache: formatTokens(month.cacheRead + month.cacheCreate) }));
+  for (const mu of codexModelsUsed(p, profiles).slice(0, 4)) {
+    lines.push(`   ${mu.model} ${t('tip_modelTokens', { today: io(mu.today), week: io(mu.week), month: io(mu.month) })}`);
+  }
+  return lines;
+}
+
 function codexTooltip(p, extraLines) {
   const c = p.codex || {};
   const lines = [`**${p.name}**`];
@@ -460,6 +547,7 @@ function codexTooltip(p, extraLines) {
   }
   const st = healthOf(p);
   if (st !== 'unknown') lines.push(t('tip_status', { status: st === 'ok' ? t('health_reachable') : t('health_unreachable') }));
+  lines.push(...tokenLines(p));
   if (cx.baseUrl(p) || p.codex) lines.push(t('tip_codexParallel', { key: cx.profileKey(p) }));
   lines.push(t('tip_codexConfig', { path: cx.configPath() }));
   if (extraLines) lines.push(...extraLines);
@@ -500,6 +588,10 @@ function watchCodexConfig(onChange) {
 }
 
 module.exports = {
+  initCodexPinning,
+  getPinnedCodexId,
+  applyPinnedCodexProfile,
+  pinCodexToWorkspace,
   CODEX_HOTKEYS,
   firstFreeCodexHotkey,
   findCodex,

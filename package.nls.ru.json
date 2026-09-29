@@ -44,5 +44,8 @@
   "cmd.nextCodex": "Следующий провайдер Codex",
   "cmd.previousCodex": "Предыдущий провайдер Codex",
   "cmd.switchCodexWithFallback": "Переключить Codex с резервом",
-  "cmd.switchCodexAndReload": "Переключить провайдера Codex и перезагрузить окно"
+  "cmd.switchCodexAndReload": "Переключить провайдера Codex и перезагрузить окно",
+  "cmd.pinCodexToWorkspace": "Закрепить провайдера Codex за этой папкой",
+  "cmd.exportCodex": "Экспорт провайдеров Codex…",
+  "cmd.importCodex": "Импорт провайдеров Codex…"
 }

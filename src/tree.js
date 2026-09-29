@@ -7,7 +7,7 @@ const { getProfiles, activeProfileIndex, getCodexProfiles } = require('./profile
 const { badgeTextPrefix, profileTooltip } = require('./badges');
 const { healthOf, healthLabel, healthColor } = require('./health');
 const { getPinnedId } = require('./pinning');
-const { codexActiveId, codexTooltip, describe } = require('./codex');
+const { codexActiveId, codexTooltip, describe, getPinnedCodexId } = require('./codex');
 
 class ProfilesProvider {
   constructor() {
@@ -63,10 +63,15 @@ class CodexProfilesProvider {
       it.id = `codex-${p.id}`;
       it.profileId = p.id; // command argument (see findCodex)
       it.contextValue = 'codexProfile';
-      it.description = describe(p);
+      const pinned = p.id === getPinnedCodexId();
+      it.description = (pinned ? '📌 ' : '') + describe(p);
       // shape marks active/inactive; color (when checked) marks health
       it.iconPath = new vscode.ThemeIcon(p.id === active ? 'pass-filled' : 'circle-large-outline', healthColor(healthOf(p)));
-      it.tooltip = codexTooltip(p, p.id === active ? ['', t('tip_codexRestart')] : ['', t('tip_clickToSwitch')]);
+      it.tooltip = codexTooltip(p, [
+        ...(pinned ? ['', t('tip_pinned')] : []),
+        '',
+        p.id === active ? t('tip_codexRestart') : t('tip_clickToSwitch'),
+      ]);
       it.command = { command: `${SELF}.switchCodexTo`, title: 'Switch Codex to this provider', arguments: [p.id] };
       return it;
     });
