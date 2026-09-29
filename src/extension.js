@@ -9,7 +9,9 @@ const {
   getProfiles,
   getActiveEnv,
   initSecrets,
+  onTokensChanged,
   refreshTokenCache,
+  fullEnv,
   migrateProfiles,
   resolveIndex,
   activeProfileIndex,
@@ -19,6 +21,7 @@ const { initBadges } = require('./badges');
 const { initStatusBar, updateStatus } = require('./statusbar');
 const {
   writeClaudeCliSettings,
+  writeActiveEnv,
   selectProfile,
   switchProfile,
   switchToIndex,
@@ -35,6 +38,7 @@ const { syncKeybindings } = require('./keybindings');
 const { ProfilesProvider } = require('./tree');
 const { initUsage, resumeUsage, tickUsage, resetUsage } = require('./usage');
 const { initTokens, scanTokens, resetTokens } = require('./tokens');
+const { shareKeysEnabled, exportSharedKeys, syncSharedKeys, watchSharedKeys } = require('./sharedKeys');
 
 // Token scanning reads Claude Code's transcripts; gated so users who turn it off
 // pay nothing (no file reads at all).
@@ -118,11 +122,30 @@ function activate(context) {
     updateStatus();
   });
 
+  // Keys shared with the terminal app: pick up edits it makes to the key file.
+  // A key that changed on the live provider is re-written into the active env.
+  // Nothing is pulled until the token cache is primed (see below).
+  const reapplyEnv = (p) => writeActiveEnv(fullEnv(p));
+  let keysReady = false;
+  const pullSharedKeys = async () => {
+    if (keysReady && await syncSharedKeys({ preferFile: true, reapply: reapplyEnv })) {
+      provider.refresh();
+      updateStatus();
+    }
+  };
+  context.subscriptions.push(watchSharedKeys(() => pullSharedKeys()));
+
   // Migrate older profiles (assign ids, move tokens to SecretStorage), prime the
   // token cache, then repaint once everything is loaded.
   (async () => {
     await migrateProfiles();
     await refreshTokenCache();
+    // Merge keys the terminal app stored while VS Code was closed, then mirror
+    // every later key edit into the shared file. (Not before: exporting from a
+    // half-primed cache would drop the other profiles' keys from the file.)
+    await syncSharedKeys({ preferFile: true, reapply: reapplyEnv });
+    onTokensChanged(exportSharedKeys);
+    keysReady = true;
     // If this workspace pins a provider, switch to it now (before a Claude Code
     // session starts). Runs after the token cache so fullEnv() matches correctly.
     await applyPinnedProfile();
@@ -174,6 +197,9 @@ function activate(context) {
         updateStatus();
         if (e.affectsConfiguration(`${SELF}.profiles`)) {
           syncKeybindings();
+          // Profiles added/removed by the terminal app: import their keys and
+          // drop keys of deleted profiles from the shared file.
+          pullSharedKeys();
         }
       }
       if (
@@ -181,6 +207,14 @@ function activate(context) {
         e.affectsConfiguration(`${SELF}.healthCheckIntervalMinutes`)
       ) {
         restartHealthTimer();
+      }
+      // Just turned on key sharing → publish the keys (VS Code's win over stale
+      // file entries; the file only fills profiles that have no key here).
+      if (keysReady && e.affectsConfiguration(`${SELF}.shareKeysWithTerminal`) && shareKeysEnabled()) {
+        syncSharedKeys({ preferFile: false, reapply: reapplyEnv }).then(() => {
+          provider.refresh();
+          updateStatus();
+        });
       }
       // Just turned on CLI mirroring → push the current active env into
       // ~/.claude/settings.json right away, so it takes effect without a switch.

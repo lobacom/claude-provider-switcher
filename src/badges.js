@@ -5,7 +5,7 @@
 
 const vscode = require('vscode');
 const { t } = require('./i18n');
-const { CLAUDE_API_URL } = require('./constants');
+const { CLAUDE_API_URL, COLOR_CHOICES } = require('./constants');
 const { normalizeUrl } = require('./http');
 const { allRemotePresets, allLocalPresets } = require('./providers');
 const { getProfiles } = require('./profiles');
@@ -18,33 +18,6 @@ let extensionUri;
 function initBadges(uri) {
   extensionUri = uri;
 }
-
-// Badge palette: each entry is an emoji `value` plus a `color`/`shape` so the
-// human label can be localized at render time (see colorLabel). `value: ''` is
-// the "None" entry.
-const COLOR_CHOICES = [
-  { value: '🟢', color: 'green' },
-  { value: '🔵', color: 'blue' },
-  { value: '🟣', color: 'purple' },
-  { value: '🟡', color: 'yellow' },
-  { value: '🟠', color: 'orange' },
-  { value: '🔴', color: 'red' },
-  { value: '⚪', color: 'white' },
-  { value: '🟤', color: 'brown' },
-  { value: '⚫', color: 'black' },
-  { value: '🟩', color: 'green', shape: 'square' },
-  { value: '🟦', color: 'blue', shape: 'square' },
-  { value: '🟪', color: 'purple', shape: 'square' },
-  { value: '🟨', color: 'yellow', shape: 'square' },
-  { value: '🟧', color: 'orange', shape: 'square' },
-  { value: '🟥', color: 'red', shape: 'square' },
-  { value: '⬜', color: 'white', shape: 'square' },
-  { value: '🟫', color: 'brown', shape: 'square' },
-  { value: '⬛', color: 'black', shape: 'square' },
-  { value: '🔷', color: 'blue', shape: 'diamond' },
-  { value: '🔶', color: 'orange', shape: 'diamond' },
-  { value: '', none: true },
-];
 
 // Localized "🟢  Green" / "$(close)  None" label for a palette entry.
 function colorLabel(c) {

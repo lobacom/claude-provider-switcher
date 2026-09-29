@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **Terminal app `claude-providers`:** manage the switcher without VS Code — a full-screen menu driven
+  by the arrow keys (no numbered items). Switch the `claude` CLI (`~/.claude/settings.json`), the VS
+  Code extension, or both; add / edit / duplicate / reorder / delete providers (built-in and custom
+  presets, model list fetched from the endpoint, extra env vars); set API keys; test connections;
+  check health; change the extension's settings. Also scriptable: `list`, `current`,
+  `use <name|#n> [--vscode]`. Works on the same profiles: VS Code's `settings.json` is edited in place
+  with comments and formatting preserved. Install with `npm i -g github:lobacom/claude-provider-switcher`
+  or run `bin/claude-providers.js` from the installed extension.
+- **New setting `shareKeysWithTerminal`** (off by default): mirrors API keys from SecretStorage to
+  `~/.claude-provider-switcher/keys.json` (owner-only) for the terminal app, and imports keys entered
+  there — so both sides use the same keys.
+
 ## 0.8.3
 
 - **Model auto-fetch for split-catalog gateways:** the model picker now finds the catalog on

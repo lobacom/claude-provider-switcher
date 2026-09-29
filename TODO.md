@@ -5,6 +5,9 @@
 ---
 
 ## Done
+- Terminal app (`claude-providers`, `cli/`) — arrow-key TUI over the same profiles: switch the
+  claude CLI / VS Code extension, CRUD, keys, models, test, health, settings; `list/current/use`
+  subcommands. Keys shared via opt-in `shareKeysWithTerminal` (`src/sharedKeys.js`, `src/keyfile.js`).
 - Bump GitHub Actions versions in `.github/workflows/release.yml` to
   `actions/checkout@v5` + `actions/setup-node@v5` (Node-24 runtime) and the build
   toolchain to Node 22 — clears the Node-20 deprecation warning (Node 20 removed
