@@ -222,7 +222,7 @@ The same switcher works for **OpenAI Codex**. Codex reads one file — `~/.codex
 - **Parallel runs:** every profile also gets `~/.codex/<key>.config.toml`, so `codex --profile cps-deepseek` uses that provider in one terminal while another runs on the active one. Your own profile files are never touched.
 - **Everything the Claude side has:** field editor (Base URL, API key, model from the endpoint's `/v1/models`, reasoning effort, HTTP headers, query parameters, badge, hotkey, fallback), *Test connection* (a tiny `POST /responses`), the 🟢/🔴 health check, *Switch with fallback* and `autoFallbackOnApply`, *Switch & reload window* and `switchAction`, hotkeys **`Ctrl+Shift+Alt+1…0`** and cycling with **`Ctrl+Shift+Alt+]` / `[`** (macOS `Cmd+Shift+Alt+…`), duplicate / reorder, *Pin to this workspace*, and *Import / Export Codex providers* (its own `codex-providers.json`, keys excluded unless you ask).
 - **Token statistics** in the tooltip — today / 7 days / 30 days, per model — read from Codex's own session logs (`~/.codex/sessions/…/rollout-*.jsonl`). Each log names the provider it ran on, so usage is attributed exactly.
-- Like Claude Code, Codex reads its config when a session starts: start a new Codex session (or reload the window for the extension) after switching.
+- Codex reads its config when a session starts: after switching, start a new Codex session — in the Codex extension a new chat is enough, no window reload needed.
 
 ### Terminal app (`claude-providers`)
 
@@ -419,7 +419,7 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 - **Параллельный запуск:** у каждого профиля есть ещё `~/.codex/<key>.config.toml`, так что `codex --profile cps-deepseek` в одном терминале работает с этим провайдером, пока в другом — активный. Ваши собственные файлы профилей не трогаются.
 - **Всё, что есть у Claude:** редактор полей (Base URL, API-ключ, модель из `/v1/models`, reasoning effort, HTTP-заголовки, query-параметры, бейдж, хоткей, резерв), *Проверить соединение* (маленький `POST /responses`), индикатор 🟢/🔴, *Переключить с резервом* и `autoFallbackOnApply`, *Переключить и перезагрузить окно* и `switchAction`, хоткеи **`Ctrl+Shift+Alt+1…0`** и перебор **`Ctrl+Shift+Alt+]` / `[`** (macOS `Cmd+Shift+Alt+…`), дублирование и порядок, *Закрепить за папкой*, *Импорт / экспорт провайдеров Codex* (свой файл `codex-providers.json`, ключи — только по запросу).
 - **Статистика токенов** в подсказке — сегодня / 7 / 30 дней, по моделям — из журналов сессий самого Codex (`~/.codex/sessions/…/rollout-*.jsonl`). В каждом журнале записан провайдер, поэтому учёт точный.
-- Как и Claude Code, Codex читает конфиг при старте сессии: после переключения начните новую сессию Codex (или перезагрузите окно для расширения).
+- Codex читает конфиг при старте сессии: после переключения начните новую сессию Codex — в расширении Codex достаточно нового чата, перезагружать окно не нужно.
 
 ### Терминальное приложение (`claude-providers`)
 
@@ -612,7 +612,7 @@ claude-providers                                        # интерактивн
 - **并行运行：** 每个配置还会生成 `~/.codex/<key>.config.toml`，因此在一个终端用 `codex --profile cps-deepseek` 使用该服务商，另一个终端仍用当前服务商。你自己的配置文件不会被改动。
 - **与 Claude 一侧功能一致：** 字段编辑器（Base URL、API 密钥、来自 `/v1/models` 的模型、推理强度、HTTP 头、查询参数、徽标、快捷键、回退）、*测试连接*（一个很小的 `POST /responses`）、🟢/🔴 健康检查、*带回退切换* 与 `autoFallbackOnApply`、*切换并重新加载窗口* 与 `switchAction`、快捷键 **`Ctrl+Shift+Alt+1…0`** 与 **`Ctrl+Shift+Alt+]` / `[`** 循环切换（macOS 为 `Cmd+Shift+Alt+…`）、复制与排序、*固定到此工作区*，以及 *导入 / 导出 Codex 服务商*（独立的 `codex-providers.json`，默认不含密钥）。
 - **Token 统计** 显示在提示中 —— 今天 / 7 天 / 30 天，按模型 —— 读取自 Codex 自己的会话日志（`~/.codex/sessions/…/rollout-*.jsonl`）。每个日志都记录了所用服务商，因此统计是精确的。
-- 与 Claude Code 一样，Codex 在会话开始时读取配置：切换后请开始新的 Codex 会话（扩展则重新加载窗口）。
+- Codex 在会话开始时读取配置：切换后请开始新的 Codex 会话 —— 在 Codex 扩展中新建一个聊天即可，无需重新加载窗口。
 
 ### 终端应用（`claude-providers`）
 
