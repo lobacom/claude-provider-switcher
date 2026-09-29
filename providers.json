@@ -148,6 +148,24 @@
     "$comment": "Catalog for the Codex switcher. Codex only speaks the OpenAI Responses API (POST <base_url>/responses; wire_api = \"chat\" was removed), so every base_url here must serve /v1/responses — Anthropic-compatible endpoints from 'remote' don't work. Each entry: name, icon, codex { base_url, model? }. No base_url = Codex's built-in OpenAI provider (sign-in via `codex login`), handled by the extension itself.",
     "remote": [
       {
+        "name": "DeepSeek",
+        "icon": "deepseek.png",
+        "codex": {
+          "base_url": "https://api.deepseek.com/v1",
+          "model": "deepseek-flash",
+          "reasoning_effort": "high"
+        }
+      },
+      {
+        "name": "MiniMax",
+        "icon": "minimax.png",
+        "codex": {
+          "base_url": "https://api.minimax.io/v1",
+          "model": "MiniMax-M3",
+          "reasoning_effort": "high"
+        }
+      },
+      {
         "name": "OpenAI API",
         "icon": "cloud",
         "codex": { "base_url": "https://api.openai.com/v1" }

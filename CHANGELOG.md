@@ -46,6 +46,10 @@
   - **Import / Export Codex providers** — a separate `codex-providers.json` (keys only on request),
     so older versions never misread Codex entries; the Claude importer skips them.
   - README (EN / RU / ZH): a Codex section, the new settings and the `codex` subcommands.
+- **Codex catalog: DeepSeek and MiniMax.** They publish first-party Codex guides (Responses API,
+  `wire_api = "responses"`), so both belong in the Codex catalog with their recommended model and
+  reasoning effort. (Anthropic-compatible endpoints from the Claude catalog still don't — Codex
+  only speaks Responses.)
 
 ## 0.9.1
 
