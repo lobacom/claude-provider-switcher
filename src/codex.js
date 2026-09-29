@@ -378,6 +378,11 @@ async function addCodexProfile() {
     });
     if (url === undefined) return;
     p.codex.base_url = url.trim().replace(/\/+$/, '');
+    // Name it after the host rather than "Custom": the name also gives the
+    // profile its key in config.toml (`codex --profile <key>`), fixed from now on.
+    try {
+      p.name = uniqueName(new URL(p.codex.base_url).hostname.replace(/^api\./, ''), list);
+    } catch { /* keep "Custom" */ }
   }
   let token = '';
   if (cx.needsKey(p)) {
