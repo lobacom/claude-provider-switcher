@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -54,6 +54,9 @@
     "onStartupFinished"
   ],
   "main": "./src/extension.js",
+  "bin": {
+    "claude-providers": "./bin/claude-providers.js"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -218,6 +221,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Also mirror the active provider into the Claude Code **CLI** config at `~/.claude/settings.json` (under its `env` key), so a `claude` run in a plain terminal — not just the VS Code extension — uses the same provider. Only the keys this extension manages (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, the model/timeout vars) are touched; everything else in that file is left as-is. **Note:** this writes the active provider's API key into `~/.claude/settings.json` in plain text."
+        },
+        "claudeProviderSwitcher.shareKeysWithTerminal": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Share provider API keys with the `claude-providers` terminal app, so it can switch the Claude Code CLI to any profile without VS Code running. The keys are mirrored to `~/.claude-provider-switcher/keys.json` (owner-only permissions) and keys entered in the terminal app are picked up here. VS Code's SecretStorage can't be read by other programs, so without this the terminal app asks for each key itself. **Note:** the keys are stored in that file in plain text."
         },
         "claudeProviderSwitcher.showRestartHint": {
           "type": "boolean",

@@ -70,6 +70,11 @@ function uniqueName(base, profiles) {
 
 let secretStorage;
 let tokenCache = new Map(); // profile.id → token (string, '' when unset)
+let tokenListener; // called after any token change (the terminal key-file mirror)
+
+function onTokensChanged(fn) {
+  tokenListener = fn;
+}
 
 function initSecrets(secrets) {
   secretStorage = secrets;
@@ -106,6 +111,7 @@ async function setToken(id, value) {
     await secretStorage.delete(tokenKey(id));
     tokenCache.set(id, '');
   }
+  if (tokenListener) tokenListener();
 }
 async function refreshTokenCache() {
   if (!secretStorage) return;
@@ -166,6 +172,7 @@ module.exports = {
   resolveIndex,
   uniqueName,
   initSecrets,
+  onTokensChanged,
   cachedToken,
   fullEnv,
   setToken,

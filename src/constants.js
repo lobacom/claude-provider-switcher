@@ -24,4 +24,31 @@ const MANAGED_ENV_KEYS = [
   'API_TIMEOUT_MS',
 ];
 
-module.exports = { SELF, CLAUDE_SECTION, CLAUDE_KEY, CLAUDE_API_URL, MANAGED_ENV_KEYS };
+// Badge palette (shared by the extension and the terminal app): each entry is an
+// emoji `value` plus a `color`/`shape` so the human label can be localized at
+// render time (see colorLabel in badges.js). `value: ''` is the "None" entry.
+const COLOR_CHOICES = [
+  { value: '🟢', color: 'green' },
+  { value: '🔵', color: 'blue' },
+  { value: '🟣', color: 'purple' },
+  { value: '🟡', color: 'yellow' },
+  { value: '🟠', color: 'orange' },
+  { value: '🔴', color: 'red' },
+  { value: '⚪', color: 'white' },
+  { value: '🟤', color: 'brown' },
+  { value: '⚫', color: 'black' },
+  { value: '🟩', color: 'green', shape: 'square' },
+  { value: '🟦', color: 'blue', shape: 'square' },
+  { value: '🟪', color: 'purple', shape: 'square' },
+  { value: '🟨', color: 'yellow', shape: 'square' },
+  { value: '🟧', color: 'orange', shape: 'square' },
+  { value: '🟥', color: 'red', shape: 'square' },
+  { value: '⬜', color: 'white', shape: 'square' },
+  { value: '🟫', color: 'brown', shape: 'square' },
+  { value: '⬛', color: 'black', shape: 'square' },
+  { value: '🔷', color: 'blue', shape: 'diamond' },
+  { value: '🔶', color: 'orange', shape: 'diamond' },
+  { value: '', none: true },
+];
+
+module.exports = { SELF, CLAUDE_SECTION, CLAUDE_KEY, CLAUDE_API_URL, MANAGED_ENV_KEYS, COLOR_CHOICES };

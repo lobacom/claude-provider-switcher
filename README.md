@@ -209,6 +209,22 @@ You normally add these via the sidebar, but here are the values to enter (replac
 ```
 </details>
 
+### Terminal app (`claude-providers`)
+
+Everything above also works **without VS Code**: `claude-providers` is a full-screen terminal menu driven by the arrow keys (no numbered items) over the same profiles. It switches the **`claude` CLI** (`~/.claude/settings.json`), the **VS Code extension** (`claudeCode.environmentVariables`) or both, and lets you add / edit / duplicate / reorder / delete providers, set API keys, pick models from the endpoint's list, test connections, check health and change the extension's settings.
+
+```bash
+npm install -g github:lobacom/claude-provider-switcher   # installs the `claude-providers` command
+claude-providers                                        # interactive menu
+```
+
+No install needed if the extension is already there: `node ~/.vscode/extensions/alekseilobanov.claude-provider-switcher-*/bin/claude-providers.js`.
+
+- **Keys:** `↑`/`↓` move, `Enter` switches (the terminal, or terminal + VS Code — set in *Settings*), `→` opens the provider's actions, `Esc` goes back / quits.
+- **Scripting:** `claude-providers list`, `claude-providers current`, `claude-providers use <name|#n> [--vscode]`.
+- **Where it reads from:** VS Code's user `settings.json` (auto-detected for VS Code, Insiders, VSCodium, Cursor, Windsurf; override with `--settings <path>` or `CLAUDE_PROVIDERS_VSCODE_SETTINGS`). Edits are surgical — comments and formatting in that file are preserved, and a running VS Code picks them up live.
+- **API keys:** VS Code keeps keys in its encrypted SecretStorage, which other programs can't read. Turn on **`shareKeysWithTerminal`** and the extension mirrors them to `~/.claude-provider-switcher/keys.json` (owner-only permissions) and picks up keys you enter in the terminal. Without it the app asks for a key the first time you switch to a provider (and can reuse the one already in an applied env).
+
 ### Settings
 
 | Setting | Default | Description |
@@ -221,6 +237,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | `claudeProviderSwitcher.showTokenStats` | `true` | Show per-provider token usage (today / last 7 days / last 30 days) in the tooltips, read from Claude Code's transcripts. Off disables transcript reading entirely. |
 | `claudeProviderSwitcher.switchAction` | `switch` | What happens on every switch (sidebar click, hotkey, cycle, menu): `switch` — switch the provider, then remind to restart the session; `switchAndReload` — switch and immediately reload the window so the next session picks up the new provider. |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | Also mirror the active provider into the Claude Code **CLI** config at `~/.claude/settings.json` (under `env`), so `claude` in a plain terminal uses the same provider. Only the keys this extension manages are touched; the rest of the file is preserved. Writes the active API key there in plain text. |
+| `claudeProviderSwitcher.shareKeysWithTerminal` | `false` | Share API keys with the `claude-providers` terminal app via `~/.claude-provider-switcher/keys.json` (owner-only permissions, plain text), both ways. |
 | `claudeProviderSwitcher.showRestartHint` | `true` | After switching, tint the status bar item and remind you the Claude Code session must restart (new chat / Reload Window) to take effect. Clears on reload. |
 | `claudeProviderSwitcher.applyPinnedOnOpen` | `true` | When a workspace has a pinned provider, automatically switch to it on open. |
 | `claudeProviderSwitcher.autoFallbackOnApply` | `false` | Probe the target on every switch and, if it's unreachable, fall back to its configured fallback provider. When off, use *Switch with fallback* for on-demand failover. |
@@ -372,6 +389,22 @@ You normally add these via the sidebar, but here are the values to enter (replac
 
 Полный пример `settings.json` см. в свёрнутом блоке английской секции выше.
 
+### Терминальное приложение (`claude-providers`)
+
+Всё то же самое работает и **без VS Code**: `claude-providers` — полноэкранное меню в терминале, управляемое стрелками (без номеров), поверх тех же профилей. Оно переключает **`claude` CLI** (`~/.claude/settings.json`), **расширение VS Code** (`claudeCode.environmentVariables`) или оба сразу, а также позволяет добавлять / редактировать / дублировать / переупорядочивать / удалять провайдеров, задавать API-ключи, выбирать модели из списка эндпоинта, проверять соединение и доступность и менять настройки расширения.
+
+```bash
+npm install -g github:lobacom/claude-provider-switcher   # ставит команду `claude-providers`
+claude-providers                                        # интерактивное меню
+```
+
+Если расширение уже установлено, ставить ничего не нужно: `node ~/.vscode/extensions/alekseilobanov.claude-provider-switcher-*/bin/claude-providers.js`.
+
+- **Клавиши:** `↑`/`↓` — выбор, `Enter` — переключить (терминал или терминал + VS Code — задаётся в *Настройках*), `→` — действия с провайдером, `Esc` — назад / выход.
+- **Для скриптов:** `claude-providers list`, `claude-providers current`, `claude-providers use <имя|#n> [--vscode]`.
+- **Откуда берутся данные:** пользовательский `settings.json` VS Code (ищется сам для VS Code, Insiders, VSCodium, Cursor, Windsurf; другой путь — `--settings <путь>` или `CLAUDE_PROVIDERS_VSCODE_SETTINGS`). Правки точечные — комментарии и форматирование файла сохраняются, запущенный VS Code подхватывает их сразу.
+- **API-ключи:** VS Code хранит ключи в зашифрованном SecretStorage, недоступном другим программам. Включите **`shareKeysWithTerminal`** — расширение продублирует их в `~/.claude-provider-switcher/keys.json` (права только владельцу) и будет подхватывать ключи, введённые в терминале. Без этого приложение спросит ключ при первом переключении на провайдера (или возьмёт его из уже применённого env).
+
 ### Настройки
 
 | Настройка | По умолчанию | Описание |
@@ -384,6 +417,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | `claudeProviderSwitcher.showTokenStats` | `true` | Показывать токены по провайдеру (за сегодня / 7 дней / 30 дней) в подсказках, читая транскрипты Claude Code. Выкл. полностью отключает чтение транскриптов. |
 | `claudeProviderSwitcher.switchAction` | `switch` | Что делать при каждом переключении (клик в сайдбаре, хоткей, цикл, меню): `switch` — переключить и напомнить о перезапуске сессии; `switchAndReload` — переключить и сразу перезагрузить окно, чтобы новая сессия стартовала на новом провайдере. |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | Дублировать активного провайдера в **CLI**-конфиг Claude Code `~/.claude/settings.json` (в ключ `env`), чтобы `claude` в обычном терминале использовал того же провайдера. Трогаются только управляемые расширением ключи; остальное в файле сохраняется. Активный API-ключ пишется туда открытым текстом. |
+| `claudeProviderSwitcher.shareKeysWithTerminal` | `false` | Делиться API-ключами с терминальным приложением `claude-providers` через `~/.claude-provider-switcher/keys.json` (права только владельцу, открытый текст), в обе стороны. |
 | `claudeProviderSwitcher.showRestartHint` | `true` | После переключения подсвечивать индикатор в статус-баре и напоминать, что сессию Claude Code нужно перезапустить (новый чат / Reload Window). Сбрасывается при перезагрузке окна. |
 | `claudeProviderSwitcher.applyPinnedOnOpen` | `true` | Если у workspace есть закреплённый провайдер — автоматически переключаться на него при открытии. |
 | `claudeProviderSwitcher.autoFallbackOnApply` | `false` | При каждом переключении проверять провайдера и, если он недоступен, переключаться на его резервного. Если выключено — failover по запросу командой *Switch with fallback*. |
@@ -531,6 +565,22 @@ You normally add these via the sidebar, but here are the values to enter (replac
 - **本地 LM Studio：** Base URL `http://localhost:1234`，令牌 `lmstudio`，模型 = `http://localhost:1234/v1/models` 返回的精确 `id`（启动服务：*Developer → Start Server*）。
 - **自建网关：** Base URL `https://your-gateway.example`，令牌 `YOUR_GATEWAY_KEY`，模型 = 你网关的模型别名。
 
+### 终端应用（`claude-providers`）
+
+以上功能**无需 VS Code** 也能使用：`claude-providers` 是一个用方向键操作（无编号）的全屏终端菜单，使用同一套配置。它可以切换 **`claude` CLI**（`~/.claude/settings.json`）、**VS Code 扩展**（`claudeCode.environmentVariables`）或两者，并支持添加 / 编辑 / 复制 / 排序 / 删除服务商、设置 API 密钥、从端点列表选择模型、测试连接、检查可用性以及修改扩展设置。
+
+```bash
+npm install -g github:lobacom/claude-provider-switcher   # 安装 `claude-providers` 命令
+claude-providers                                        # 交互式菜单
+```
+
+如果已安装扩展，也可以直接运行：`node ~/.vscode/extensions/alekseilobanov.claude-provider-switcher-*/bin/claude-providers.js`。
+
+- **按键：** `↑`/`↓` 移动，`Enter` 切换（终端，或终端 + VS Code —— 在*设置*中选择），`→` 打开服务商操作，`Esc` 返回 / 退出。
+- **脚本：** `claude-providers list`、`claude-providers current`、`claude-providers use <名称|#n> [--vscode]`。
+- **数据来源：** VS Code 用户 `settings.json`（自动查找 VS Code、Insiders、VSCodium、Cursor、Windsurf；可用 `--settings <路径>` 或 `CLAUDE_PROVIDERS_VSCODE_SETTINGS` 指定）。修改是精确的 —— 文件中的注释和格式会保留，运行中的 VS Code 会立即读取。
+- **API 密钥：** VS Code 将密钥保存在加密的 SecretStorage 中，其他程序无法读取。开启 **`shareKeysWithTerminal`** 后，扩展会把密钥同步到 `~/.claude-provider-switcher/keys.json`（仅所有者可读），并读取在终端中输入的密钥。未开启时，首次切换到某服务商时应用会询问密钥（或复用已应用环境变量中的密钥）。
+
 ### 设置项
 
 | 设置 | 默认 | 说明 |
@@ -543,6 +593,7 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | `claudeProviderSwitcher.showTokenStats` | `true` | 在悬浮提示中显示每个服务商的 token 用量（今天 / 最近 7 天 / 最近 30 天），读取自 Claude Code 的会话记录。关闭后将完全停止读取会话记录。 |
 | `claudeProviderSwitcher.switchAction` | `switch` | 每次切换（侧边栏点击、快捷键、循环、菜单）时执行的操作：`switch` —— 切换后提醒重启会话；`switchAndReload` —— 切换后立即重新加载窗口，使新会话使用新服务商。 |
 | `claudeProviderSwitcher.writeClaudeSettings` | `false` | 同时将活动服务商写入 Claude Code **CLI** 配置 `~/.claude/settings.json`（`env` 键），让普通终端中的 `claude` 使用同一服务商。仅修改本扩展管理的键，文件其余内容保持不变。活动 API 密钥会以明文写入该文件。 |
+| `claudeProviderSwitcher.shareKeysWithTerminal` | `false` | 通过 `~/.claude-provider-switcher/keys.json`（仅所有者可读，明文）与终端应用 `claude-providers` 双向共享 API 密钥。 |
 | `claudeProviderSwitcher.showRestartHint` | `true` | 切换后高亮状态栏项并提醒 Claude Code 会话需要重启（新建对话 / 重新加载窗口）才能生效。重载窗口后清除。 |
 | `claudeProviderSwitcher.applyPinnedOnOpen` | `true` | 工作区有绑定的服务商时，打开即自动切换到它。 |
 | `claudeProviderSwitcher.autoFallbackOnApply` | `false` | 每次切换前先探测目标，不可达则自动切到其回退服务商；关闭时可用 *Switch with fallback* 按需回退。 |
