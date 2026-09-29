@@ -47,17 +47,18 @@ function modelListCandidates(baseUrl) {
 // GET one model-list URL. Resolves { status, models } — status 0 means the host
 // didn't answer (DNS/connection/timeout); models is null unless we parsed a 2xx
 // body into a non-empty-capable list.
-function fetchModelsAt(modelsUrl, token) {
+function fetchModelsAt(modelsUrl, token, extra = {}) {
   return new Promise((resolve) => {
     let url;
     try {
       url = new (require('url').URL)(modelsUrl);
+      for (const [k, v] of Object.entries(extra.query || {})) url.searchParams.set(k, v);
     } catch {
       resolve({ status: 0, models: null });
       return;
     }
     const lib = url.protocol === 'http:' ? require('http') : require('https');
-    const headers = { 'anthropic-version': '2023-06-01', accept: 'application/json' };
+    const headers = { ...(extra.headers || {}), 'anthropic-version': '2023-06-01', accept: 'application/json' };
     if (token) {
       headers['x-api-key'] = token;
       headers['authorization'] = `Bearer ${token}`;
@@ -91,13 +92,17 @@ function fetchModelsAt(modelsUrl, token) {
 
 // Try every candidate; return the first model list found. On failure, report
 // whether the host was reachable at all and whether auth was rejected, so
-// callers can give a useful message / health verdict.
-async function probeModelsList(baseUrl, token) {
+// callers can give a useful message / health verdict. `extra` (Codex profiles):
+// { headers, query } sent with every request, and `openai: true` for an
+// OpenAI-style Base URL that already ends in /v1 — its list is <base>/models.
+async function probeModelsList(baseUrl, token, extra = {}) {
   let reachable = false;
   let auth = false;
   let serverError = false;
-  for (const u of modelListCandidates(baseUrl)) {
-    const r = await fetchModelsAt(u, token);
+  const candidates = modelListCandidates(baseUrl);
+  if (extra.openai) candidates.unshift(normalizeUrl(baseUrl) + '/models');
+  for (const u of new Set(candidates)) {
+    const r = await fetchModelsAt(u, token, extra);
     if (r.status === 0) continue; // host didn't answer at this URL
     reachable = true;
     if (r.models && r.models.length) return { ok: true, models: r.models, reachable: true };

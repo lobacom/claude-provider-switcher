@@ -299,11 +299,7 @@ async function switchCodex(p) {
 
 // A tiny POST <base_url>/responses — proves the endpoint and the key.
 function codexProbe(p) {
-  const c = p.codex || {};
-  return httpProbeResponses(codex.baseUrl(p), store.codexToken(p), c.model, {
-    headers: c.http_headers || {},
-    query: c.query_params || {},
-  });
+  return httpProbeResponses(codex.baseUrl(p), store.codexToken(p), (p.codex || {}).model, codex.requestExtra(p));
 }
 
 // Probe `startP`, walk its fallback chain and switch to the first provider that
@@ -572,7 +568,7 @@ async function pickCodexModel(p, token) {
   };
   const url = codex.baseUrl(p);
   if (!url) return manual();
-  const r = await tui.busy(title, t('fetchingModels', { name: p.name }), probeModelsList(url, token));
+  const r = await tui.busy(title, t('fetchingModels', { name: p.name }), probeModelsList(url, token, codex.requestExtra(p)));
   if (!r.ok || !r.models.length) {
     const reason = !r.reachable ? t('reason_unreachable')
       : r.auth ? t('reason_auth')
@@ -919,7 +915,7 @@ async function checkOneHealth(p) {
 async function checkOneCodexHealth(p) {
   const url = codex.baseUrl(p);
   if (!url) return 'ok';
-  const r = await probeModelsList(url, store.codexToken(p));
+  const r = await probeModelsList(url, store.codexToken(p), codex.requestExtra(p));
   if (r.ok) return 'ok';
   if (!r.reachable || r.auth || r.serverError) return 'down';
   return 'ok';

@@ -174,12 +174,8 @@ async function cycleCodex(dir) {
 
 // ---- fallback / test -------------------------------------------------------------
 
-function probeExtra(p) {
-  const c = p.codex || {};
-  return { headers: c.http_headers || {}, query: c.query_params || {} };
-}
 function codexProbe(p) {
-  return httpProbeResponses(cx.baseUrl(p), cachedToken(p) || cx.tokenInConfig(p), (p.codex || {}).model, probeExtra(p));
+  return httpProbeResponses(cx.baseUrl(p), cachedToken(p) || cx.tokenInConfig(p), (p.codex || {}).model, cx.requestExtra(p));
 }
 
 // Probe `startP` and walk its fallback chain (fallbackId), applying the first
@@ -329,7 +325,7 @@ async function pickCodexModel(p, token) {
   if (url) {
     const r = await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: t('codexModelsFetching', { url }) },
-      () => probeModelsList(url, token)
+      () => probeModelsList(url, token, cx.requestExtra(p))
     );
     models = r.ok ? r.models : [];
   }

@@ -47,7 +47,7 @@ async function checkOneHealth(p) {
 async function checkOneCodexHealth(p) {
   const base = cx.baseUrl(p);
   if (!base) return 'ok';
-  const r = await probeModelsList(base, cachedToken(p) || cx.tokenInConfig(p));
+  const r = await probeModelsList(base, cachedToken(p) || cx.tokenInConfig(p), cx.requestExtra(p));
   if (r.ok) return 'ok';
   if (!r.reachable || r.auth || r.serverError) return 'down';
   return 'ok';

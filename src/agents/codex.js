@@ -246,6 +246,14 @@ function needsKey(p) {
   return !!u && !isLocalUrl(u);
 }
 
+// What a request to the profile's endpoint carries besides the key (for the
+// connection test, the model list and the health check): its headers and query
+// parameters; `openai` tells the model-list probe the Base URL ends in /v1.
+function requestExtra(p) {
+  const c = (p && p.codex) || {};
+  return { headers: c.http_headers || {}, query: c.query_params || {}, openai: true };
+}
+
 // ---- reading the file ------------------------------------------------------------
 
 function readConfig() {
@@ -508,6 +516,7 @@ module.exports = {
   providerOf,
   isLocalUrl,
   needsKey,
+  requestExtra,
   readConfig,
   blockInfo,
   activeKey,
