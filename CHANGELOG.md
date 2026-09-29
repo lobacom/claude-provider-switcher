@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Sidebar renamed:** the Activity Bar panel is now **Providers**, with a **Claude** view and a
+  **Codex** view (was *Claude Providers* → *Providers*).
 - **Codex provider switcher (stage 1 / MVP).** A second switcher for OpenAI **Codex** next to the
   Claude one: a **Codex** view in the sidebar, a **Codex** status-bar item and a `claude-providers`
   section (plus `claude-providers codex list | current | use <name|#n> | default`).

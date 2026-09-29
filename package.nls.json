@@ -1,7 +1,7 @@
 {
   "category": "Claude Provider",
-  "container.title": "Claude Providers",
-  "view.name": "Providers",
+  "container.title": "Providers",
+  "view.name": "Claude",
   "welcome": "No providers yet.\n[Add provider](command:claudeProviderSwitcher.add)\n\nProfiles are stored in your settings (`claudeProviderSwitcher.profiles`).",
   "cmd.select": "Select provider…",
   "cmd.add": "Add provider",

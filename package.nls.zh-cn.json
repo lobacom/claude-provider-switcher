@@ -1,7 +1,7 @@
 {
   "category": "Claude Provider",
-  "container.title": "Claude 服务商",
-  "view.name": "服务商",
+  "container.title": "服务商",
+  "view.name": "Claude",
   "welcome": "尚无服务商。\n[添加服务商](command:claudeProviderSwitcher.add)\n\n配置保存在你的设置中（`claudeProviderSwitcher.profiles`）。",
   "cmd.select": "选择服务商…",
   "cmd.add": "添加服务商",

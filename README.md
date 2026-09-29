@@ -28,7 +28,7 @@ It also switches **OpenAI Codex** — the `codex` CLI and the Codex extension �
 ### Quick start
 
 1. Install this extension and the [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) extension.
-2. Open the **Claude Providers** view from the Activity Bar (the dotted icon) and click **+ Add provider**. Pick a **template** — *Custom* (blank), *Claude Subscription*, *Claude API*, a built-in **Anthropic-compatible provider** (DeepSeek, Kimi, MiniMax, Qwen, Xiaomi MiMo, Z.ai, …), or a **local server** (Ollama, LM Studio, llama.cpp, vLLM): the Base URL (and model mapping, where fixed) is pre-filled. Then just add your API key. Every field stays editable (see [Profile fields](#profile-fields)); an empty Base URL = native subscription.
+2. Open the **Providers** panel from the Activity Bar (the dotted icon) — its **Claude** view — and click **+ Add provider**. Pick a **template** — *Custom* (blank), *Claude Subscription*, *Claude API*, a built-in **Anthropic-compatible provider** (DeepSeek, Kimi, MiniMax, Qwen, Xiaomi MiMo, Z.ai, …), or a **local server** (Ollama, LM Studio, llama.cpp, vLLM): the Base URL (and model mapping, where fixed) is pre-filled. Then just add your API key. Every field stays editable (see [Profile fields](#profile-fields)); an empty Base URL = native subscription.
 3. Switch by clicking the **status bar indicator**, with the profile's **hotkey**, or via the row in the sidebar.
 4. **Start a new Claude Code session** (new chat / Reload Window) so it picks up the change — Claude Code reads the environment when a session starts, not live.
 
@@ -39,7 +39,7 @@ It also switches **OpenAI Codex** — the `codex` CLI and the Codex extension �
 - 🔌 **Status bar** — the active provider is always visible at the bottom of the window; one click opens the switch menu, no panels needed. After a switch it tints and reminds you to restart the session (toggle with `showRestartHint`).
 - ⌨️ **Per-profile hotkeys** — each profile can own a shortcut (`Ctrl+Alt+1`…`Ctrl+Alt+9`, `Ctrl+Alt+0`); new profiles get the next free slot automatically and the binding is written to your `keybindings.json` for you. Plus **cycle**: `Ctrl+Alt+]` / `Ctrl+Alt+[` (macOS `Cmd+Alt+…`).
 - 🎛️ **Menu** — `Claude Provider: Select provider…` from the palette, or via the status bar item.
-- 🗂️ **Sidebar** — a *Claude Providers* view in the Activity Bar to **add / edit / delete / duplicate / reorder / switch** providers. Field-by-field editor with dropdowns — no hand-editing `settings.json`, no codes to remember.
+- 🗂️ **Sidebar** — a *Providers* panel in the Activity Bar (a *Claude* view, plus *Codex*) to **add / edit / delete / duplicate / reorder / switch** providers. Field-by-field editor with dropdowns — no hand-editing `settings.json`, no codes to remember.
 - 🌐 **UI in English / Русский / 中文** — the `language` setting; `auto` follows VS Code.
 
 **Setting up providers**
@@ -291,7 +291,7 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 ### Быстрый старт
 
 1. Установи это расширение и [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code).
-2. Открой панель **Claude Providers** в Activity Bar (иконка из точек) → **+ Add provider**. Выбери **шаблон** — *Custom* (пусто), *Claude Subscription*, *Claude API*, встроенный **Anthropic-совместимый провайдер** (DeepSeek, Kimi, MiniMax, Qwen, Z.ai, …) или **локальный сервер** (Ollama, LM Studio, llama.cpp, vLLM): Base URL (и маппинг моделей, где он фиксирован) подставится сам. Останется только вписать свой API-ключ. Все поля остаются редактируемыми (см. [Поля профиля](#поля-профиля)); пустой Base URL = нативная подписка.
+2. Открой панель **Провайдеры** в Activity Bar (иконка из точек), представление **Claude** → **+ Add provider**. Выбери **шаблон** — *Custom* (пусто), *Claude Subscription*, *Claude API*, встроенный **Anthropic-совместимый провайдер** (DeepSeek, Kimi, MiniMax, Qwen, Z.ai, …) или **локальный сервер** (Ollama, LM Studio, llama.cpp, vLLM): Base URL (и маппинг моделей, где он фиксирован) подставится сам. Останется только вписать свой API-ключ. Все поля остаются редактируемыми (см. [Поля профиля](#поля-профиля)); пустой Base URL = нативная подписка.
 3. Переключайся кликом по **индикатору в статус-баре**, **хоткеем** профиля или по строке в сайдбаре.
 4. **Запусти новую сессию Claude Code** (новый чат / Reload Window) — переменные читаются при старте сессии, не на лету.
 
@@ -302,7 +302,7 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 - 🔌 **Статус-бар** — активный провайдер всегда виден внизу окна; один клик открывает меню переключения, никакие панели не нужны. После переключения индикатор подсвечивается и напоминает перезапустить сессию (отключается настройкой `showRestartHint`).
 - ⌨️ **Хоткей на профиль** — у каждого профиля своя комбинация (`Ctrl+Alt+1`…`Ctrl+Alt+9`, `Ctrl+Alt+0`); новому профилю автоматически выдаётся ближайший свободный слот, биндинг сам прописывается в твой `keybindings.json`. Плюс **цикл**: `Ctrl+Alt+]` / `Ctrl+Alt+[` (на macOS `Cmd+Alt+…`).
 - 🎛️ **Меню** — `Claude Provider: Select provider…` из палитры или через индикатор в статус-баре.
-- 🗂️ **Сайдбар** — панель *Claude Providers* в Activity Bar: **добавить / изменить / удалить / дублировать / переместить / переключить** провайдера. Редактирование по полям с выпадающими списками — без правки `settings.json` руками и без кодов, которые надо помнить.
+- 🗂️ **Сайдбар** — панель *Провайдеры* в Activity Bar (представление *Claude*, плюс *Codex*): **добавить / изменить / удалить / дублировать / переместить / переключить** провайдера. Редактирование по полям с выпадающими списками — без правки `settings.json` руками и без кодов, которые надо помнить.
 - 🌐 **Интерфейс на English / Русский / 中文** — настройка `language`; `auto` следует языку VS Code.
 
 **Настройка провайдеров**
@@ -488,7 +488,7 @@ claude-providers                                        # интерактивн
 ### 快速开始
 
 1. 安装本扩展和 [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) 扩展。
-2. 从活动栏打开 **Claude Providers** 视图（圆点图标），点击 **+ Add provider**，选择一个**模板** —— *Custom*（空白）、*Claude Subscription*、*Claude API*、内置的 **Anthropic 兼容服务商**（DeepSeek、Kimi、MiniMax、Qwen、Xiaomi MiMo、Z.ai 等）或**本地服务**（Ollama、LM Studio、llama.cpp、vLLM）：Base URL（以及 固定的模型映射）会自动填好，你只需填入自己的 API 密钥。所有字段仍可编辑（见下方 [配置字段](#配置字段)）；Base URL 留空 = 原生订阅。
+2. 从活动栏打开 **服务商** 面板（圆点图标）中的 **Claude** 视图，点击 **+ Add provider**，选择一个**模板** —— *Custom*（空白）、*Claude Subscription*、*Claude API*、内置的 **Anthropic 兼容服务商**（DeepSeek、Kimi、MiniMax、Qwen、Xiaomi MiMo、Z.ai 等）或**本地服务**（Ollama、LM Studio、llama.cpp、vLLM）：Base URL（以及 固定的模型映射）会自动填好，你只需填入自己的 API 密钥。所有字段仍可编辑（见下方 [配置字段](#配置字段)）；Base URL 留空 = 原生订阅。
 3. 点击**状态栏指示器**、用配置的**快捷键**，或点击侧边栏中的行来切换。
 4. **启动新的 Claude Code 会话**（新对话 / 重载窗口）使其生效 —— Claude Code 在会话启动时读取环境变量， 不会实时刷新。
 
@@ -499,7 +499,7 @@ claude-providers                                        # интерактивн
 - 🔌 **状态栏** —— 当前服务商始终显示在窗口底部；一次点击即打开切换菜单，无需任何面板。切换后会高亮 并提醒你重启会话（可用 `showRestartHint` 关闭）。
 - ⌨️ **每个配置独立快捷键**（`Ctrl+Alt+1`…`Ctrl+Alt+9`、`Ctrl+Alt+0`）；新配置自动分配下一个空闲槽位， 快捷键自动写入你的 `keybindings.json`。另有**循环切换**：`Ctrl+Alt+]` / `Ctrl+Alt+[`（macOS 为 `Cmd+Alt+…`）。
 - 🎛️ **菜单** —— 命令面板中的 `Claude Provider: Select provider…`，或通过状态栏项。
-- 🗂️ **侧边栏** —— 活动栏中的 *Claude Providers* 视图，可**添加 / 编辑 / 删除 / 复制 / 重排 / 切换** 服务商。逐字段编辑、下拉选择 —— 无需手动改 `settings.json`，无需记任何代码。
+- 🗂️ **侧边栏** —— 活动栏中的 *服务商* 面板（*Claude* 视图，另有 *Codex*），可**添加 / 编辑 / 删除 / 复制 / 重排 / 切换** 服务商。逐字段编辑、下拉选择 —— 无需手动改 `settings.json`，无需记任何代码。
 - 🌐 **界面支持 English / Русский / 中文** —— `language` 设置；`auto` 跟随 VS Code。
 
 **配置服务商**

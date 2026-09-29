@@ -1,7 +1,7 @@
 {
   "category": "Claude Provider",
-  "container.title": "Провайдеры Claude",
-  "view.name": "Провайдеры",
+  "container.title": "Провайдеры",
+  "view.name": "Claude",
   "welcome": "Провайдеров пока нет.\n[Добавить провайдера](command:claudeProviderSwitcher.add)\n\nПрофили хранятся в настройках (`claudeProviderSwitcher.profiles`).",
   "cmd.select": "Выбрать провайдера…",
   "cmd.add": "Добавить провайдера",
