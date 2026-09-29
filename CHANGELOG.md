@@ -57,6 +57,9 @@
   at `https://ai-gateway.vercel.sh/codex/v1` (`wire_api = "responses"`, models in
   `provider/model` form, `env_key = "AI_GATEWAY_API_KEY"`). Verified: `GET /codex/v1/models`
   returns 200, `POST /codex/v1/responses` requires auth — so the route is live.
+- **Codex catalog: Kimi (Moonshot).** Moonshot publishes a Codex integration at
+  `https://api.moonshot.ai/v1/responses` (model `kimi-k3`, key in `KIMI_API_KEY`). Verified:
+  `POST /v1/responses` returns 401 without a key (route is live).
 
 ## 0.9.1
 

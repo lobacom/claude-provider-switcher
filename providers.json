@@ -175,6 +175,14 @@
         }
       },
       {
+        "name": "Kimi (Moonshot)",
+        "icon": "moonshot.png",
+        "codex": {
+          "base_url": "https://api.moonshot.ai/v1",
+          "model": "kimi-k3"
+        }
+      },
+      {
         "name": "Vercel AI Gateway",
         "icon": "vercel.png",
         "codex": {
