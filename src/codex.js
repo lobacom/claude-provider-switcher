@@ -23,6 +23,7 @@ const { healthOf, reportProbe } = require('./health');
 const cx = require('./agents/codex');
 const { codexTokenWindows, codexModelsUsed } = require('./codexTokens');
 const { formatTokens } = require('./tokens');
+const { askKey } = require('./keyReuse');
 
 // Repaint hook (tree + status bar), set by extension.js.
 let repaint = () => {};
@@ -90,11 +91,11 @@ function describe(p) {
 // ---- switching ------------------------------------------------------------------
 
 async function promptKey(p) {
-  const v = await vscode.window.showInputBox({
+  const v = await askKey({
+    side: 'codex',
+    url: cx.baseUrl(p),
+    current: cachedToken(p),
     prompt: t('codexKeyPrompt', { name: p.name }),
-    value: cachedToken(p),
-    password: true,
-    ignoreFocusOut: true,
   });
   if (v === undefined) return false;
   await setToken(p.id, v);
@@ -382,13 +383,8 @@ async function addCodexProfile() {
   }
   let token = '';
   if (cx.needsKey(p)) {
-    token = await vscode.window.showInputBox({
-      prompt: t('codexKeyPrompt', { name: p.name }),
-      password: true,
-      ignoreFocusOut: true,
-    });
+    token = await askKey({ side: 'codex', url: cx.baseUrl(p), prompt: t('codexKeyPrompt', { name: p.name }) });
     if (token === undefined) return;
-    token = token.trim();
   }
   const model = await pickCodexModel(p, token);
   if (model === undefined) return;

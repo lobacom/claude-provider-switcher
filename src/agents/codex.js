@@ -38,6 +38,7 @@
 
 const fs = require('fs');
 const os = require('os');
+const { execSync } = require('child_process');
 const path = require('path');
 const toml = require('../toml');
 const { keyDir } = require('../keyfile');
@@ -47,6 +48,8 @@ const BLOCK_END = '# <<< claude-provider-switcher <<<';
 
 // The top-level keys a switch sets (and a reset restores).
 const MANAGED_KEYS = ['model_provider', 'model', 'model_reasoning_effort'];
+// Top-level key pointing Codex at a model-catalog file (see "model catalog").
+const MODEL_CATALOG_KEY = 'model_catalog_json';
 // Codex's built-in provider (ChatGPT login / OpenAI API key via `codex login`).
 const BUILTIN_PROVIDER = 'openai';
 
@@ -187,6 +190,153 @@ function syncProfileFiles(profiles) {
     fs.mkdirSync(codexHome(), { recursive: true });
     fs.writeFileSync(file, text);
   }
+}
+
+// ---- model catalog ------------------------------------------------------------
+// Codex's /model picker shows "Custom model" for a model id it doesn't know.
+// `model_catalog_json` points it at a JSON file describing models — but that
+// file REPLACES Codex's whole catalog (the ChatGPT-login models included), and
+// Codex refuses to start at all if the path is missing or an entry doesn't
+// match its schema. So:
+//   - the key is set only while a third-party profile is active, and the file
+//     holds that profile's model alone (the picker offers what it can serve);
+//     switching to the built-in provider or resetting removes it again;
+//   - the value is an absolute path (Codex expands `~` to the home directory,
+//     not to $CODEX_HOME);
+//   - `base_instructions` (Codex's system prompt, required per entry) is taken
+//     from Codex's own bundled catalog, and the file is checked with the local
+//     `codex` CLI before the key is written. Without a working CLI, or if the
+//     check fails, no key is written — the model just shows as "Custom model".
+//   - a `model_catalog_json` the user set themselves is left alone.
+
+// A pre-release build wrote this value; Codex can't resolve it (see above).
+const LEGACY_CATALOG_VALUE = '~/model-catalogs/cps-custom.json';
+
+function catalogPath() {
+  return path.join(codexHome(), 'model-catalogs', 'cps-custom.json');
+}
+
+// True when `model_catalog_json` is absent or points at our file.
+function ownsCatalogKey(text) {
+  if (!toml.hasTopLevelKey(text, MODEL_CATALOG_KEY)) return true;
+  const v = toml.getTopLevelString(text, MODEL_CATALOG_KEY);
+  if (!v) return false;
+  return v === LEGACY_CATALOG_VALUE || path.resolve(v).toLowerCase() === path.resolve(catalogPath()).toLowerCase();
+}
+
+// The catalog entry for a third-party profile, without `base_instructions`;
+// null when the profile has nothing to show (built-in provider or no model).
+function catalogEntryFor(p) {
+  if (!baseUrl(p)) return null;
+  const c = p.codex || {};
+  if (!c.model) return null;
+  const effort = c.reasoning_effort;
+  return {
+    slug: c.model,
+    display_name: c.model,
+    description: p.name || '',
+    supported_reasoning_levels: effort ? [{ effort, description: effort }] : [],
+    default_reasoning_level: effort || 'none',
+    shell_type: 'shell_command',
+    visibility: 'list',
+    supported_in_api: true,
+    priority: 0,
+    supports_reasoning_summaries: true,
+    default_reasoning_summary: 'none',
+    support_verbosity: false,
+    supports_parallel_tool_calls: true,
+    experimental_supported_tools: [],
+    input_modalities: ['text'],
+    truncation_policy: { mode: 'bytes', limit: 10000 },
+  };
+}
+
+// Run the local `codex` CLI with CODEX_HOME set to `home`; returns stdout,
+// throws when it is missing or fails. Through a shell so npm's `.cmd` shim
+// resolves on Windows; `args` are our own constants, never user input.
+function runCodexCli(args, home) {
+  return execSync(`codex ${args.join(' ')}`, {
+    env: { ...process.env, CODEX_HOME: home },
+    encoding: 'utf8',
+    timeout: 20000,
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+}
+
+// The runner syncConfig uses by default; tests swap it (null restores it).
+let codexRunner = runCodexCli;
+function setCodexRunner(fn) {
+  codexRunner = fn || runCodexCli;
+}
+
+// Run `codex debug models` against a scratch CODEX_HOME holding `configText`
+// (so neither the user's config nor our current catalog gets in the way).
+function debugModels(run, configText) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cps-codex-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'config.toml'), configText);
+    const j = JSON.parse(run(['debug', 'models'], dir));
+    return Array.isArray(j.models) ? j.models : [];
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// Codex's own system prompt: that of its top listed bundled model.
+function bundledInstructions(run) {
+  const models = debugModels(run, '')
+    .filter((m) => m && typeof m.base_instructions === 'string' && m.base_instructions)
+    .sort((a, b) => (a.visibility === 'list' ? 0 : 1) - (b.visibility === 'list' ? 0 : 1) || (a.priority || 0) - (b.priority || 0));
+  if (!models.length) throw new Error('no bundled base_instructions');
+  return models[0].base_instructions;
+}
+
+// Make our catalog file hold `entry` in a form this Codex accepts. The file
+// records the Codex version it was checked with; while the entry and the
+// version are unchanged nothing is re-run. Returns true when the file is valid.
+function ensureCatalog(entry, run) {
+  const file = catalogPath();
+  let version;
+  try {
+    version = run(['--version'], codexHome()).trim();
+  } catch {
+    return false;
+  }
+  let cur = null;
+  try { cur = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* none yet */ }
+  const m = cur && Array.isArray(cur.models) && cur.models.length === 1 ? cur.models[0] : null;
+  if (m && m.base_instructions && cur.checked_with === version) {
+    const rest = { ...m };
+    delete rest.base_instructions;
+    if (JSON.stringify(rest) === JSON.stringify(entry)) return true;
+  }
+  const tmp = `${file}.${process.pid}.tmp`;
+  try {
+    const next = { checked_with: version, models: [{ ...entry, base_instructions: bundledInstructions(run) }] };
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n');
+    const seen = debugModels(run, `${MODEL_CATALOG_KEY} = ${toml.tomlString(tmp)}\n`);
+    if (!seen.some((x) => x && x.slug === entry.slug)) throw new Error('catalog rejected');
+    fs.renameSync(tmp, file);
+    return true;
+  } catch {
+    fs.rmSync(tmp, { force: true });
+    return false;
+  }
+}
+
+// Point config.toml at our catalog while `active` is a third-party profile,
+// drop the key (and the file) otherwise. A user-set key is left alone.
+function applyCatalog(text, active, run) {
+  if (!ownsCatalogKey(text)) return text;
+  const entry = active && catalogEntryFor(active);
+  if (entry && ensureCatalog(entry, run)) {
+    return toml.setTopLevel(text, MODEL_CATALOG_KEY, toml.tomlString(catalogPath()));
+  }
+  fs.rmSync(catalogPath(), { force: true });
+  return toml.removeTopLevel(text, MODEL_CATALOG_KEY);
 }
 
 // ---- profiles -----------------------------------------------------------------
@@ -430,10 +580,11 @@ function renderBlock(profiles, { active, token, previous, keyStorage = 'file' })
 //   tokenFor  — p → its API key ('' when unknown: a key already on disk for it
 //               is kept, so a client without the key doesn't drop it);
 //   keyStorage — 'file' (default: key files + auth.command) or 'config'
-//               (the active key as experimental_bearer_token).
+//               (the active key as experimental_bearer_token);
+//   runCodex  — (args, codexHome) → stdout of the `codex` CLI (tests stub it).
 // Returns { changed, activeId }. Throws CodexConfigError on conflicts; the file
 // is then left untouched.
-function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'file' }) {
+function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'file', runCodex = codexRunner }) {
   const { text, exists } = readConfig();
   checkConflicts(text, profiles);
   const info = blockInfo(text);
@@ -471,6 +622,7 @@ function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'fil
   let next = toml.setBlock(text, BLOCK_BEGIN, BLOCK_END, null);
   if (target === 'restore') next = applyValues(next, previous);
   else if (active) next = applyValues(next, valuesFor(active, previous));
+  next = applyCatalog(next, active, runCodex);
   next = toml.setBlock(next, BLOCK_BEGIN, BLOCK_END, body);
 
   if (next !== text) writeConfig(next, exists && !info.present);
@@ -502,6 +654,9 @@ module.exports = {
   BLOCK_BEGIN,
   BLOCK_END,
   MANAGED_KEYS,
+  MODEL_CATALOG_KEY,
+  catalogPath,
+  setCodexRunner,
   BUILTIN_PROVIDER,
   REASONING_EFFORTS,
   CODEX_HOTKEYS,

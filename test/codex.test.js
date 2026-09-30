@@ -6,6 +6,9 @@ const path = require('path');
 const codex = require('../src/agents/codex');
 const toml = require('../src/toml');
 
+// No `codex` CLI here: the model catalog is skipped (see modelCatalog.test.js).
+codex.setCodexRunner(() => { throw new Error('no codex CLI in tests'); });
+
 function tempHome(initial) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cps-codex-'));
   process.env.HOME = dir; // key files live under ~/.claude-provider-switcher

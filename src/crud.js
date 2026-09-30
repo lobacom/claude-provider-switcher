@@ -22,6 +22,7 @@ const { firstFreeBadge, providerIcon } = require('./badges');
 const { firstFreeHotkey, editProfileFields } = require('./editor');
 const { applyProfile, writeActiveEnv } = require('./switching');
 const { getPinnedId, setPinnedId } = require('./pinning');
+const { askKey, keyCandidates } = require('./keyReuse');
 
 // The "Add provider" menu: Custom (manual), a divider, the two Anthropic entries,
 // a divider, then every built-in provider preset — each with its logo on the left.
@@ -100,6 +101,11 @@ async function addProfile() {
   draft.push(newProfile);
   await saveProfiles(draft);
   if (presetToken) await setToken(newProfile.id, presetToken);
+  // The same provider set up for Codex already has a key → offer it now.
+  else if (keyCandidates('claude', env.ANTHROPIC_BASE_URL).length) {
+    const key = await askKey({ side: 'claude', url: env.ANTHROPIC_BASE_URL, prompt: t('secretPrompt', { label: t('field_token') }) });
+    if (key) await setToken(newProfile.id, key);
+  }
   await editProfileFields(draft.length - 1);
 }
 

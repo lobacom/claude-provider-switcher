@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - **Sidebar renamed:** the Activity Bar panel is now **Providers**, with a **Claude** view and a
   **Codex** view (was *Claude Providers* → *Providers*).
@@ -60,6 +60,17 @@
 - **Codex catalog: Kimi (Moonshot).** Moonshot publishes a Codex integration at
   `https://api.moonshot.ai/v1/responses` (model `kimi-k3`, key in `KIMI_API_KEY`). Verified:
   `POST /v1/responses` returns 401 without a key (route is live).
+- **Codex model names in the picker.** While a third-party Codex profile is active, Codex's
+  `/model` picker shows its model by name instead of *Custom model*: the switcher points
+  `model_catalog_json` at `~/.codex/model-catalogs/cps-custom.json`. The catalog replaces Codex's
+  own model list, so it is set only for third-party providers and removed again on the built-in
+  one or *Codex default*; the file is checked with the local `codex` CLI before it is used (no
+  CLI or a rejected file → no catalog, nothing breaks). A `model_catalog_json` of your own is
+  left alone.
+- **Reuse a key across Claude and Codex.** Adding a Codex profile, or changing its key, offers the
+  keys your Claude profiles already have for the same host (e.g. `api.minimax.io/anthropic` ↔
+  `api.minimax.io/v1`) — and the other way round in the Claude profile's token field. The key is
+  shown masked; *Enter a key manually…* is always there.
 
 ## 0.9.1
 

@@ -16,6 +16,7 @@ const {
 const { COLOR_CHOICES, colorLabel, badgeTextPrefix } = require('./badges');
 const { probeModelsList } = require('./http');
 const { applyProfile } = require('./switching');
+const { askKey } = require('./keyReuse');
 
 // ---- hotkeys ----------------------------------------------------------------
 // Hotkey choices — 10 slots (Ctrl+Alt+1..9, Ctrl+Alt+0).
@@ -303,12 +304,13 @@ async function editProfileFields(index) {
       input = picked._value;
     } else if (f.secret) {
       // Edit the token directly in SecretStorage; never round-trip it through
-      // the profile JSON. Pre-fill with the real value so edits don't wipe it.
-      const entered = await vscode.window.showInputBox({
+      // the profile JSON. Pre-fill with the real value so edits don't wipe it;
+      // a Codex profile's key for the same host is offered first.
+      const entered = await askKey({
+        side: 'claude',
+        url: p.env && p.env.ANTHROPIC_BASE_URL,
+        current: cachedToken(p),
         prompt: t('secretPrompt', { label: fieldLabel(f) }),
-        value: cachedToken(p),
-        password: true,
-        ignoreFocusOut: true,
       });
       if (entered === undefined) continue;
       await setToken(p.id, entered);
