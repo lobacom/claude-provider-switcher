@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1
+
+- **Codex: clearer "start a new chat" hint.** A Codex chat stays on the provider it was started
+  with — after a switch the Codex extension only updates the model name in an open chat, so
+  continuing a ChatGPT-signed-in chat after switching to a third-party provider (e.g. MiniMax)
+  fails with *"The 'MiniMax-M3' model is not supported when using Codex with a ChatGPT account"*.
+  The switch / reset messages and the active-provider tooltip (status bar and Codex view) now say
+  so and point to a new chat; the README (EN / RU / ZH) explains the error.
+
 ## 1.0.0
 
 - **Sidebar renamed:** the Activity Bar panel is now **Providers**, with a **Claude** view and a

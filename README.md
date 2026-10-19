@@ -223,6 +223,7 @@ The same switcher works for **OpenAI Codex**. Codex reads one file — `~/.codex
 - **Everything the Claude side has:** field editor (Base URL, API key, model from the endpoint's `/v1/models`, reasoning effort, HTTP headers, query parameters, badge, hotkey, fallback), *Test connection* (a tiny `POST /responses`), the 🟢/🔴 health check, *Switch with fallback* and `autoFallbackOnApply`, *Switch & reload window* and `switchAction`, hotkeys **`Ctrl+Shift+Alt+1…0`** and cycling with **`Ctrl+Shift+Alt+]` / `[`** (macOS `Cmd+Shift+Alt+…`), duplicate / reorder, *Pin to this workspace*, and *Import / Export Codex providers* (its own `codex-providers.json`, keys excluded unless you ask).
 - **Token statistics** in the tooltip — today / 7 days / 30 days, per model — read from Codex's own session logs (`~/.codex/sessions/…/rollout-*.jsonl`). Each log names the provider it ran on, so usage is attributed exactly.
 - Codex reads its config when a session starts: after switching, start a new Codex session — in the Codex extension a new chat is enough, no window reload needed.
+- **An open chat keeps its provider.** A Codex chat stays on the provider it was started with; after a switch the extension only picks up the new *model* name for it. So continuing an old ChatGPT-signed-in chat after switching to, say, MiniMax sends `MiniMax-M3` to OpenAI and fails with *The 'MiniMax-M3' model is not supported when using Codex with a ChatGPT account*. Start a new chat for the new provider (or switch back to keep using the old chat).
 
 ### Terminal app (`claude-providers`)
 
@@ -420,6 +421,7 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 - **Всё, что есть у Claude:** редактор полей (Base URL, API-ключ, модель из `/v1/models`, reasoning effort, HTTP-заголовки, query-параметры, бейдж, хоткей, резерв), *Проверить соединение* (маленький `POST /responses`), индикатор 🟢/🔴, *Переключить с резервом* и `autoFallbackOnApply`, *Переключить и перезагрузить окно* и `switchAction`, хоткеи **`Ctrl+Shift+Alt+1…0`** и перебор **`Ctrl+Shift+Alt+]` / `[`** (macOS `Cmd+Shift+Alt+…`), дублирование и порядок, *Закрепить за папкой*, *Импорт / экспорт провайдеров Codex* (свой файл `codex-providers.json`, ключи — только по запросу).
 - **Статистика токенов** в подсказке — сегодня / 7 / 30 дней, по моделям — из журналов сессий самого Codex (`~/.codex/sessions/…/rollout-*.jsonl`). В каждом журнале записан провайдер, поэтому учёт точный.
 - Codex читает конфиг при старте сессии: после переключения начните новую сессию Codex — в расширении Codex достаточно нового чата, перезагружать окно не нужно.
+- **Открытый чат сохраняет своего провайдера.** Чат Codex остаётся на провайдере, с которым был начат; после переключения расширение подхватывает для него только новое *имя модели*. Поэтому если продолжить старый чат (начатый со входом через ChatGPT) после переключения, например, на MiniMax, `MiniMax-M3` уйдёт в OpenAI и вернётся ошибка *The 'MiniMax-M3' model is not supported when using Codex with a ChatGPT account*. Для нового провайдера начните новый чат (или переключитесь обратно, чтобы продолжить старый).
 
 ### Терминальное приложение (`claude-providers`)
 
@@ -613,6 +615,7 @@ claude-providers                                        # интерактивн
 - **与 Claude 一侧功能一致：** 字段编辑器（Base URL、API 密钥、来自 `/v1/models` 的模型、推理强度、HTTP 头、查询参数、徽标、快捷键、回退）、*测试连接*（一个很小的 `POST /responses`）、🟢/🔴 健康检查、*带回退切换* 与 `autoFallbackOnApply`、*切换并重新加载窗口* 与 `switchAction`、快捷键 **`Ctrl+Shift+Alt+1…0`** 与 **`Ctrl+Shift+Alt+]` / `[`** 循环切换（macOS 为 `Cmd+Shift+Alt+…`）、复制与排序、*固定到此工作区*，以及 *导入 / 导出 Codex 服务商*（独立的 `codex-providers.json`，默认不含密钥）。
 - **Token 统计** 显示在提示中 —— 今天 / 7 天 / 30 天，按模型 —— 读取自 Codex 自己的会话日志（`~/.codex/sessions/…/rollout-*.jsonl`）。每个日志都记录了所用服务商，因此统计是精确的。
 - Codex 在会话开始时读取配置：切换后请开始新的 Codex 会话 —— 在 Codex 扩展中新建一个聊天即可，无需重新加载窗口。
+- **已打开的聊天保留原服务商。** Codex 聊天始终使用其开始时的服务商；切换后扩展只会为它更新*模型名*。因此，在切换到例如 MiniMax 后继续一个用 ChatGPT 登录开始的旧聊天，会把 `MiniMax-M3` 发给 OpenAI，并报错 *The 'MiniMax-M3' model is not supported when using Codex with a ChatGPT account*。请为新服务商新建聊天（或切换回去以继续旧聊天）。
 
 ### 终端应用（`claude-providers`）
 
