@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -251,6 +251,12 @@
                   },
                   "model": {
                     "type": "string"
+                  },
+                  "models": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "uniqueItems": true,
+                    "description": "Models offered in Codex's model picker for this provider. The default model is also included."
                   },
                   "reasoning_effort": {
                     "type": "string",

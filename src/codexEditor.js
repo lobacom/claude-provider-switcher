@@ -10,6 +10,7 @@ const { t } = require('./i18n');
 const { getCodexProfiles, cloneCodexProfiles, saveCodexProfiles, cachedToken } = require('./profiles');
 const { COLOR_CHOICES, colorLabel, badgeTextPrefix } = require('./badges');
 const cx = require('./agents/codex');
+const { pickCodexModels } = require('./codexModels');
 const { findCodex, promptKey, pickCodexModel, syncCodex, CODEX_HOTKEYS, describe } = require('./codex');
 
 const FIELDS = [
@@ -20,6 +21,7 @@ const FIELDS = [
   { key: 'base_url', labelKey: 'field_codexBaseUrl' },
   { key: 'token', labelKey: 'field_codexKey' },
   { key: 'model', labelKey: 'field_codexModel' },
+  { key: 'models', labelKey: 'field_codexModels' },
   { key: 'reasoning_effort', labelKey: 'field_codexEffort' },
   { key: 'http_headers', labelKey: 'field_codexHeaders', map: true },
   { key: 'query_params', labelKey: 'field_codexQuery', map: true },
@@ -41,6 +43,7 @@ function fieldValue(p, key) {
     return cachedToken(p) || cx.tokenInConfig(p) ? '••••••••' : '';
   }
   if (key === 'model') return c.model || t('tip_codexModelDefault');
+  if (key === 'models') return cx.modelIds(p).join(', ');
   if (key === 'reasoning_effort') return c.reasoning_effort || t('tip_codexModelDefault');
   if (key === 'http_headers' || key === 'query_params') {
     const n = Object.keys(c[key] || {}).length;
@@ -112,7 +115,8 @@ async function editCodexProfile(arg) {
   for (;;) {
     const p = findCodex(id);
     if (!p) return;
-    const items = FIELDS.map((f) => ({ label: t(f.labelKey), description: fieldValue(p, f.key) || t('empty'), _f: f }));
+    const items = FIELDS.filter((f) => f.key !== 'models' || cx.baseUrl(p))
+      .map((f) => ({ label: t(f.labelKey), description: fieldValue(p, f.key) || t('empty'), _f: f }));
     items.push({ label: `$(check) ${t('done')}`, _done: true });
     const pick = await vscode.window.showQuickPick(items, {
       placeHolder: t('editingPlaceholder', { name: p.name }),
@@ -177,6 +181,9 @@ async function editCodexProfile(arg) {
     } else if (f.key === 'model') {
       const m = await pickCodexModel(p, cachedToken(p) || cx.tokenInConfig(p));
       if (m !== undefined) await update(id, (x) => { if (m) x.codex.model = m; else delete x.codex.model; });
+    } else if (f.key === 'models') {
+      const models = await pickCodexModels(p, cachedToken(p) || cx.tokenInConfig(p));
+      if (models !== undefined) await update(id, (x) => cx.setProfileModels(x, models));
     } else if (f.key === 'reasoning_effort') {
       const cur = (p.codex && p.codex.reasoning_effort) || '';
       const choices = [

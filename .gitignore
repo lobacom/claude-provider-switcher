@@ -5,6 +5,9 @@ dist/
 # Dependencies
 node_modules/
 
+# Internal instructions
+/docs/
+
 # OS / editor
 .DS_Store
 Thumbs.db

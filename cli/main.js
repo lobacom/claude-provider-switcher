@@ -358,6 +358,7 @@ const CODEX_FIELDS = [
   { key: 'base_url', label: 'field_codexBaseUrl' },
   { key: 'token', label: 'field_codexKey' },
   { key: 'model', label: 'field_codexModel' },
+  { key: 'models', label: 'field_codexModels' },
   { key: 'reasoning_effort', label: 'field_codexEffort' },
   { key: 'http_headers', label: 'field_codexHeaders', map: true },
   { key: 'query_params', label: 'field_codexQuery', map: true },
@@ -376,6 +377,7 @@ function codexFieldValue(p, key, list) {
   if (key === 'base_url') return c.base_url || t('codexBuiltin');
   if (key === 'token') return !codex.needsKey(p) ? t('codexKeyNotNeeded') : store.codexToken(p) ? '••••••••' : '';
   if (key === 'model' || key === 'reasoning_effort') return c[key] || t('tip_codexModelDefault');
+  if (key === 'models') return codex.modelIds(p).join(', ');
   const n = Object.keys(c[key] || {}).length;
   return n ? t('extraEnvCount', { n }) : '';
 }
@@ -401,7 +403,8 @@ async function editCodexProfile(id) {
     const list = store.codexProfiles();
     const p = list.find((x) => x.id === id);
     if (!p) return;
-    const items = CODEX_FIELDS.map((f) => ({ label: t(f.label), hint: codexFieldValue(p, f.key, list) || t('empty'), value: f }));
+    const items = CODEX_FIELDS.filter((f) => f.key !== 'models' || codex.baseUrl(p))
+      .map((f) => ({ label: t(f.label), hint: codexFieldValue(p, f.key, list) || t('empty'), value: f }));
     items.push({ separator: true, label: '' }, { label: t('done'), value: 'done' });
     const res = await tui.select({ title: t('editingPlaceholder', { name: p.name }), header: notice, items, index: cursor, footer: t('footer_menu') });
     notice = [];
@@ -485,6 +488,9 @@ async function editCodexField(p, f, list) {
   } else if (f.key === 'model') {
     const m = await pickCodexModel(p, store.codexToken(p));
     if (m !== null) return saveCodexChange(p.id, (x) => { if (m) x.codex.model = m; else delete x.codex.model; });
+  } else if (f.key === 'models') {
+    const models = await promptCodexModels(p);
+    if (models !== null) return saveCodexChange(p.id, (x) => codex.setProfileModels(x, models));
   } else if (f.key === 'reasoning_effort') {
     const v = await pick([
       { label: t('tip_codexModelDefault'), value: '' },
@@ -569,7 +575,8 @@ async function pickCodexModel(p, token) {
   const url = codex.baseUrl(p);
   if (!url) return manual();
   const r = await tui.busy(title, t('fetchingModels', { name: p.name }), probeModelsList(url, token, codex.requestExtra(p)));
-  if (!r.ok || !r.models.length) {
+  const models = [...new Set([...codex.modelIds(p), ...(r.ok ? r.models : [])])];
+  if (!models.length) {
     const reason = !r.reachable ? t('reason_unreachable')
       : r.auth ? t('reason_auth')
         : r.serverError ? t('reason_serverError') : t('reason_noList');
@@ -578,13 +585,21 @@ async function pickCodexModel(p, token) {
   const items = [
     { label: t('enterManually'), value: { manual: true } },
     { label: t('codexNoModel'), value: { v: '' } },
-    { separator: true, label: t('modelsCount', { n: r.models.length }) },
-    ...r.models.map((id) => ({ label: id, hint: id === cur ? t('current') : '', value: { v: id } })),
+    { separator: true, label: t('modelsCount', { n: models.length }) },
+    ...models.map((id) => ({ label: id, hint: id === cur ? t('current') : '', value: { v: id } })),
   ];
   const idx = cur ? items.findIndex((x) => x.value && x.value.v === cur) : -1;
   const res = await tui.select({ title, items, index: idx >= 0 ? idx : 0, footer: t('footer_menu') });
   if (!res) return null;
   return res.item.value.manual ? manual() : res.item.value.v;
+}
+
+async function promptCodexModels(p) {
+  const value = await tui.prompt({
+    title: p.name, label: t('codexModelsPrompt', { name: p.name }),
+    value: codex.modelIds(p).join(', '), footer: t('footer_input'),
+  });
+  return value === null ? null : value.split(/[,;\n]+/).map((id) => id.trim()).filter(Boolean);
 }
 
 function bundledCodexPresets() {
@@ -657,6 +672,11 @@ async function addCodexProvider() {
   const model = await pickCodexModel(p, token);
   if (model === null) return null;
   if (model) p.codex.model = model;
+  if (codex.baseUrl(p)) {
+    const models = await promptCodexModels(p);
+    if (models === null) return null;
+    codex.setProfileModels(p, models);
+  }
   return guardCodex(() => {
     codex.assignKey(p, list);
     const used = new Set(list.map((x) => x.hotkey).filter(Boolean));

@@ -199,7 +199,7 @@ function syncProfileFiles(profiles) {
 // Codex refuses to start at all if the path is missing or an entry doesn't
 // match its schema. So:
 //   - the key is set only while a third-party profile is active, and the file
-//     holds that profile's model alone (the picker offers what it can serve);
+//     holds that profile's models (the picker offers what it can serve);
 //     switching to the built-in provider or resetting removes it again;
 //   - the value is an absolute path (Codex expands `~` to the home directory,
 //     not to $CODEX_HOME);
@@ -224,27 +224,80 @@ function ownsCatalogKey(text) {
   return v === LEGACY_CATALOG_VALUE || path.resolve(v).toLowerCase() === path.resolve(catalogPath()).toLowerCase();
 }
 
-// The catalog entry for a third-party profile, without `base_instructions`;
-// null when the profile has nothing to show (built-in provider or no model).
-function catalogEntryFor(p) {
-  if (!baseUrl(p)) return null;
-  const c = p.codex || {};
-  if (!c.model) return null;
-  const effort = c.reasoning_effort;
-  // Alibaba's Token Plan Responses endpoint does not support parallel tool
-  // calls or reasoning summaries (including when the model is changed to GLM).
-  let tokenPlan = false;
+// Include the default for compatibility with existing single-model profiles.
+function modelIds(p) {
+  const c = (p && p.codex) || {};
+  return [...new Set([c.model, ...(Array.isArray(c.models) ? c.models : [])]
+    .filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim()))];
+}
+
+// Keep the current default if selected; otherwise use the first selected model.
+function setProfileModels(p, models) {
+  p.codex = { ...(p.codex || {}) };
+  const ids = modelIds({ codex: { models } });
+  if (ids.length) {
+    p.codex.models = ids;
+    if (!ids.includes(p.codex.model)) p.codex.model = ids[0];
+  } else {
+    delete p.codex.models;
+    delete p.codex.model;
+  }
+}
+
+// Alibaba Responses effort tiers differ by model. Keep the configured effort
+// as a default, never as the list of choices exposed to the model picker.
+// https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses
+function reasoningOptions(p, model) {
+  const configured = (p.codex || {}).reasoning_effort;
+  let levels;
+  let fallback;
+  let aliases = {};
+  if (isTokenPlan(p)) {
+    if (/^qwen3\.8-(max|flash|2\.4t-a95b|27b)(?:$|-)/i.test(model)) {
+      levels = ['none', 'low', 'medium', 'xhigh'];
+      fallback = 'xhigh';
+      aliases = { minimal: 'low', high: 'xhigh', max: 'xhigh' };
+    } else if (/^deepseek-v4\.1-flash(?:$|-)|^deepseek-v4-(flash-0731|pro-0813)$/i.test(model)) {
+      levels = ['none', 'low', 'high', 'max'];
+      fallback = 'high';
+      aliases = { minimal: 'low', medium: 'high', xhigh: /^deepseek-v4\.1-/i.test(model) ? 'high' : 'max' };
+    } else if (/^glm-5\.3(?:$|-)/i.test(model)) {
+      levels = ['low', 'high', 'max'];
+      fallback = 'max';
+      aliases = { minimal: 'low', medium: 'high', xhigh: 'max' };
+    } else if (/^(glm-5\.2|deepseek-v4-pro)$/i.test(model)) {
+      levels = ['none', 'high', 'max'];
+      fallback = 'high';
+      aliases = { minimal: 'high', low: 'high', medium: 'high', xhigh: 'max' };
+    }
+  }
+  // Unknown endpoints/models retain their explicit setting; do not advertise
+  // unverified levels (including the provider's automatic-routing model).
+  if (!levels) return { levels: configured ? [configured] : [], default: configured || 'none' };
+  const preferred = aliases[configured] || configured;
+  return { levels, default: levels.includes(preferred) ? preferred : fallback };
+}
+
+function isTokenPlan(p) {
   try {
     const url = new URL(baseUrl(p));
-    tokenPlan = url.hostname === 'token-plan.ap-southeast-1.maas.aliyuncs.com'
+    return url.hostname === 'token-plan.ap-southeast-1.maas.aliyuncs.com'
       && url.pathname.replace(/\/+$/, '') === '/compatible-mode/v1';
-  } catch { /* base URL validation belongs to the profile editor */ }
+  } catch { return false; }
+}
+
+// The catalog entry without `base_instructions`; null for built-in providers.
+function catalogEntryFor(p, model) {
+  if (!baseUrl(p) || !model) return null;
+  const reasoning = reasoningOptions(p, model);
+  // Token Plan does not support parallel tool calls or reasoning summaries.
+  const tokenPlan = isTokenPlan(p);
   return {
-    slug: c.model,
-    display_name: c.model,
+    slug: model,
+    display_name: model,
     description: p.name || '',
-    supported_reasoning_levels: effort ? [{ effort, description: effort }] : [],
-    default_reasoning_level: effort || 'none',
+    supported_reasoning_levels: reasoning.levels.map((effort) => ({ effort, description: effort })),
+    default_reasoning_level: reasoning.default,
     shell_type: 'shell_command',
     visibility: 'list',
     supported_in_api: true,
@@ -301,10 +354,10 @@ function bundledInstructions(run) {
   return models[0].base_instructions;
 }
 
-// Make our catalog file hold `entry` in a form this Codex accepts. The file
-// records the Codex version it was checked with; while the entry and the
+// Make our catalog file hold `entries` in a form this Codex accepts. The file
+// records the Codex version it was checked with; while the entries and the
 // version are unchanged nothing is re-run. Returns true when the file is valid.
-function ensureCatalog(entry, run) {
+function ensureCatalog(entries, run) {
   const file = catalogPath();
   let version;
   try {
@@ -314,19 +367,22 @@ function ensureCatalog(entry, run) {
   }
   let cur = null;
   try { cur = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* none yet */ }
-  const m = cur && Array.isArray(cur.models) && cur.models.length === 1 ? cur.models[0] : null;
-  if (m && m.base_instructions && cur.checked_with === version) {
-    const rest = { ...m };
-    delete rest.base_instructions;
-    if (JSON.stringify(rest) === JSON.stringify(entry)) return true;
+  if (cur && Array.isArray(cur.models) && cur.models.every((m) => m && m.base_instructions) && cur.checked_with === version) {
+    const rest = cur.models.map((m) => {
+      const entry = { ...m };
+      delete entry.base_instructions;
+      return entry;
+    });
+    if (JSON.stringify(rest) === JSON.stringify(entries)) return true;
   }
   const tmp = `${file}.${process.pid}.tmp`;
   try {
-    const next = { checked_with: version, models: [{ ...entry, base_instructions: bundledInstructions(run) }] };
+    const instructions = bundledInstructions(run);
+    const next = { checked_with: version, models: entries.map((entry) => ({ ...entry, base_instructions: instructions })) };
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n');
     const seen = debugModels(run, `${MODEL_CATALOG_KEY} = ${toml.tomlString(tmp)}\n`);
-    if (!seen.some((x) => x && x.slug === entry.slug)) throw new Error('catalog rejected');
+    if (!entries.every((entry) => seen.some((x) => x && x.slug === entry.slug))) throw new Error('catalog rejected');
     fs.renameSync(tmp, file);
     return true;
   } catch {
@@ -339,8 +395,8 @@ function ensureCatalog(entry, run) {
 // drop the key (and the file) otherwise. A user-set key is left alone.
 function applyCatalog(text, active, run) {
   if (!ownsCatalogKey(text)) return text;
-  const entry = active && catalogEntryFor(active);
-  if (entry && ensureCatalog(entry, run)) {
+  const entries = active ? modelIds(active).map((id) => catalogEntryFor(active, id)).filter(Boolean) : [];
+  if (entries.length && ensureCatalog(entries, run)) {
     return toml.setTopLevel(text, MODEL_CATALOG_KEY, toml.tomlString(catalogPath()));
   }
   fs.rmSync(catalogPath(), { force: true });
@@ -664,6 +720,9 @@ module.exports = {
   MANAGED_KEYS,
   MODEL_CATALOG_KEY,
   catalogPath,
+  modelIds,
+  reasoningOptions,
+  setProfileModels,
   setCodexRunner,
   BUILTIN_PROVIDER,
   REASONING_EFFORTS,

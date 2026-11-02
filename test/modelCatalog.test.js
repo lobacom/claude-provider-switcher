@@ -67,6 +67,57 @@ test('a third-party profile gets a catalog with its model alone, by absolute pat
   assert.ok(read().indexOf('model_catalog_json') < blockAt);
 });
 
+test('all selected models are listed, deduplicated, cached and kept within their provider', () => {
+  tempHome('');
+  const profile = { ...min, codex: { ...min.codex, models: ['MiniMax-M3', 'other-model', ' other-model ', '', null] } };
+  const profiles = [profile, ds, builtin];
+  sync('id-min', fakeCodex().run, profiles);
+  assert.equal(top('model'), 'MiniMax-M3');
+  assert.deepEqual(readCatalog().models.map((m) => m.slug), ['MiniMax-M3', 'other-model']);
+  assert.ok(readCatalog().models.every((m) => m.base_instructions === 'You are Codex.'));
+  const cached = fakeCodex();
+  sync(undefined, cached.run, profiles);
+  assert.deepEqual(cached.calls, ['--version']);
+
+  codex.setProfileModels(profile, ['other-model', 'third-model']);
+  sync(undefined, fakeCodex().run, profiles);
+  assert.equal(top('model'), 'other-model');
+  assert.deepEqual(readCatalog().models.map((m) => m.slug), ['other-model', 'third-model']);
+  sync('id-ds', fakeCodex().run, profiles);
+  assert.deepEqual(readCatalog().models.map((m) => m.slug), ['deepseek-flash']);
+  sync('id-oa', fakeCodex().run, profiles);
+  assert.equal(top('model_catalog_json'), undefined);
+});
+
+test('changing the model list preserves the default until removed and clearing restores Codex default', () => {
+  tempHome('');
+  const profile = { ...min, codex: { ...min.codex } };
+  codex.setProfileModels(profile, ['other-model', 'MiniMax-M3']);
+  assert.equal(profile.codex.model, 'MiniMax-M3');
+  sync('id-min', fakeCodex().run, [profile]);
+  codex.setProfileModels(profile, []);
+  sync(undefined, fakeCodex().run, [profile]);
+  assert.equal(top('model'), undefined);
+  assert.equal(top('model_catalog_json'), undefined);
+  assert.ok(!fs.existsSync(codex.catalogPath()));
+});
+
+test('a CLI accepting only part of a catalog does not leave a broken catalog configured', () => {
+  tempHome('');
+  const { run } = fakeCodex();
+  const partial = (args, home) => {
+    const output = run(args, home);
+    if (args[0] !== 'debug') return output;
+    const result = JSON.parse(output);
+    result.models = result.models.slice(0, 1);
+    return JSON.stringify(result);
+  };
+  const profile = { ...min, codex: { ...min.codex, models: ['other-model'] } };
+  sync('id-min', partial, [profile]);
+  assert.equal(top('model_catalog_json'), undefined);
+  assert.ok(!fs.existsSync(codex.catalogPath()));
+});
+
 test('Alibaba Token Plan preset writes a Responses provider and compatible model capabilities', () => {
   tempHome('');
   const preset = require('../providers.json').codex.remote.find((p) => p.name === 'Qwen (Alibaba Token Plan)');
@@ -85,6 +136,46 @@ test('Alibaba Token Plan preset writes a Responses provider and compatible model
   sync('id-qwen', fakeCodex().run, [profile]);
   assert.equal(readCatalog().models[0].slug, 'glm-5.3');
   assert.equal(readCatalog().models[0].supports_parallel_tool_calls, false);
+});
+
+test('Token Plan models expose their own effort choices instead of the profile default alone', () => {
+  tempHome('');
+  const preset = require('../providers.json').codex.remote.find((p) => p.name === 'Qwen (Alibaba Token Plan)');
+  const profile = { ...preset, id: 'id-qwen', key: 'cps-qwen', codex: { ...preset.codex,
+    models: ['qwen3.8-flash', 'deepseek-v4-pro', 'deepseek-v4.1-flash-1017', 'glm-5.3', 'auto'],
+  } };
+  const runner = fakeCodex();
+  sync(profile.id, runner.run, [profile]);
+  const models = readCatalog().models;
+  const expected = [
+    ['qwen3.8-max', ['none', 'low', 'medium', 'xhigh'], 'medium'],
+    ['qwen3.8-flash', ['none', 'low', 'medium', 'xhigh'], 'medium'],
+    ['deepseek-v4-pro', ['none', 'high', 'max'], 'high'],
+    ['deepseek-v4.1-flash-1017', ['none', 'low', 'high', 'max'], 'high'],
+    ['glm-5.3', ['low', 'high', 'max'], 'high'],
+    ['auto', ['medium'], 'medium'],
+  ];
+  assert.deepEqual(models.map((m) => [m.slug, m.supported_reasoning_levels.map((x) => x.effort), m.default_reasoning_level]), expected);
+  // Updating the default must not remove the other choices, including max.
+  profile.codex.reasoning_effort = 'max';
+  sync(undefined, runner.run, [profile]);
+  const changed = readCatalog().models;
+  assert.deepEqual(changed[0].supported_reasoning_levels, models[0].supported_reasoning_levels);
+  assert.equal(changed[0].default_reasoning_level, 'xhigh');
+  assert.equal(changed.find((m) => m.slug === 'glm-5.3').default_reasoning_level, 'max');
+});
+
+test('Token Plan effort defaults and aliases stay valid without leaking to unrelated endpoints', () => {
+  const p = { codex: { base_url: 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/' } };
+  assert.deepEqual(codex.reasoningOptions(p, 'qwen3.8-max-0902'), { levels: ['none', 'low', 'medium', 'xhigh'], default: 'xhigh' });
+  assert.equal(codex.reasoningOptions(p, 'glm-5.3').default, 'max');
+  assert.deepEqual(codex.reasoningOptions(p, 'deepseek-v4-pro-0813').levels, ['none', 'low', 'high', 'max']);
+  assert.deepEqual(codex.reasoningOptions(p, 'glm-5.2').levels, ['none', 'high', 'max']);
+  p.codex.reasoning_effort = 'xhigh';
+  assert.equal(codex.reasoningOptions(p, 'deepseek-v4-pro-0813').default, 'max');
+  assert.equal(codex.reasoningOptions(p, 'deepseek-v4.1-flash-1017').default, 'high');
+  p.codex.base_url = 'https://example.com/v1';
+  assert.deepEqual(codex.reasoningOptions(p, 'qwen3.8-max'), { levels: ['xhigh'], default: 'xhigh' });
 });
 
 test('switching to the built-in provider or resetting drops the key and the file', () => {

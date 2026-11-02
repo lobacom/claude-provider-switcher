@@ -18,7 +18,8 @@ const {
 } = require('./profiles');
 const { codexPresets } = require('./providers');
 const { firstFreeBadge, badgeTextPrefix, providerIcon } = require('./badges');
-const { probeModelsList, httpProbeResponses, probeHealthy } = require('./http');
+const { httpProbeResponses, probeHealthy } = require('./http');
+const { pickCodexModel, pickCodexModels } = require('./codexModels');
 const { healthOf, reportProbe } = require('./health');
 const cx = require('./agents/codex');
 const { codexTokenWindows, codexModelsUsed } = require('./codexTokens');
@@ -317,41 +318,6 @@ async function pickCodexTemplate() {
   return pick ? pick._tpl : undefined;
 }
 
-// Pick a model: from the endpoint's list (GET /v1/models) when it answers, else
-// typed. Returns the id ('' = Codex default) or undefined when cancelled.
-async function pickCodexModel(p, token) {
-  const cur = (p.codex && p.codex.model) || '';
-  const url = cx.baseUrl(p);
-  let models = [];
-  if (url) {
-    const r = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: t('codexModelsFetching', { url }) },
-      () => probeModelsList(url, token, cx.requestExtra(p))
-    );
-    models = r.ok ? r.models : [];
-  }
-  if (models.length) {
-    const items = [
-      ...models.map((id) => ({ label: id, description: id === cur ? t('current') : '', _v: id })),
-      { label: '', kind: vscode.QuickPickItemKind.Separator },
-      { label: t('codexModelManual'), _manual: true },
-      { label: t('codexModelDefault'), _v: '' },
-    ];
-    const pick = await vscode.window.showQuickPick(items, {
-      placeHolder: t('codexModelPlaceholder', { name: p.name }),
-      ignoreFocusOut: true,
-    });
-    if (!pick) return undefined;
-    if (!pick._manual) return pick._v;
-  }
-  const v = await vscode.window.showInputBox({
-    prompt: t('codexModelPrompt', { name: p.name }),
-    value: cur,
-    ignoreFocusOut: true,
-  });
-  return v === undefined ? undefined : v.trim();
-}
-
 function validateUrl(v) {
   return /^https?:\/\/\S+$/i.test((v || '').trim()) ? undefined : t('codexBaseUrlInvalid');
 }
@@ -386,9 +352,16 @@ async function addCodexProfile() {
     token = await askKey({ side: 'codex', url: cx.baseUrl(p), prompt: t('codexKeyPrompt', { name: p.name }) });
     if (token === undefined) return;
   }
-  const model = await pickCodexModel(p, token);
-  if (model === undefined) return;
-  if (model) p.codex.model = model;
+  if (cx.baseUrl(p)) {
+    const models = await pickCodexModels(p, token);
+    if (models === undefined) return;
+    cx.setProfileModels(p, models);
+  } else {
+    const model = await pickCodexModel(p, token);
+    if (model === undefined) return;
+    if (model) p.codex.model = model;
+    else delete p.codex.model;
+  }
   cx.assignKey(p, list);
   const hk = firstFreeCodexHotkey(list);
   if (hk) p.hotkey = hk;

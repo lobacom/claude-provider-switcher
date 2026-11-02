@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.3
+
+- **Token Plan reasoning picker.** The generated catalog advertises each known Alibaba model's
+  supported effort levels separately from the profile default, so the desktop app can select
+  another effort. Qwen 3.8, DeepSeek V4/V4.1 and GLM 5.2/5.3 use their documented Responses tiers.
+
+- **Multiple models per Codex provider.** Select several models when adding a third-party
+  profile, or edit **Available models** later. Discovered and manually entered ids can be
+  combined; **Default model** chooses the starting model. The managed Codex model catalog
+  includes all models of the active provider. Existing single-model profiles remain compatible.
+- Saved models remain selectable when the provider's model list is unavailable. The terminal
+  profile editor also supports a comma-separated model list. Profile export/import preserves
+  the complete model list.
+
 ## 1.0.2
 
 - **Alibaba plan templates.** Separate **Qwen (Alibaba Token Plan)** and **Qwen (Alibaba Coding

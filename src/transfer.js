@@ -116,7 +116,7 @@ async function importProfiles() {
 // so older versions, which only know Claude profiles, never misread them. Local
 // ids, config.toml keys and hotkeys are not exported; imports get fresh ones.
 
-const CODEX_FIELDS = ['base_url', 'model', 'reasoning_effort', 'http_headers', 'query_params'];
+const CODEX_FIELDS = ['base_url', 'model', 'models', 'reasoning_effort', 'http_headers', 'query_params'];
 
 async function exportCodexProfiles() {
   const profiles = getCodexProfiles();
