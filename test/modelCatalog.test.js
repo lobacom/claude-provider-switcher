@@ -67,6 +67,26 @@ test('a third-party profile gets a catalog with its model alone, by absolute pat
   assert.ok(read().indexOf('model_catalog_json') < blockAt);
 });
 
+test('Alibaba Token Plan preset writes a Responses provider and compatible model capabilities', () => {
+  tempHome('');
+  const preset = require('../providers.json').codex.remote.find((p) => p.name === 'Qwen (Alibaba Token Plan)');
+  assert.ok(preset);
+  const profile = { ...preset, id: 'id-qwen', key: 'cps-qwen' };
+  sync('id-qwen', fakeCodex().run, [profile]);
+  assert.equal(top('model'), 'qwen3.8-max');
+  assert.match(read(), /base_url = "https:\/\/token-plan\.ap-southeast-1\.maas\.aliyuncs\.com\/compatible-mode\/v1"/);
+  assert.match(read(), /wire_api = "responses"/);
+  const model = readCatalog().models[0];
+  assert.equal(model.slug, 'qwen3.8-max');
+  assert.equal(model.default_reasoning_level, 'medium');
+  assert.equal(model.supports_reasoning_summaries, false);
+  assert.equal(model.supports_parallel_tool_calls, false);
+  profile.codex = { ...profile.codex, model: 'glm-5.3' };
+  sync('id-qwen', fakeCodex().run, [profile]);
+  assert.equal(readCatalog().models[0].slug, 'glm-5.3');
+  assert.equal(readCatalog().models[0].supports_parallel_tool_calls, false);
+});
+
 test('switching to the built-in provider or resetting drops the key and the file', () => {
   tempHome('model = "gpt-5"\n');
   const { run } = fakeCodex();

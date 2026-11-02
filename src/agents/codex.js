@@ -231,6 +231,14 @@ function catalogEntryFor(p) {
   const c = p.codex || {};
   if (!c.model) return null;
   const effort = c.reasoning_effort;
+  // Alibaba's Token Plan Responses endpoint does not support parallel tool
+  // calls or reasoning summaries (including when the model is changed to GLM).
+  let tokenPlan = false;
+  try {
+    const url = new URL(baseUrl(p));
+    tokenPlan = url.hostname === 'token-plan.ap-southeast-1.maas.aliyuncs.com'
+      && url.pathname.replace(/\/+$/, '') === '/compatible-mode/v1';
+  } catch { /* base URL validation belongs to the profile editor */ }
   return {
     slug: c.model,
     display_name: c.model,
@@ -241,10 +249,10 @@ function catalogEntryFor(p) {
     visibility: 'list',
     supported_in_api: true,
     priority: 0,
-    supports_reasoning_summaries: true,
+    supports_reasoning_summaries: !tokenPlan,
     default_reasoning_summary: 'none',
     support_verbosity: false,
-    supports_parallel_tool_calls: true,
+    supports_parallel_tool_calls: !tokenPlan,
     experimental_supported_tools: [],
     input_modalities: ['text'],
     truncation_policy: { mode: 'bytes', limit: 10000 },

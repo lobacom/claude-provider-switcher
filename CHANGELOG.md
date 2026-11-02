@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.2
+
+- **Alibaba plan templates.** Separate **Qwen (Alibaba Token Plan)** and **Qwen (Alibaba Coding
+  Plan)** templates for Claude Code, each with its own Base URL and models; the existing
+  pay-as-you-go **Qwen (Alibaba)** template (Singapore endpoint) is unchanged, and nothing is
+  migrated automatically — existing profiles keep working. Keys are plan-specific (`sk-sp-` for
+  Token / Coding Plan).
+- **Codex catalog: Qwen (Alibaba Token Plan)** on the Responses-compatible
+  `/compatible-mode/v1` endpoint (model `qwen3.8-max`, effort `medium`); the generated model
+  metadata disables parallel tool calls and reasoning summaries, per Alibaba's docs. Coding Plan
+  is not offered for Codex — it has no Responses API support.
+
 ## 1.0.1
 
 - **Codex: clearer "start a new chat" hint.** A Codex chat stays on the provider it was started

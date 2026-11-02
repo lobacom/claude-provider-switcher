@@ -155,6 +155,8 @@ You normally add these via the sidebar, but here are the values to enter (replac
 | Auth token | `YOUR_MINIMAX_API_KEY` |
 | Opus / Sonnet / Haiku | `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M3` |
 
+**Qwen / Alibaba Model Studio:** choose the catalog template for your billing plan. Each plan has its own API key and Anthropic-compatible Base URL; keys and URLs are not interchangeable. Token Plan and Coding Plan require a dedicated key starting with `sk-sp-`. The existing **Qwen (Alibaba)** template keeps its original name, models and pay-as-you-go Singapore endpoint (`https://dashscope-intl.aliyuncs.com/apps/anthropic`), which remains supported with a general Model Studio key. The separate Token Plan and Coding Plan templates do not migrate existing profiles. For Token Plan, the presets map Opus/Sonnet/Haiku to `qwen3.8-max` / `qwen3.8-flash` / `qwen3.6-flash`; you can set Fable to `glm-5.3`. Coding Plan has a different model list and its preset maps all tiers to `qwen3.7-plus`. See [Alibaba's Claude Code setup](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/claude-code).
+
 **Local LM Studio** (offline) — enable the server (*Developer → Start Server*, port `1234`); use the exact model **id** from `http://localhost:1234/v1/models`; token = any non-empty string:
 
 | Field | Value |
@@ -212,6 +214,8 @@ You normally add these via the sidebar, but here are the values to enter (replac
 </details>
 
 ### Codex
+
+**Alibaba Token Plan:** the Codex catalog includes **Qwen (Alibaba Token Plan)** with Base URL `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`, model `qwen3.8-max` and reasoning effort `medium`. Use your Token Plan key (`sk-sp-`); the key picker can reuse the Claude profile's key on the same host. You can change the model to another Responses-compatible plan model, including `glm-5.3`. Coding Plan is not included in the Codex catalog because it only supports Chat Completions, which current Codex does not support. See [Alibaba's Codex setup](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/codex).
 
 The same switcher works for **OpenAI Codex**. Codex reads one file — `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`) — for both the `codex` CLI and the Codex VS Code extension, so one switch covers both.
 
@@ -404,6 +408,7 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 - **Нативная подписка** — все поля пустые (пустой Base URL).
 - **DeepSeek:** Base URL `https://api.deepseek.com/anthropic`, токен `YOUR_DEEPSEEK_API_KEY`, Opus/Sonnet/Haiku = `deepseek-v4-pro` / `deepseek-flash` / `deepseek-flash`.
 - **MiniMax:** Base URL `https://api.minimax.io/anthropic`, токен `YOUR_MINIMAX_API_KEY`, Opus/Sonnet/Haiku = `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M3`.
+- **Qwen / Alibaba Model Studio:** выбирай шаблон своего тарифа. Существующий **Qwen (Alibaba)** сохраняет имя, модели и адрес обычного тарифа Singapore (`https://dashscope-intl.aliyuncs.com/apps/anthropic`); этот адрес продолжает работать с обычным ключом Model Studio. Отдельные шаблоны Token Plan и Coding Plan не меняют существующие профили. Они требуют выделенные ключи с префиксом `sk-sp-` и разные Base URL. Шаблон Token Plan задаёт Opus/Sonnet/Haiku = `qwen3.8-max` / `qwen3.8-flash` / `qwen3.6-flash`; Fable можно настроить на `glm-5.3`. Coding Plan поддерживает другой набор моделей; его шаблон использует `qwen3.7-plus`. [Инструкция Alibaba для Claude Code](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/claude-code).
 - **LM Studio:** Base URL `http://localhost:1234`, токен `lmstudio`, модель = точный `id` из `http://localhost:1234/v1/models` (включи сервер: *Developer → Start Server*).
 - **Свой шлюз:** Base URL `https://your-gateway.example`, токен `YOUR_GATEWAY_KEY`, модели — алиасы твоего шлюза.
 
@@ -412,6 +417,8 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 ### Codex
 
 Тот же переключатель работает для **OpenAI Codex**. Codex читает один файл — `~/.codex/config.toml` (или `$CODEX_HOME/config.toml`) — и для CLI `codex`, и для расширения Codex в VS Code, так что одно переключение действует на оба.
+
+**Alibaba Token Plan:** в каталоге Codex есть **Qwen (Alibaba Token Plan)** с адресом `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`, моделью `qwen3.8-max` и reasoning effort `medium`. Нужен ключ Token Plan (`sk-sp-`); при вводе ключа можно выбрать уже сохранённый ключ Claude для того же хоста. Модель можно заменить на другую модель тарифа с поддержкой Responses, в том числе `glm-5.3`. Coding Plan в каталог Codex не добавлен: он поддерживает только Chat Completions, которого нет в текущем Codex. [Инструкция Alibaba для Codex](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/codex).
 
 - **Где:** представление **Codex** под той же иконкой Activity Bar (появляется, если Codex установлен или есть профили Codex), и второй элемент статус-бара `Codex: <имя>` — клик открывает меню. **Codex по умолчанию** возвращает Codex ваши собственные настройки `config.toml`.
 - **Добавление:** *OpenAI (встроенный, `codex login`)* — вход через ChatGPT или ключ OpenAI API, как Codex работает обычно; *OpenAI API*, *OpenRouter*; локальные *LM Studio*, *Ollama*, *vLLM*; *Свой* — любой другой эндпоинт. Codex говорит только по **OpenAI Responses API** (`POST <base_url>/responses`; поддержку Chat Completions убрали), поэтому эндпоинт должен его поддерживать — Anthropic-совместимые адреса из каталога Claude не подойдут. Строка таблицы своих провайдеров с **Codex Base URL** тоже появляется здесь.
@@ -600,12 +607,15 @@ claude-providers                                        # интерактивн
 - **原生 Claude 订阅** —— 所有字段留空（Base URL 为空）。
 - **DeepSeek：** Base URL `https://api.deepseek.com/anthropic`，令牌 `YOUR_DEEPSEEK_API_KEY`， Opus/Sonnet/Haiku = `deepseek-v4-pro` / `deepseek-flash` / `deepseek-flash`。
 - **MiniMax：** Base URL `https://api.minimax.io/anthropic`，令牌 `YOUR_MINIMAX_API_KEY`， Opus/Sonnet/Haiku = `MiniMax-M3` / `MiniMax-M3` / `MiniMax-M3`。
+- **Qwen / Alibaba Model Studio：** 选择与你的计费套餐对应的模板。各套餐的 API 密钥与 Anthropic 兼容 Base URL 互不通用；Token Plan 与 Coding Plan 需要以 `sk-sp-` 开头的专用密钥。现有 **Qwen (Alibaba)** 模板保持原有名称、模型与新加坡按量付费端点（`https://dashscope-intl.aliyuncs.com/apps/anthropic`），可继续使用普通 Model Studio 密钥。Token Plan 与 Coding Plan 为独立模板，不会迁移已有配置。Token Plan 预设将 Opus/Sonnet/Haiku 映射为 `qwen3.8-max` / `qwen3.8-flash` / `qwen3.6-flash`，Fable 可设为 `glm-5.3`；Coding Plan 的模型列表不同，其预设将全部档位映射为 `qwen3.7-plus`。参见 [Alibaba 的 Claude Code 配置说明](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/claude-code)。
 - **本地 LM Studio：** Base URL `http://localhost:1234`，令牌 `lmstudio`，模型 = `http://localhost:1234/v1/models` 返回的精确 `id`（启动服务：*Developer → Start Server*）。
 - **自建网关：** Base URL `https://your-gateway.example`，令牌 `YOUR_GATEWAY_KEY`，模型 = 你网关的模型别名。
 
 ### Codex
 
 同一个切换器也适用于 **OpenAI Codex**。`codex` CLI 和 Codex VS Code 扩展都只读取一个文件 —— `~/.codex/config.toml`（或 `$CODEX_HOME/config.toml`），所以一次切换同时作用于两者。
+
+**Alibaba Token Plan：** Codex 目录包含 **Qwen (Alibaba Token Plan)**：Base URL `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`，模型 `qwen3.8-max`，推理强度 `medium`。需使用 Token Plan 专用密钥（`sk-sp-` 开头）；输入密钥时可复用同一主机上 Claude 配置已保存的密钥。模型可换为该套餐中其他支持 Responses 的模型，包括 `glm-5.3`。Coding Plan 未加入 Codex 目录：它只支持 Chat Completions，而当前 Codex 已不支持该接口。参见 [Alibaba 的 Codex 配置说明](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/codex)。
 
 - **位置：** 同一 Activity Bar 图标下的 **Codex** 视图（安装了 Codex 或已有 Codex 配置时显示），以及第二个状态栏项 `Codex: <名称>` —— 点击打开菜单。**Codex 默认** 会恢复你自己的 `config.toml` 设置。
 - **添加：** *OpenAI（内置，`codex login`）* —— 即 Codex 平常的 ChatGPT 登录或 OpenAI API 密钥；*OpenAI API*、*OpenRouter*；本地 *LM Studio*、*Ollama*、*vLLM*；*自定义* 任意其他端点。Codex 只使用 **OpenAI Responses API**（`POST <base_url>/responses`；Chat Completions 支持已移除），端点必须支持它 —— Claude 目录中的 Anthropic 兼容地址不可用。自定义服务商表中填写了 **Codex Base URL** 的行也会出现在这里。
