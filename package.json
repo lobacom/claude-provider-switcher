@@ -2,7 +2,7 @@
   "name": "claude-provider-switcher",
   "displayName": "Claude Provider Switcher",
   "description": "Switch the Claude Code extension between API providers/gateways (LiteLLM, DeepSeek, MiniMax, local models, native subscription) with a sidebar UI, menu, hotkeys, and a status bar indicator.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "AlekseiLobanov",
   "license": "MIT",
   "icon": "icon.png",
@@ -279,6 +279,32 @@
                     "type": "object",
                     "additionalProperties": {
                       "type": "string"
+                    }
+                  },
+                  "request_compatibility": {
+                    "type": "object",
+                    "description": "Omit unsupported request fields through an automatically started local adapter (Node.js 18+). Model rules override provider rules. Adapted profiles use private key files and auth.command for automatic startup.",
+                    "additionalProperties": false,
+                    "properties": {
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "tool_choice": { "type": "string", "enum": ["keep", "omit"] },
+                          "parallel_tool_calls": { "type": "string", "enum": ["keep", "omit"] }
+                        }
+                      },
+                      "models": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "tool_choice": { "type": "string", "enum": ["keep", "omit"] },
+                            "parallel_tool_calls": { "type": "string", "enum": ["keep", "omit"] }
+                          }
+                        }
+                      }
                     }
                   }
                 }

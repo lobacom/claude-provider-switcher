@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+- **Codex request compatibility.** Provider and per-model controls can omit
+  `tool_choice` and `parallel_tool_calls`, including the unsupported fields on
+  Alibaba Token Plan `auto`. An authenticated loopback adapter preserves tools
+  and streaming and starts automatically through Codex's credential helper.
+  Available in the extension and terminal editors, with JSON export/import.
+
 ## 1.1.0
 
 - **Independent terminal application.** The arrow-key menu now works on computers without

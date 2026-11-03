@@ -10,6 +10,7 @@ const { t } = require('./i18n');
 const { getCodexProfiles, cloneCodexProfiles, saveCodexProfiles, cachedToken } = require('./profiles');
 const { COLOR_CHOICES, colorLabel, badgeTextPrefix } = require('./badges');
 const cx = require('./agents/codex');
+const compatibility = require('./codexCompatibility');
 const { pickCodexModels } = require('./codexModels');
 const { findCodex, promptKey, pickCodexModel, syncCodex, CODEX_HOTKEYS, describe } = require('./codex');
 
@@ -23,6 +24,7 @@ const FIELDS = [
   { key: 'model', labelKey: 'field_codexModel' },
   { key: 'models', labelKey: 'field_codexModels' },
   { key: 'reasoning_effort', labelKey: 'field_codexEffort' },
+  { key: 'request_compatibility', labelKey: 'field_codexCompatibility' },
   { key: 'http_headers', labelKey: 'field_codexHeaders', map: true },
   { key: 'query_params', labelKey: 'field_codexQuery', map: true },
 ];
@@ -45,6 +47,7 @@ function fieldValue(p, key) {
   if (key === 'model') return c.model || t('tip_codexModelDefault');
   if (key === 'models') return cx.modelIds(p).join(', ');
   if (key === 'reasoning_effort') return c.reasoning_effort || t('tip_codexModelDefault');
+  if (key === 'request_compatibility') return t(compatibility.enabled(p) ? 'compatEnabled' : 'compatDefault');
   if (key === 'http_headers' || key === 'query_params') {
     const n = Object.keys(c[key] || {}).length;
     return n ? t('extraEnvCount', { n }) : '';
@@ -108,6 +111,38 @@ async function editMap(id, f) {
   }
 }
 
+async function editCompatibility(id) {
+  for (;;) {
+    const p = findCodex(id);
+    if (!p) return;
+    const settings = compatibility.settings(p);
+    const models = [...new Set([...cx.modelIds(p), ...Object.keys(settings.models)])];
+    const scope = await vscode.window.showQuickPick([
+      { label: t('compatAllModels'), _model: null },
+      ...models.map((model) => ({ label: model, description: Object.keys(settings.models[model] || {}).length ? t('compatOverrides') : t('compatInherit'), _model: model })),
+      { label: `$(check) ${t('done')}`, _done: true },
+    ], { placeHolder: t('compatScope', { name: p.name }), ignoreFocusOut: true });
+    if (!scope || scope._done) return;
+    const model = scope._model;
+    for (;;) {
+      const current = findCodex(id);
+      if (!current) return;
+      const all = compatibility.settings(current);
+      const rules = model === null ? all.parameters : all.models[model] || {};
+      const selected = await vscode.window.showQuickPick([
+        ...compatibility.PARAMETERS.map((parameter) => ({ label: parameter, detail: t(`compatHelp_${parameter}`), description: t(`compatMode_${rules[parameter] || (model === null ? 'keep' : 'inherit')}`), _parameter: parameter })),
+        { label: `$(check) ${t('done')}`, _done: true },
+      ], { placeHolder: t('compatEditing', { scope: model === null ? t('compatAllModels') : model }), ignoreFocusOut: true });
+      if (!selected || selected._done) break;
+      const modes = model === null ? ['keep', 'omit'] : ['inherit', 'keep', 'omit'];
+      const choice = await vscode.window.showQuickPick(modes.map((mode) => ({
+        label: t(`compatMode_${mode}`), description: t(`compatDesc_${mode}`), _mode: mode,
+      })), { placeHolder: selected.label, ignoreFocusOut: true });
+      if (choice) await update(id, (x) => compatibility.setRule(x, model, selected._parameter, choice._mode));
+    }
+  }
+}
+
 async function editCodexProfile(arg) {
   const start = findCodex(arg);
   if (!start) return;
@@ -115,7 +150,7 @@ async function editCodexProfile(arg) {
   for (;;) {
     const p = findCodex(id);
     if (!p) return;
-    const items = FIELDS.filter((f) => f.key !== 'models' || cx.baseUrl(p))
+    const items = FIELDS.filter((f) => !['models', 'request_compatibility'].includes(f.key) || cx.baseUrl(p))
       .map((f) => ({ label: t(f.labelKey), description: fieldValue(p, f.key) || t('empty'), _f: f }));
     items.push({ label: `$(check) ${t('done')}`, _done: true });
     const pick = await vscode.window.showQuickPick(items, {
@@ -195,6 +230,8 @@ async function editCodexProfile(arg) {
         ignoreFocusOut: true,
       });
       if (c) await update(id, (x) => { if (c._v) x.codex.reasoning_effort = c._v; else delete x.codex.reasoning_effort; });
+    } else if (f.key === 'request_compatibility') {
+      await editCompatibility(id);
     } else if (f.map) {
       await editMap(id, f);
     }

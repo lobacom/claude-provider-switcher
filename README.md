@@ -215,6 +215,43 @@ You normally add these via the sidebar, but here are the values to enter (replac
 
 ### Codex
 
+**Request compatibility:** edit a Codex provider → **Request compatibility** →
+**All provider models** or a model id. For each of `tool_choice` and
+`parallel_tool_calls`, choose **As sent by Codex** or **Do not send**. Models also
+offer **Inherit from provider**; an explicit model rule overrides the provider rule.
+For Alibaba Token Plan `auto`, set both fields to **Do not send** for that model.
+The same controls are available in the terminal profile editor and survive JSON export/import.
+
+`tool_choice` controls whether a model may choose a tool, must use one, must avoid
+tools, or must call a specific function. `parallel_tool_calls` controls multiple
+tool calls in a single response. **Do not send** removes the field entirely,
+including `false` or `"auto"`; it keeps the `tools` list and uses the upstream's
+default behavior. Omitting `parallel_tool_calls` does not enforce sequential calls.
+
+Codex does not expose request-field omission in its configuration, so profiles
+with omission rules use a loopback adapter bound to `127.0.0.1`. It only changes
+the selected top-level fields in `POST /responses`, applies rules to each request's
+actual `model`, and forwards streaming responses unchanged. Other profiles use
+their original URL. Requires Node.js 18+ on PATH or the standalone app's private
+runtime. The adapter is stored in `~/.claude-provider-switcher/codex-adapters`;
+`auth.command` starts it automatically, including after reboot, with no open editor
+required. Adapted profiles use private upstream key files even when **Codex API key
+storage** is set to **Inside config.toml**. No prompts or keys are logged. Disabling
+the omission rules restores the original URL on sync and stops the profile's adapter.
+
+Example inside a profile's `codex` object (all other models retain their original fields):
+
+```json
+"request_compatibility": {
+  "models": {
+    "auto": {
+      "tool_choice": "omit",
+      "parallel_tool_calls": "omit"
+    }
+  }
+}
+```
+
 **Alibaba Token Plan:** the Codex catalog includes **Qwen (Alibaba Token Plan)** with Base URL `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`, model `qwen3.8-max` and reasoning effort `medium`. Use your Token Plan key (`sk-sp-`); the key picker can reuse the Claude profile's key on the same host. You can change the model to another Responses-compatible plan model, including `glm-5.3`. Coding Plan is not included in the Codex catalog because it only supports Chat Completions, which current Codex does not support. See [Alibaba's Codex setup](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/codex).
 
 Token Plan image attachments are enabled for Qwen 3.8 Max/Flash, Qwen 3.7 Plus, Qwen 3.6 Flash and DeepSeek V4.1 Flash. The switcher refreshes existing managed model catalogs on sync. After updating, reload VS Code, reselect the Qwen profile, then restart Codex desktop and select a visual model such as `qwen3.8-max`. The `auto` model is advertised as text-only. See [Alibaba's model capabilities](https://www.alibabacloud.com/help/en/model-studio/token-plan-personal-overview).

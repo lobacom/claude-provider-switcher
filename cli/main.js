@@ -17,6 +17,7 @@ const { CLAUDE_API_URL, COLOR_CHOICES, MANAGED_ENV_KEYS } = require('../src/cons
 const { keyFilePath } = require('../src/keyfile');
 const { probeModelsList, httpProbe, httpProbeResponses, probeHealthy } = require('../src/http');
 const codex = require('../src/agents/codex');
+const compatibility = require('../src/codexCompatibility');
 const { readImport, prepareImport, applyImport } = require('./transfer');
 
 const { style } = tui;
@@ -364,6 +365,7 @@ const CODEX_FIELDS = [
   { key: 'model', label: 'field_codexModel' },
   { key: 'models', label: 'field_codexModels' },
   { key: 'reasoning_effort', label: 'field_codexEffort' },
+  { key: 'request_compatibility', label: 'field_codexCompatibility' },
   { key: 'http_headers', label: 'field_codexHeaders', map: true },
   { key: 'query_params', label: 'field_codexQuery', map: true },
 ];
@@ -382,6 +384,7 @@ function codexFieldValue(p, key, list) {
   if (key === 'token') return !codex.needsKey(p) ? t('codexKeyNotNeeded') : store.codexToken(p) ? '••••••••' : '';
   if (key === 'model' || key === 'reasoning_effort') return c[key] || t('tip_codexModelDefault');
   if (key === 'models') return codex.modelIds(p).join(', ');
+  if (key === 'request_compatibility') return t(compatibility.enabled(p) ? 'compatEnabled' : 'compatDefault');
   const n = Object.keys(c[key] || {}).length;
   return n ? t('extraEnvCount', { n }) : '';
 }
@@ -407,7 +410,7 @@ async function editCodexProfile(id) {
     const list = store.codexProfiles();
     const p = list.find((x) => x.id === id);
     if (!p) return;
-    const items = CODEX_FIELDS.filter((f) => (f.key !== 'models' || codex.baseUrl(p)) && (f.key !== 'hotkey' || store.hasVsCode()))
+    const items = CODEX_FIELDS.filter((f) => (!['models', 'request_compatibility'].includes(f.key) || codex.baseUrl(p)) && (f.key !== 'hotkey' || store.hasVsCode()))
       .map((f) => ({ label: t(f.label), hint: codexFieldValue(p, f.key, list) || t('empty'), value: f }));
     items.push({ separator: true, label: '' }, { label: t('done'), value: 'done' });
     const res = await tui.select({ title: t('editingPlaceholder', { name: p.name }), header: notice, items, index: cursor, footer: t('footer_menu') });
@@ -501,10 +504,46 @@ async function editCodexField(p, f, list) {
       ...codex.REASONING_EFFORTS.map((e) => ({ label: e, hint: e === c.reasoning_effort ? t('current') : '', value: e })),
     ], c.reasoning_effort || '');
     if (v !== undefined) return saveCodexChange(p.id, (x) => { if (v) x.codex.reasoning_effort = v; else delete x.codex.reasoning_effort; });
+  } else if (f.key === 'request_compatibility') {
+    await editCodexCompatibility(p.id);
   } else if (f.map) {
     await editCodexMap(p.id, f);
   }
   return '';
+}
+
+async function editCodexCompatibility(id) {
+  for (;;) {
+    store.reload();
+    const p = store.codexProfiles().find((x) => x.id === id);
+    if (!p) return;
+    const all = compatibility.settings(p);
+    const scopes = [null, ...new Set([...codex.modelIds(p), ...Object.keys(all.models)])];
+    const scope = await tui.select({ title: t('compatScope', { name: p.name }), items: [
+      ...scopes.map((model) => ({ label: model === null ? t('compatAllModels') : model, value: { model } })),
+      { label: t('done'), value: 'done' },
+    ], footer: t('footer_menu') });
+    if (!scope || scope.item.value === 'done') return;
+    const model = scope.item.value.model;
+    for (;;) {
+      store.reload();
+      const current = store.codexProfiles().find((x) => x.id === id);
+      if (!current) return;
+      const settings = compatibility.settings(current);
+      const rules = model === null ? settings.parameters : settings.models[model] || {};
+      const selected = await tui.select({ title: t('compatEditing', { scope: model === null ? t('compatAllModels') : model }), items: [
+        ...compatibility.PARAMETERS.map((parameter) => ({ label: parameter, hint: t(`compatMode_${rules[parameter] || (model === null ? 'keep' : 'inherit')}`), value: parameter })),
+        { label: t('done'), value: 'done' },
+      ], footer: t('footer_menu') });
+      if (!selected || selected.item.value === 'done') break;
+      const parameter = selected.item.value;
+      const modes = model === null ? ['keep', 'omit'] : ['inherit', 'keep', 'omit'];
+      const choice = await tui.select({ title: parameter, header: [t(`compatHelp_${parameter}`)], items: modes.map((mode) => ({
+        label: t(`compatMode_${mode}`), hint: t(`compatDesc_${mode}`), value: mode,
+      })), footer: t('footer_menu') });
+      if (choice) saveCodexChange(id, (x) => compatibility.setRule(x, model, parameter, choice.item.value));
+    }
+  }
 }
 
 // add / edit / clear entries of http_headers or query_params

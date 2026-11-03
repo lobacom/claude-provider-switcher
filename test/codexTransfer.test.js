@@ -8,6 +8,7 @@ const cx = require('../src/agents/codex');
 test('Codex export/import retains multiple models and the default without exporting local ids or keys', async () => {
   const original = { id: 'local-id', key: 'cps-local', hotkey: 'Ctrl+1', name: 'Gateway', color: 'blue', codex: {
     base_url: 'https://example.com/v1', model: 'second', models: ['first', 'second'], reasoning_effort: 'medium',
+    request_compatibility: { parameters: { tool_choice: 'omit' }, models: { first: { tool_choice: 'keep', parallel_tool_calls: 'omit' } } },
   } };
   let exported;
   let imported;

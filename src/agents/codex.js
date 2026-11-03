@@ -42,6 +42,7 @@ const { execSync } = require('child_process');
 const path = require('path');
 const toml = require('../toml');
 const { keyDir } = require('../keyfile');
+const compatibility = require('../codexCompatibility');
 
 const BLOCK_BEGIN = '# >>> claude-provider-switcher: managed block (edit via the extension or claude-providers) >>>';
 const BLOCK_END = '# <<< claude-provider-switcher <<<';
@@ -610,7 +611,7 @@ function applyValues(text, values) {
   return out;
 }
 
-function renderBlock(profiles, { active, token, previous, keyStorage = 'file' }) {
+function renderBlock(profiles, { active, token, previous, keyStorage = 'file', adapters = new Map() }) {
   const out = [];
   if (active) {
     out.push(`# active-profile = ${toml.tomlString(profileKey(active))}`);
@@ -624,12 +625,15 @@ function renderBlock(profiles, { active, token, previous, keyStorage = 'file' })
     if (!url) continue;
     const k = profileKey(p);
     const c = p.codex || {};
+    const adapter = adapters.get(p.id);
     if (out.length) out.push('');
     out.push(`[model_providers.${toml.tomlKey(k)}]`);
     out.push(`name = ${toml.tomlString(p.name || k)}`);
-    out.push(`base_url = ${toml.tomlString(url)}`);
+    out.push(`base_url = ${toml.tomlString(adapter ? adapter.base_url : url)}`);
     out.push('wire_api = "responses"');
-    if (keyStorage === 'config') {
+    if (adapter) {
+      out.push(`auth = { command = ${toml.tomlString(adapter.command)}, args = [${adapter.args.map(toml.tomlString).join(', ')}] }`);
+    } else if (keyStorage === 'config') {
       if (active && p.id === active.id && token) out.push(`experimental_bearer_token = ${toml.tomlString(token)}`);
     } else if (hasKeyFile(p)) {
       out.push(`auth = ${authFor(p)}`);
@@ -660,6 +664,8 @@ function renderBlock(profiles, { active, token, previous, keyStorage = 'file' })
 function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'file', runCodex = codexRunner }) {
   const { text, exists } = readConfig();
   checkConflicts(text, profiles);
+  // Validate policies before changing key storage or starting any processes.
+  for (const p of profiles) compatibility.settings(p);
   const info = blockInfo(text);
   const curKey = activeKey(text, info);
 
@@ -677,7 +683,14 @@ function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'fil
   let token = '';
   if (keyStorage === 'config') {
     token = active ? tokenFor(active) || info.tokens[profileKey(active)] || readKeyFileFor(active) : '';
-    pruneKeyFiles(null); // keys live in config.toml in this mode
+    // Adapted profiles use auth.command to restart the loopback service after a
+    // reboot; their upstream keys therefore stay in private key files.
+    const adapted = profiles.filter((p) => compatibility.enabled(p));
+    for (const p of adapted) {
+      const tk = tokenFor(p) || info.tokens[profileKey(p)] || readKeyFileFor(p);
+      if (tk) writeKeyFileFor(p, tk);
+    }
+    pruneKeyFiles(adapted.map((p) => p.id));
   } else {
     // Refresh each key file from the keys we know (or a key a previous version
     // left in config.toml); unknown keys keep whatever file exists.
@@ -687,7 +700,11 @@ function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'fil
     }
     pruneKeyFiles(profiles.filter((p) => baseUrl(p)).map((p) => p.id));
   }
-  const body = renderBlock(profiles, { active, token, previous, keyStorage });
+  const adapters = new Map();
+  for (const p of profiles) {
+    if (compatibility.enabled(p)) adapters.set(p.id, compatibility.prepare(p, keyFilePathFor(p), needsKey(p)));
+  }
+  const body = renderBlock(profiles, { active, token, previous, keyStorage, adapters });
   if (!info.present && body === null && target === 'keep') return { changed: false, activeId: null };
 
   // Lift the block out first: top-level keys go before the first table, and the
@@ -700,6 +717,7 @@ function syncConfig({ profiles, activate, tokenFor = () => '', keyStorage = 'fil
 
   if (next !== text) writeConfig(next, exists && !info.present);
   syncProfileFiles(profiles);
+  compatibility.prune(profiles);
   return { changed: next !== text, activeId: active ? active.id : null };
 }
 

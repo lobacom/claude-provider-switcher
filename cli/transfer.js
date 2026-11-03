@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const { uniqueName, firstFreeBadge, HOTKEYS } = require('./store');
 const cx = require('../src/agents/codex');
 
-const CODEX_FIELDS = ['base_url', 'model', 'models', 'reasoning_effort', 'http_headers', 'query_params'];
+const CODEX_FIELDS = ['base_url', 'model', 'models', 'reasoning_effort', 'http_headers', 'query_params', 'request_compatibility'];
 const object = (v) => v && typeof v === 'object' && !Array.isArray(v);
 function importPath(value) {
   let file = value.trim().replace(/^(["'])(.*)\1$/, '$2');

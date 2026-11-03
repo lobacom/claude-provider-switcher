@@ -44,7 +44,7 @@ test('CLI imports actual extension exports, including keys, duplicate names and 
   const { home, store } = isolatedStore(t);
   const data = await extensionExport(
     [{ id: 'old-claude', name: 'Gateway', env: { ANTHROPIC_BASE_URL: 'https://example.invalid', ANTHROPIC_DEFAULT_OPUS_MODEL: 'opus' } }],
-    [{ id: 'old-codex', key: 'old-key', name: 'Gateway', codex: { base_url: 'https://example.invalid/v1', model: 'b', models: ['a', 'b'], reasoning_effort: 'high', http_headers: { 'X-App': 'test' }, query_params: { region: 'eu' } } }], true);
+    [{ id: 'old-codex', key: 'old-key', name: 'Gateway', codex: { base_url: 'https://example.invalid/v1', model: 'b', models: ['a', 'b'], reasoning_effort: 'high', http_headers: { 'X-App': 'test' }, query_params: { region: 'eu' }, request_compatibility: { models: { a: { tool_choice: 'omit' } } } } }], true);
   store.saveProfiles([{ id: 'existing', name: 'Gateway', env: {} }]);
   store.saveCodexProfiles([{ id: 'existing-codex', name: 'Gateway', key: 'cps-gateway', codex: {} }]);
   store.setToken('existing', 'keep-secret');
