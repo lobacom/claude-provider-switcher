@@ -132,10 +132,50 @@ test('Alibaba Token Plan preset writes a Responses provider and compatible model
   assert.equal(model.default_reasoning_level, 'medium');
   assert.equal(model.supports_reasoning_summaries, false);
   assert.equal(model.supports_parallel_tool_calls, false);
+  assert.deepEqual(model.input_modalities, ['text', 'image']);
   profile.codex = { ...profile.codex, model: 'glm-5.3' };
   sync('id-qwen', fakeCodex().run, [profile]);
   assert.equal(readCatalog().models[0].slug, 'glm-5.3');
   assert.equal(readCatalog().models[0].supports_parallel_tool_calls, false);
+  assert.deepEqual(readCatalog().models[0].input_modalities, ['text']);
+});
+
+test('Token Plan advertises images only for confirmed visual models on its endpoint', () => {
+  tempHome('');
+  const preset = require('../providers.json').codex.remote.find((p) => p.name === 'Qwen (Alibaba Token Plan)');
+  const vision = ['qwen3.8-max', 'qwen3.8-max-0902', 'qwen3.8-flash', 'qwen3.7-plus',
+    'qwen3.6-flash', 'deepseek-v4.1-flash', 'deepseek-v4.1-flash-1017'];
+  const textOnly = ['auto', 'qwen3.7-max', 'deepseek-v4-pro', 'deepseek-v4-pro-0813',
+    'deepseek-v4-flash-0731', 'glm-5.2', 'glm-5.3', 'qwen-image-3.0-pro',
+    'wan2.7-image-pro', 'unknown-model', 'qwen3.8-max-unknown'];
+  const profile = { ...preset, id: 'id-qwen', key: 'cps-qwen', codex: {
+    ...preset.codex, models: [...vision, ...textOnly],
+  } };
+  sync(profile.id, fakeCodex().run, [profile]);
+  for (const model of readCatalog().models) {
+    assert.deepEqual(model.input_modalities, vision.includes(model.slug) ? ['text', 'image'] : ['text'], model.slug);
+  }
+  // Identical model ids on an unverified gateway must keep the safe default.
+  profile.codex.base_url = 'https://example.com/v1';
+  sync(undefined, fakeCodex().run, [profile]);
+  assert.ok(readCatalog().models.every((m) => JSON.stringify(m.input_modalities) === '["text"]'));
+});
+
+test('sync replaces a cached text-only catalog and revalidates it with the same CLI version', () => {
+  tempHome('');
+  const preset = require('../providers.json').codex.remote.find((p) => p.name === 'Qwen (Alibaba Token Plan)');
+  const profile = { ...preset, id: 'id-qwen', key: 'cps-qwen' };
+  sync(profile.id, fakeCodex().run, [profile]);
+  const old = readCatalog();
+  old.models[0].input_modalities = ['text'];
+  fs.writeFileSync(codex.catalogPath(), JSON.stringify(old));
+  const runner = fakeCodex();
+  sync(undefined, runner.run, [profile]);
+  assert.deepEqual(readCatalog().models[0].input_modalities, ['text', 'image']);
+  assert.ok(runner.calls.includes('debug models'));
+  const cached = fakeCodex();
+  sync(undefined, cached.run, [profile]);
+  assert.deepEqual(cached.calls, ['--version']);
 });
 
 test('Token Plan models expose their own effort choices instead of the profile default alone', () => {

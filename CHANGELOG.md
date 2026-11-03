@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+
+- **Codex image attachments for Token Plan.** The model catalog now advertises image input
+  for Qwen 3.8 Max/Flash, Qwen 3.7 Plus, Qwen 3.6 Flash and DeepSeek V4.1 Flash.
+  Previously every third-party model was marked text-only, so Codex blocked image attachments
+  before sending a request. Existing managed catalogs are refreshed on the next sync.
+
 ## 1.0.3
 
 - **Token Plan reasoning picker.** The generated catalog advertises each known Alibaba model's

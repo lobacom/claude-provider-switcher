@@ -286,6 +286,15 @@ function isTokenPlan(p) {
   } catch { return false; }
 }
 
+// Advertise vision only for models confirmed on this route, not for every
+// Qwen id (qwen3.7-max and auto are text-only in the plan's capability table).
+// https://www.alibabacloud.com/help/en/model-studio/token-plan-personal-overview
+const TOKEN_PLAN_VISION_MODELS = new Set([
+  'qwen3.8-max', 'qwen3.8-max-0902', 'qwen3.8-flash',
+  'qwen3.7-plus', 'qwen3.6-flash',
+  'deepseek-v4.1-flash', 'deepseek-v4.1-flash-1017',
+]);
+
 // The catalog entry without `base_instructions`; null for built-in providers.
 function catalogEntryFor(p, model) {
   if (!baseUrl(p) || !model) return null;
@@ -307,7 +316,7 @@ function catalogEntryFor(p, model) {
     support_verbosity: false,
     supports_parallel_tool_calls: !tokenPlan,
     experimental_supported_tools: [],
-    input_modalities: ['text'],
+    input_modalities: tokenPlan && TOKEN_PLAN_VISION_MODELS.has(model) ? ['text', 'image'] : ['text'],
     truncation_policy: { mode: 'bytes', limit: 10000 },
   };
 }
