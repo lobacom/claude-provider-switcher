@@ -31,6 +31,16 @@ jobs:
             exit 1
           fi
 
+      - name: Test extension and standalone CLI
+        run: npm test
+
+      - name: Package standalone CLI and installers
+        run: |
+          mkdir -p dist
+          zip -r "dist/claude-providers-${GITHUB_REF_NAME#v}.zip" \
+            bin cli src scripts package.json providers.json LICENSE README.md \
+            install.cmd install.ps1 install.sh
+
       - name: Package
         run: npx --yes @vscode/vsce package -o "claude-provider-switcher-${GITHUB_REF_NAME#v}.vsix"
 
@@ -55,5 +65,6 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "claude-provider-switcher-${GITHUB_REF_NAME#v}.vsix" \
+            "dist/claude-providers-${GITHUB_REF_NAME#v}.zip" \
             --title "$GITHUB_REF_NAME" \
             --notes-file notes.md

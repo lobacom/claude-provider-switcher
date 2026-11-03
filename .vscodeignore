@@ -8,3 +8,9 @@ media/screenshot.png
 media/screenshots/**
 test/**
 docs/**
+dist/**
+scripts/**
+install.cmd
+install.ps1
+install.sh
+cli/install.js

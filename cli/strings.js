@@ -6,6 +6,27 @@ const ext = require('../src/i18n');
 
 const STRINGS = {
   en: {
+    menu_import: 'Import profiles from JSON…',
+    importFilePrompt: 'Path to the JSON file exported from the VS Code extension (you can drag it here):',
+    importPreview: 'Import profiles',
+    importApply: 'Import these profiles',
+    importHint: 'Profiles will be added with unique names. Switch to one afterward to activate it.',
+    importDone: 'Profiles: Claude {claude}, Codex {codex}; API keys: {keys}; skipped: {skipped}.',
+    storageStandalone: 'Standalone profiles: {path}',
+    storageEditor: 'VS Code profiles: {path}',
+    noEditor: 'VS Code integration is unavailable. Select an editor settings file with --settings <path>.',
+    noClients: 'No clients found. Enable a section in Settings to start.',
+    footer_setup: '↑↓ move · Enter select · Esc quit',
+    set_providers: 'Provider settings',
+    s_codexKeyStorage: 'Codex API key storage',
+    v_file: 'Separate key files',
+    v_config: 'Inside config.toml',
+    visibility_claude: 'Claude Code section',
+    visibility_codex: 'Codex section',
+    visibility_auto: 'Auto (installed client or saved profiles)',
+    visibility_show: 'Show (configure even before installing)',
+    visibility_hide: 'Hide',
+    file_codex: 'Codex config: {path}',
     appTitle: 'Claude Provider Switcher',
     hdr_cli: 'Terminal (claude CLI):  {name}',
     hdr_vscode: 'VS Code extension:      {name}',
@@ -86,7 +107,7 @@ const STRINGS = {
     v_switchAndReload: 'switch & reload window',
     v_manual: 'manual',
     v_periodic: 'periodic',
-    usage: `Usage: claude-providers [command] [--settings <path>]
+    usage: `Usage: claude-providers [command] [options]
 
 Without a command, opens the interactive menu (arrow keys, Enter, Esc).
 
@@ -100,8 +121,15 @@ Commands:
   codex use <name|#n>  Switch Codex (~/.codex/config.toml: codex CLI + extension)
   codex default        Give Codex back its own config.toml settings
   help                 Show this help
+  import <file.json>   Import Claude/Codex profiles exported by the extension
+  claude import <file> Import only Claude profiles
+  codex import <file>  Import only Codex profiles
 
 Options:
+  --standalone         Use independent profiles; do not read/write VS Code settings
+  --config <path>      Independent profiles file (implies --standalone;
+                       env CLAUDE_PROVIDERS_CONFIG also works)
+  --version            Print version
   --settings <path>    VS Code settings.json to use (default: auto-detected;
                        env CLAUDE_PROVIDERS_VSCODE_SETTINGS works too)`,
     // Codex
@@ -125,6 +153,27 @@ Options:
   },
 
   ru: {
+    menu_import: 'Импорт профилей из JSON…',
+    importFilePrompt: 'Путь к JSON-файлу, экспортированному из расширения VS Code (можно перетащить сюда):',
+    importPreview: 'Импорт профилей',
+    importApply: 'Импортировать эти профили',
+    importHint: 'Профили будут добавлены с уникальными именами. Для активации затем выберите нужный.',
+    importDone: 'Профили: Claude {claude}, Codex {codex}; API-ключи: {keys}; пропущено: {skipped}.',
+    storageStandalone: 'Автономные профили: {path}',
+    storageEditor: 'Профили VS Code: {path}',
+    noEditor: 'Интеграция с VS Code недоступна. Укажите файл настроек редактора через --settings <путь>.',
+    noClients: 'Клиенты не найдены. Включите нужный раздел в Настройках.',
+    footer_setup: '↑↓ выбор · Enter открыть · Esc выход',
+    set_providers: 'Настройки провайдеров',
+    s_codexKeyStorage: 'Хранение API-ключей Codex',
+    v_file: 'В отдельных файлах ключей',
+    v_config: 'Внутри config.toml',
+    visibility_claude: 'Раздел Claude Code',
+    visibility_codex: 'Раздел Codex',
+    visibility_auto: 'Авто (установленный клиент или сохранённые профили)',
+    visibility_show: 'Показывать (можно настроить до установки)',
+    visibility_hide: 'Скрыть',
+    file_codex: 'Конфиг Codex: {path}',
     appTitle: 'Claude Provider Switcher',
     hdr_cli: 'Терминал (claude CLI):   {name}',
     hdr_vscode: 'Расширение VS Code:      {name}',
@@ -205,7 +254,7 @@ Options:
     v_switchAndReload: 'переключить и перезагрузить окно',
     v_manual: 'вручную',
     v_periodic: 'периодически',
-    usage: `Использование: claude-providers [команда] [--settings <путь>]
+    usage: `Использование: claude-providers [команда] [параметры]
 
 Без команды открывает интерактивное меню (стрелки, Enter, Esc).
 
@@ -219,8 +268,15 @@ Options:
   codex use <имя|#n>   Переключить Codex (~/.codex/config.toml: CLI и расширение)
   codex default        Вернуть Codex его собственные настройки config.toml
   help                 Эта справка
+  import <файл.json>   Импорт профилей Claude/Codex из расширения
+  claude import <файл> Импорт только профилей Claude
+  codex import <файл>  Импорт только профилей Codex
 
 Параметры:
+  --standalone         Автономные профили, без чтения/записи настроек VS Code
+  --config <путь>      Файл автономных профилей (подразумевает --standalone;
+                       также CLAUDE_PROVIDERS_CONFIG)
+  --version            Показать версию
   --settings <путь>    settings.json VS Code (по умолчанию ищется сам;
                        также переменная CLAUDE_PROVIDERS_VSCODE_SETTINGS)`,
     // Codex
@@ -244,6 +300,27 @@ Options:
   },
 
   zh: {
+    menu_import: '从 JSON 导入配置…',
+    importFilePrompt: 'VS Code 扩展导出的 JSON 文件路径（可拖入此处）：',
+    importPreview: '导入配置',
+    importApply: '导入这些配置',
+    importHint: '将使用唯一名称添加配置，之后选择一个配置即可切换。',
+    importDone: '配置：Claude {claude}，Codex {codex}；API 密钥：{keys}；跳过：{skipped}。',
+    storageStandalone: '独立配置：{path}',
+    storageEditor: 'VS Code 配置：{path}',
+    noEditor: 'VS Code 集成不可用。使用 --settings <路径> 指定编辑器设置文件。',
+    noClients: '未检测到客户端。在设置中启用所需区域即可开始配置。',
+    footer_setup: '↑↓ 移动 · Enter 选择 · Esc 退出',
+    set_providers: '服务商设置',
+    s_codexKeyStorage: 'Codex API 密钥存储',
+    v_file: '独立密钥文件',
+    v_config: '存储在 config.toml 中',
+    visibility_claude: 'Claude Code 区域',
+    visibility_codex: 'Codex 区域',
+    visibility_auto: '自动（已安装客户端或已保存配置）',
+    visibility_show: '显示（可在安装前配置）',
+    visibility_hide: '隐藏',
+    file_codex: 'Codex 配置：{path}',
     appTitle: 'Claude Provider Switcher',
     hdr_cli: '终端 (claude CLI)：   {name}',
     hdr_vscode: 'VS Code 扩展：        {name}',
@@ -324,7 +401,7 @@ Options:
     v_switchAndReload: '切换并重新加载窗口',
     v_manual: '手动',
     v_periodic: '定期',
-    usage: `用法：claude-providers [命令] [--settings <路径>]
+    usage: `用法：claude-providers [命令] [选项]
 
 不带命令时打开交互式菜单（方向键、Enter、Esc）。
 
@@ -338,8 +415,15 @@ Options:
   codex use <名称|#n>  切换 Codex（~/.codex/config.toml：CLI 与扩展）
   codex default        恢复 Codex 自己的 config.toml 设置
   help                 显示此帮助
+  import <file.json>   导入扩展导出的 Claude/Codex 配置
+  claude import <file> 仅导入 Claude 配置
+  codex import <file>  仅导入 Codex 配置
 
 选项：
+  --standalone         使用独立配置，不读取或写入 VS Code 设置
+  --config <路径>      独立配置文件（包含 --standalone；
+                       也可用环境变量 CLAUDE_PROVIDERS_CONFIG）
+  --version            显示版本
   --settings <路径>    要使用的 VS Code settings.json（默认自动查找；
                        也可用环境变量 CLAUDE_PROVIDERS_VSCODE_SETTINGS）`,
     // Codex

@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.0
+
+- **Independent terminal application.** The arrow-key menu now works on computers without
+  VS Code, storing profiles in `~/.claude-provider-switcher/profiles.json`. Existing editor
+  profiles remain supported; `--standalone` / `--config` explicitly select independent storage.
+- **Optional clients.** Claude Code and Codex sections are detected independently from commands,
+  config files and saved profiles. Settings can show or hide either section, including configuring
+  a client before installation. Editor actions and settings are hidden in standalone mode.
+- **User-local installers.** `install.cmd` / `install.ps1` on Windows and `sh install.sh` on
+  Linux/macOS install the `claude-providers` command with no npm packages, editor or AI clients
+  required. An existing Node.js 18+ is reused; otherwise the installer downloads a private
+  Node 24 LTS runtime from nodejs.org and checks SHA-256 before use. No system Node installation
+  or administrator access is required. Windows adds the command to user PATH.
+- **Import extension exports in the CLI.** The main menu's JSON import accepts both
+  `claude-providers.json` and `codex-providers.json`, including optional API keys and multiple
+  Codex models. Preview before adding; existing profiles remain, duplicate names are made unique,
+  local ids are regenerated, and imported providers are activated only when selected.
+- Releases now attach a standalone CLI ZIP with installers alongside the VSIX and run tests
+  before packaging. The extension's entry point, profile storage, SecretStorage and defaults
+  remain unchanged; upgrading the extension does not install or start the CLI or Node.js.
+
 ## 1.0.4
 
 - **Codex image attachments for Token Plan.** The model catalog now advertises image input

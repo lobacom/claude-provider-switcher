@@ -1,8 +1,9 @@
-// Data layer of the terminal app. It works on the same files the extension
-// uses, so both stay in sync without VS Code running:
+// Data layer of the terminal app. With an editor settings file it uses the
+// extension's profiles; otherwise it keeps independent profiles.json:
 //  - VS Code's user settings.json — the profiles, the extension's settings and
 //    `claudeCode.environmentVariables` (the VS Code extension's active env);
 //  - ~/.claude/settings.json — the `env` the `claude` CLI reads;
+//  - ~/.claude-provider-switcher/profiles.json — profiles without an editor;
 //  - Codex's ~/.codex/config.toml — via src/agents/codex.js, shared with the
 //    extension (the `codex` CLI and the Codex extension both read it);
 //  - the shared key file (src/keyfile.js) — API keys, since VS Code's
@@ -16,6 +17,7 @@ const jsonc = require('./jsonc');
 const { SELF, CLAUDE_SECTION, CLAUDE_KEY, MANAGED_ENV_KEYS, COLOR_CHOICES } = require('../src/constants');
 const { readKeyFile, writeKeyFile, keyDir } = require('../src/keyfile');
 const codex = require('../src/agents/codex');
+const { detectClients } = require('./environment');
 
 const VSCODE_ENV_KEY = `${CLAUDE_SECTION}.${CLAUDE_KEY}`;
 
@@ -32,19 +34,20 @@ function userDirFor(app) {
 
 // Explicit path (--settings / CLAUDE_PROVIDERS_VSCODE_SETTINGS) wins. Otherwise
 // prefer an editor whose settings already hold our profiles, then any editor's
-// existing settings.json, then VS Code's default location.
+// existing settings.json. Never invent a VS Code directory on a headless PC.
 function findVsCodeSettings(explicit) {
   if (explicit) return path.resolve(explicit);
   const candidates = EDITOR_DIRS.map((d) => path.join(userDirFor(d), 'settings.json'));
   const existing = candidates.filter((f) => fs.existsSync(f));
   const withProfiles = existing.find((f) => {
     try {
-      return fs.readFileSync(f, 'utf8').includes(`"${SELF}.profiles"`);
+      const text = fs.readFileSync(f, 'utf8');
+      return ['profiles', 'codexProfiles'].some((key) => text.includes(`"${SELF}.${key}"`));
     } catch {
       return false;
     }
   });
-  return withProfiles || existing[0] || candidates[0];
+  return withProfiles || existing[0] || null;
 }
 
 // ~/.claude/settings.json — honours CLAUDE_CONFIG_DIR like the claude CLI does.
@@ -77,11 +80,38 @@ function isPlainObject(v) {
 // ---- the store ----------------------------------------------------------------
 
 class Store {
-  constructor({ settingsPath } = {}) {
-    this.settingsPath = findVsCodeSettings(settingsPath || process.env.CLAUDE_PROVIDERS_VSCODE_SETTINGS);
+  constructor({ settingsPath, configPath, standalone = false } = {}) {
+    const explicitEditor = settingsPath || process.env.CLAUDE_PROVIDERS_VSCODE_SETTINGS;
+    const explicitConfig = configPath || process.env.CLAUDE_PROVIDERS_CONFIG;
+    if ((standalone || explicitConfig) && explicitEditor) {
+      throw new Error('Use either --settings or --standalone / --config, not both (check environment variables too).');
+    }
+    const localPath = path.resolve(explicitConfig || path.join(keyDir(), 'profiles.json'));
+    this.vscodeSettingsPath = standalone || explicitConfig ? null : findVsCodeSettings(explicitEditor);
+    // An existing standalone store stays the source of truth if an editor is
+    // installed later. --settings explicitly selects the editor's own profiles.
+    if (!explicitEditor && fs.existsSync(localPath)) this.vscodeSettingsPath = null;
+    this.settingsPath = this.vscodeSettingsPath || localPath;
     this.claudePath = claudeSettingsPath();
     this.prefsPath = path.join(keyDir(), 'cli.json');
     this.reload();
+  }
+
+  hasVsCode() {
+    return !!this.vscodeSettingsPath;
+  }
+
+  clients() {
+    const detected = detectClients();
+    return Object.fromEntries(['claude', 'codex'].map((agent) => {
+      const mode = this.pref(`${agent}Visibility`, 'auto');
+      const profiles = agent === 'claude' ? this.profiles() : this.codexProfiles();
+      return [agent, mode === 'show' || (mode !== 'hide' && (detected[agent] || profiles.length > 0))];
+    }));
+  }
+
+  enterTarget() {
+    return this.hasVsCode() && this.pref('enterTarget', 'cli') === 'both' ? 'both' : 'cli';
   }
 
   // Re-read everything from disk (cheap; done before every screen so edits made
@@ -235,6 +265,7 @@ class Store {
   }
 
   vscodeEnv() {
+    if (!this.hasVsCode()) return {};
     const v = this.settings[VSCODE_ENV_KEY];
     return isPlainObject(v) ? v : {};
   }
@@ -264,7 +295,7 @@ class Store {
     return this.activeIndex(this.cliEnv());
   }
   vscodeActiveIndex() {
-    return this.activeIndex(this.vscodeEnv());
+    return this.hasVsCode() ? this.activeIndex(this.vscodeEnv()) : -1;
   }
 
   // Write the profile's env into ~/.claude/settings.json: clear every managed
@@ -281,6 +312,7 @@ class Store {
   // Point the VS Code extension at the profile (claudeCode.environmentVariables);
   // a running VS Code picks the change up live.
   applyToVsCode(p) {
+    if (!this.hasVsCode()) throw new Error('VS Code integration is unavailable. Use --settings <path> to select an editor settings file.');
     this.setSetting(VSCODE_ENV_KEY, this.fullEnv(p));
   }
 
@@ -324,4 +356,4 @@ function firstFreeHotkey(profiles, exclude = -1) {
   return HOTKEYS.find((h) => !used.has(h)) || '';
 }
 
-module.exports = { Store, HOTKEYS, uniqueName, firstFreeBadge };
+module.exports = { Store, HOTKEYS, uniqueName, firstFreeBadge, findVsCodeSettings, userDirFor };

@@ -17,6 +17,7 @@ const { CLAUDE_API_URL, COLOR_CHOICES, MANAGED_ENV_KEYS } = require('../src/cons
 const { keyFilePath } = require('../src/keyfile');
 const { probeModelsList, httpProbe, httpProbeResponses, probeHealthy } = require('../src/http');
 const codex = require('../src/agents/codex');
+const { readImport, prepareImport, applyImport } = require('./transfer');
 
 const { style } = tui;
 let store;
@@ -115,6 +116,7 @@ function guard(fn) {
 // without a known key asks for one first (saved to the shared key file).
 // Returns a notice line, or null when cancelled.
 async function switchTo(p, target) {
+  if (target !== 'cli' && !store.hasVsCode()) return fail(t('noEditor'));
   if (baseUrl(p) && !store.token(p)) {
     const v = await tui.prompt({
       title: t('noKeyTitle', { name: p.name }),
@@ -144,27 +146,26 @@ async function mainMenu() {
     const profiles = store.profiles();
     const cliIdx = store.cliActiveIndex();
     const vsIdx = store.vscodeActiveIndex();
-    const header = [
-      t('hdr_cli', { name: envStatus(store.cliEnv(), cliIdx, profiles) }),
-      t('hdr_vscode', {
-        name: fs.existsSync(store.settingsPath) ? envStatus(store.vscodeEnv(), vsIdx, profiles) : t('notFound'),
-      }),
-    ];
-    const showCodex = codexVisible();
+    const clients = store.clients();
+    const header = [style.dim(t(store.hasVsCode() ? 'storageEditor' : 'storageStandalone', { path: store.settingsPath }))];
+    if (clients.claude) header.push(t('hdr_cli', { name: envStatus(store.cliEnv(), cliIdx, profiles) }));
+    if (clients.claude && store.hasVsCode()) header.push(t('hdr_vscode', { name: envStatus(store.vscodeEnv(), vsIdx, profiles) }));
+    const showCodex = clients.codex;
     if (showCodex) header.push(t('hdr_codex', { name: codexStatus() }));
+    if (!clients.claude && !clients.codex) header.push(t('noClients'));
     if (store.settingsError) {
       header.push(fail(t('parseError', { path: store.settingsPath, msg: store.settingsError })), t('parseErrorHint'));
     }
-    if (store.claudeError) header.push(fail(t('parseError', { path: store.claudePath, msg: store.claudeError })));
-    if (profiles.some((p) => baseUrl(p) && !store.token(p)) && store.get('shareKeysWithTerminal') !== true) {
+    if (clients.claude && store.claudeError) header.push(fail(t('parseError', { path: store.claudePath, msg: store.claudeError })));
+    if (clients.claude && store.hasVsCode() && profiles.some((p) => baseUrl(p) && !store.token(p)) && store.get('shareKeysWithTerminal') !== true) {
       header.push(style.dim(t('shareHint')));
     }
     header.push(...notice);
     notice = [];
 
-    const items = [{ separator: true, label: t('providersSep') }];
-    if (!profiles.length) items.push({ label: t('noProfiles'), disabled: true });
-    profiles.forEach((p, i) => {
+    const items = clients.claude ? [{ separator: true, label: t('providersSep') }] : [];
+    if (clients.claude && !profiles.length) items.push({ label: t('noProfiles'), disabled: true });
+    (clients.claude ? profiles : []).forEach((p, i) => {
       const marks = [];
       if (i === cliIdx) marks.push(style.green(t('mark_cli')));
       if (i === vsIdx) marks.push(style.cyan(t('mark_vscode')));
@@ -179,20 +180,23 @@ async function mainMenu() {
     if (showCodex) items.push(...codexMenuItems());
     items.push(
       { separator: true, label: '' },
-      { label: t('menu_add'), value: 'add' },
+      ...(clients.claude ? [{ label: t('menu_add'), value: 'add' }] : []),
       ...(showCodex ? [{ label: t('menu_addCodex'), value: 'addCodex' }] : []),
-      { label: t('menu_health'), value: 'health', disabled: !profiles.length && !store.codexProfiles().length },
+      { label: t('menu_import'), value: 'import' },
+      { label: t('menu_health'), value: 'health', disabled: !(clients.claude && profiles.length) && !(showCodex && store.codexProfiles().length) },
       { label: t('menu_settings'), value: 'settings' },
       { label: t('menu_quit'), value: 'quit' }
     );
 
-    const target = store.pref('enterTarget', 'cli');
+    const target = store.enterTarget();
     const res = await tui.select({
       title: t('appTitle'),
       header,
       items,
       index: cursor,
-      footer: t('footer_main', { target: `(${t(target === 'both' ? 'target_both' : 'target_cli')})` }),
+      footer: clients.claude || showCodex
+        ? t('footer_main', { target: `(${clients.claude ? t(target === 'both' ? 'target_both' : 'target_cli') : 'Codex'})` })
+        : t('footer_setup'),
       keys: { right: 'actions' },
     });
     if (!res || res.item.value === 'quit') return;
@@ -220,6 +224,9 @@ async function mainMenu() {
     } else if (v === 'add') {
       const n = await addProvider();
       if (n) notice.push(n);
+    } else if (v === 'import') {
+      const n = await importMenu();
+      if (n) notice.push(n);
     } else if (v === 'health') {
       await healthCheck();
     } else if (v === 'settings') {
@@ -244,9 +251,6 @@ function codexStatus() {
 }
 // The Codex section shows once Codex is installed (its home exists) or there
 // are Codex profiles.
-function codexVisible() {
-  return store.codexProfiles().length > 0 || fs.existsSync(codex.codexHome());
-}
 function codexMenuItems() {
   const active = store.codexActiveId();
   const list = store.codexProfiles();
@@ -403,7 +407,7 @@ async function editCodexProfile(id) {
     const list = store.codexProfiles();
     const p = list.find((x) => x.id === id);
     if (!p) return;
-    const items = CODEX_FIELDS.filter((f) => f.key !== 'models' || codex.baseUrl(p))
+    const items = CODEX_FIELDS.filter((f) => (f.key !== 'models' || codex.baseUrl(p)) && (f.key !== 'hotkey' || store.hasVsCode()))
       .map((f) => ({ label: t(f.label), hint: codexFieldValue(p, f.key, list) || t('empty'), value: f }));
     items.push({ separator: true, label: '' }, { label: t('done'), value: 'done' });
     const res = await tui.select({ title: t('editingPlaceholder', { name: p.name }), header: notice, items, index: cursor, footer: t('footer_menu') });
@@ -821,8 +825,10 @@ async function profileMenu(id) {
     notice = [];
     const items = [
       { label: t('act_switchCli'), value: 'cli' },
-      { label: t('act_switchVsCode'), value: 'vscode' },
-      { label: t('act_switchBoth'), value: 'both' },
+      ...(store.hasVsCode() ? [
+        { label: t('act_switchVsCode'), value: 'vscode' },
+        { label: t('act_switchBoth'), value: 'both' },
+      ] : []),
       { separator: true, label: '' },
       { label: t('act_edit'), value: 'edit' },
       { label: t('act_key'), hint: keyStatus(p), value: 'key', disabled: !baseUrl(p) },
@@ -941,8 +947,9 @@ async function checkOneCodexHealth(p) {
   return 'ok';
 }
 async function healthCheck() {
-  const claude = store.profiles();
-  const profiles = [...claude, ...store.codexProfiles()];
+  const clients = store.clients();
+  const claude = clients.claude ? store.profiles() : [];
+  const profiles = [...claude, ...(clients.codex ? store.codexProfiles() : [])];
   const res = await tui.busy(t('healthTitle'), t('checkingHealth'), Promise.all(
     profiles.map((p, i) => (i < claude.length ? checkOneHealth(p) : checkOneCodexHealth(p)))
   ));
@@ -1069,7 +1076,7 @@ async function editProfile(id) {
   for (;;) {
     const { list, p } = findById(id);
     if (!p) return;
-    const items = FIELDS.map((f) => ({
+    const items = FIELDS.filter((f) => f.key !== '__hotkey' || store.hasVsCode()).map((f) => ({
       label: t(f.label),
       hint: fieldValue(p, f.key, list) || t('empty'),
       value: f,
@@ -1263,7 +1270,8 @@ function extensionSettings() {
   const props = require('../package.json').contributes.configuration.properties;
   return Object.entries(props)
     .map(([full, schema]) => ({ key: full.split('.').pop(), schema }))
-    .filter(({ schema }) => schema.type === 'boolean' || schema.type === 'number' || Array.isArray(schema.enum));
+    .filter(({ key, schema }) => (store.hasVsCode() || ['language', 'codexKeyStorage', 'autoFallbackOnApply'].includes(key)) &&
+      (schema.type === 'boolean' || schema.type === 'number' || Array.isArray(schema.enum)));
 }
 
 function settingLabel(key) {
@@ -1287,23 +1295,29 @@ async function settingsMenu() {
   let notice = [];
   for (;;) {
     store.reload();
-    const target = store.pref('enterTarget', 'cli');
+    const target = store.enterTarget();
     const items = [
       { separator: true, label: t('set_app') },
-      {
+      ...['claude', 'codex'].map((agent) => ({
+        label: t('visibility_' + agent),
+        hint: t('visibility_' + store.pref(`${agent}Visibility`, 'auto')),
+        value: { visibility: agent },
+      })),
+      ...(store.hasVsCode() ? [{
         label: t('set_enterTarget'),
         hint: t(target === 'both' ? 'target_both' : 'target_cli'),
         value: { pref: 'enterTarget' },
-      },
-      { separator: true, label: t('set_ext') },
+      }] : []),
+      { separator: true, label: t(store.hasVsCode() ? 'set_ext' : 'set_providers') },
       ...extensionSettings().map(({ key, schema }) => ({
         label: settingLabel(key),
         hint: valueLabel(schema, store.get(key, schema.default)),
         value: { key, schema },
       })),
       { separator: true, label: t('set_files') },
-      { label: t('file_settings', { path: store.settingsPath }), disabled: true },
-      { label: t('file_claude', { path: store.claudePath }), disabled: true },
+      { label: t(store.hasVsCode() ? 'file_settings' : 'storageStandalone', { path: store.settingsPath }), disabled: true },
+      ...(store.clients().claude ? [{ label: t('file_claude', { path: store.claudePath }), disabled: true }] : []),
+      ...(store.clients().codex ? [{ label: t('file_codex', { path: codex.configPath() }), disabled: true }] : []),
       { label: t('file_keys', { path: keyFilePath() }), disabled: true },
       { separator: true, label: '' },
       { label: t('back'), value: { back: true } },
@@ -1314,6 +1328,18 @@ async function settingsMenu() {
     cursor = res.index;
     const v = res.item.value;
 
+    if (v.visibility) {
+      const key = `${v.visibility}Visibility`;
+      const current = store.pref(key, 'auto');
+      const r = await tui.select({
+        title: t('visibility_' + v.visibility),
+        items: ['auto', 'show', 'hide'].map((mode) => ({ label: t('visibility_' + mode), value: mode })),
+        index: Math.max(0, ['auto', 'show', 'hide'].indexOf(current)),
+        footer: t('footer_menu'),
+      });
+      if (r) store.setPref(key, r.item.value);
+      continue;
+    }
     if (v.pref) {
       store.setPref('enterTarget', target === 'both' ? 'cli' : 'both');
       continue;
@@ -1355,6 +1381,45 @@ async function settingsMenu() {
 
 // ---- non-interactive commands -----------------------------------------------------
 
+function importResult(plan) {
+  return t('importDone', {
+    claude: plan.added.filter((p) => p.agent === 'claude').length,
+    codex: plan.added.filter((p) => p.agent === 'codex').length,
+    keys: plan.pendingKeys.length, skipped: plan.skipped,
+  });
+}
+
+async function importMenu() {
+  const file = await tui.prompt({ title: t('menu_import'), label: t('importFilePrompt'), footer: t('footer_input') });
+  if (file === null) return null;
+  try {
+    const data = readImport(file);
+    const preview = prepareImport(store, data);
+    if (!preview.added.length) return fail(t('importNoValid'));
+    const res = await tui.select({
+      title: t('importPreview'),
+      header: [importResult(preview), t('importHint')],
+      items: [
+        { label: t('importApply'), value: true },
+        { label: t('cancel'), value: false },
+        { separator: true, label: '' },
+        ...preview.added.map((p) => ({ label: `${p.agent === 'codex' ? 'Codex' : 'Claude'}: ${p.name}`, disabled: true })),
+      ], footer: t('footer_menu'),
+    });
+    if (!res || !res.item.value) return null;
+    return ok(importResult(applyImport(store, data)));
+  } catch (e) {
+    return fail(t('importReadError', { msg: e.message }));
+  }
+}
+
+function importCommand(args, agent = 'all') {
+  if (!args.length) throw new Error(t('importFilePrompt'));
+  const result = applyImport(store, readImport(args.join(' ')), agent);
+  console.log(importResult(result));
+  return 0;
+}
+
 function findProfile(q) {
   const list = store.profiles();
   const m = /^#?(\d+)$/.exec(q);
@@ -1364,6 +1429,9 @@ function findProfile(q) {
 }
 
 function runCommand(cmd, args) {
+  if (cmd === '--version' || cmd === '-v') { console.log(require('../package.json').version); return 0; }
+  if (cmd === 'claude') return args[0] === 'import' ? importCommand(args.slice(1), 'claude') : runCommand(args[0] || 'list', args.slice(1));
+  if (cmd === 'import') return importCommand(args);
   const profiles = store.profiles();
   if (cmd === 'list' || cmd === 'ls') {
     const cliIdx = store.cliActiveIndex();
@@ -1382,6 +1450,7 @@ function runCommand(cmd, args) {
   if (cmd === 'codex') return runCodexCommand(args[0], args.slice(1));
   if (cmd === 'use' || cmd === 'switch') {
     const vscode = args.includes('--vscode');
+    if (vscode && !store.hasVsCode()) throw new Error(t('noEditor'));
     const q = args.filter((a) => a !== '--vscode').join(' ');
     const p = q && findProfile(q);
     if (!p) {
@@ -1408,6 +1477,7 @@ function findCodexProfile(q) {
 
 // `claude-providers codex list | current | use <name|#n> | default`
 function runCodexCommand(sub, args) {
+  if (sub === 'import') return importCommand(args, 'codex');
   const list = store.codexProfiles();
   if (sub === 'list' || sub === 'ls') {
     const active = store.codexActiveId();
@@ -1453,14 +1523,33 @@ function runCodexCommand(sub, args) {
 // ---- entry point -------------------------------------------------------------------
 
 async function main(argv) {
+  if (argv.length === 1 && ['--version', '-v'].includes(argv[0])) {
+    console.log(require('../package.json').version);
+    return 0;
+  }
   let settingsPath;
+  let configPath;
+  let standalone = false;
   const args = [];
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--settings') settingsPath = argv[++i];
-    else if (argv[i].startsWith('--settings=')) settingsPath = argv[i].slice('--settings='.length);
+    const option = argv[i];
+    if (option === '--standalone') standalone = true;
+    else if (option === '--settings' || option === '--config') {
+      const value = argv[++i];
+      if (!value || value.startsWith('--')) { console.error(`${option} requires a path.`); return 1; }
+      if (option === '--settings') settingsPath = value;
+      else configPath = value;
+    }
+    else if (option.startsWith('--settings=')) settingsPath = option.slice('--settings='.length);
+    else if (option.startsWith('--config=')) configPath = option.slice('--config='.length);
     else args.push(argv[i]);
   }
-  store = new Store({ settingsPath });
+  try {
+    store = new Store({ settingsPath, configPath, standalone });
+  } catch (e) {
+    console.error(e.message);
+    return 1;
+  }
   setLang(resolveLang());
 
   if (args.length) {

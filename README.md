@@ -234,7 +234,28 @@ The same switcher works for **OpenAI Codex**. Codex reads one file — `~/.codex
 
 ### Terminal app (`claude-providers`)
 
-Everything above also works **without VS Code**: `claude-providers` is a full-screen terminal menu driven by the arrow keys (no numbered items) over the same profiles. It switches the **`claude` CLI** (`~/.claude/settings.json`), the **VS Code extension** (`claudeCode.environmentVariables`) or both, and lets you add / edit / duplicate / reorder / delete providers, set API keys, pick models from the endpoint's list, test connections, check health and change the extension's settings.
+`claude-providers` is an independent full-screen terminal application with arrow-key menus. **VS Code is optional; Claude Code and Codex are independent, optional clients.** It switches `~/.claude/settings.json` and/or `~/.codex/config.toml`, and lets you add, edit, duplicate, reorder and delete providers, manage API keys and models, test connections and check health. With an editor settings file it can also switch the Claude Code VS Code extension.
+
+Download and unpack the standalone CLI ZIP from [Releases](https://github.com/lobacom/claude-provider-switcher/releases) (included from version 1.1.0), or use a copy of this repository. The installer reuses **Node.js 18+** if present; otherwise it automatically downloads a private **Node 24 LTS** runtime from nodejs.org and verifies SHA-256 before starting it. No system Node installation, npm packages or administrator access are needed:
+
+```powershell
+# Windows: run install.cmd, or:
+.\install.ps1
+# Open a new terminal after installation:
+claude-providers
+```
+
+```bash
+# Linux / macOS
+sh install.sh
+~/.local/bin/claude-providers
+```
+
+Windows adds its command directory to the user's PATH. On Linux/macOS, add `~/.local/bin` to PATH if necessary. The installer copies the runtime outside the checkout, so the downloaded source can be removed afterward. Re-run the installer from a newer checkout to update; profiles and keys are retained. Custom locations: `install.ps1 -Prefix <dir> -BinDir <dir> -NoPath` or `sh install.sh --prefix <dir> --bin-dir <dir>`. To uninstall, remove the installed runtime and launcher (paths printed by the installer), and the Windows PATH entry; retain `~/.claude-provider-switcher` to keep your profiles and keys.
+
+Bootstrap controls: `install.ps1 -PrivateNode` / `sh install.sh --private-node` forces a private runtime; `-NoNodeDownload` / `--no-node-download` disables downloads for offline installations. The private runtime stays in the CLI installation folder and is never installed by a VS Code extension update.
+
+Alternatively, install with npm:
 
 ```bash
 npm install -g github:lobacom/claude-provider-switcher   # installs the `claude-providers` command
@@ -245,8 +266,11 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 
 - **Keys:** `↑`/`↓` move, `Enter` switches (the terminal, or terminal + VS Code — set in *Settings*), `→` opens the provider's actions, `Esc` goes back / quits.
 - **Scripting:** `claude-providers list`, `claude-providers current`, `claude-providers use <name|#n> [--vscode]`; for Codex: `claude-providers codex list | current | use <name|#n> | default`.
-- **Codex:** the menu has a Codex section with the same actions (switch, switch with fallback, edit, API key, test, duplicate, reorder, delete) and *Add Codex provider…*.
-- **Where it reads from:** VS Code's user `settings.json` (auto-detected for VS Code, Insiders, VSCodium, Cursor, Windsurf; override with `--settings <path>` or `CLAUDE_PROVIDERS_VSCODE_SETTINGS`). Edits are surgical — comments and formatting in that file are preserved, and a running VS Code picks them up live.
+- **Import from the extension:** choose *Import profiles from JSON…* in the main menu, enter or drag in `claude-providers.json` / `codex-providers.json`, review the preview and choose Import. The exact extension export formats are supported, with or without keys, including Codex model lists, headers and query parameters. Existing profiles are retained; duplicates receive unique names and new ids. Import does not activate providers or create client configuration files. Without exported keys, enter them later through the profile menu. For scripts: `claude-providers import <file.json>` (auto-detects both types), `claude-providers claude import <file>` or `claude-providers codex import <file>`.
+- **Extension updates:** the CLI is optional. Updating the VSIX keeps the existing editor profiles and SecretStorage; it does not download Node.js, install or launch the CLI. The extension uses the Node runtime built into VS Code.
+- **Available clients:** sections appear independently when the `claude` / `codex` command, its configuration file or saved profiles are found. In *Settings → Claude Code section / Codex section*, choose Auto, Show or Hide. If neither client is installed, enable the desired section to configure it in advance. The absent client's files are not created by installation or by switching the other client.
+- **Profile storage:** without an editor settings file, profiles live in `~/.claude-provider-switcher/profiles.json`; CLI preferences in `cli.json` next to it. `--standalone` forces this mode even with VS Code installed. `--config <path>` (or `CLAUDE_PROVIDERS_CONFIG`) selects another standalone profile file. An existing standalone file stays selected on subsequent starts.
+- **VS Code integration:** if there is no standalone file yet, the app auto-detects an existing user `settings.json` for VS Code, Insiders, VSCodium, Cursor or Windsurf, preferring one with saved Claude or Codex profiles. `--settings <path>` / `CLAUDE_PROVIDERS_VSCODE_SETTINGS` explicitly selects editor profiles. These modes use separate profile lists; no automatic merging occurs. Comments and formatting are preserved. Standalone mode hides editor actions and never creates editor settings. Codex uses the same `config.toml` for its CLI and apps in either mode.
 - **API keys:** VS Code keeps keys in its encrypted SecretStorage, which other programs can't read. Turn on **`shareKeysWithTerminal`** and the extension mirrors them to `~/.claude-provider-switcher/keys.json` (owner-only permissions) and picks up keys you enter in the terminal. Without it the app asks for a key the first time you switch to a provider (and can reuse the one already in an applied env).
 
 ### Settings
@@ -438,7 +462,28 @@ No install needed if the extension is already there: `node ~/.vscode/extensions/
 
 ### Терминальное приложение (`claude-providers`)
 
-Всё то же самое работает и **без VS Code**: `claude-providers` — полноэкранное меню в терминале, управляемое стрелками (без номеров), поверх тех же профилей. Оно переключает **`claude` CLI** (`~/.claude/settings.json`), **расширение VS Code** (`claudeCode.environmentVariables`) или оба сразу, а также позволяет добавлять / редактировать / дублировать / переупорядочивать / удалять провайдеров, задавать API-ключи, выбирать модели из списка эндпоинта, проверять соединение и доступность и менять настройки расширения.
+`claude-providers` — самостоятельное полноэкранное приложение с меню на стрелках. **VS Code не обязателен; Claude Code и Codex тоже не зависят друг от друга.** Приложение переключает `~/.claude/settings.json` и/или `~/.codex/config.toml`, позволяет добавлять, редактировать, дублировать, переставлять и удалять провайдеров, управлять ключами и моделями, проверять соединение и доступность. При подключении настроек редактора можно также переключать расширение Claude Code в VS Code.
+
+Скачайте и распакуйте отдельный ZIP с CLI из [Releases](https://github.com/lobacom/claude-provider-switcher/releases) (появляется с версии 1.1.0) или используйте копию репозитория. Установщик использует имеющийся **Node.js 18+**, а если его нет — автоматически скачивает отдельный **Node 24 LTS** с nodejs.org и проверяет SHA-256 перед запуском. Устанавливать Node в систему вручную, ставить npm-пакеты и получать права администратора не нужно:
+
+```powershell
+# Windows: запустите install.cmd или:
+.\install.ps1
+# После установки откройте новый терминал:
+claude-providers
+```
+
+```bash
+# Linux / macOS
+sh install.sh
+~/.local/bin/claude-providers
+```
+
+Windows-инсталлятор добавляет команду в пользовательский PATH. В Linux/macOS при необходимости добавьте `~/.local/bin` в PATH. Приложение копируется отдельно от репозитория: исходную скачанную папку после установки можно удалить. Для обновления повторите установку из новой версии — профили и ключи сохранятся. Свои пути: `install.ps1 -Prefix <каталог> -BinDir <каталог> -NoPath` или `sh install.sh --prefix <каталог> --bin-dir <каталог>`. Для удаления уберите установленное приложение и файл запуска по путям, напечатанным инсталлятором, а в Windows — также запись PATH; каталог `~/.claude-provider-switcher` оставьте, если хотите сохранить профили и ключи.
+
+Параметры загрузки: `install.ps1 -PrivateNode` / `sh install.sh --private-node` принудительно выбирает отдельный runtime; `-NoNodeDownload` / `--no-node-download` запрещает скачивание для автономной установки без сети. Отдельный Node хранится в папке CLI и никогда не устанавливается при обновлении расширения VS Code.
+
+Альтернативная установка через npm:
 
 ```bash
 npm install -g github:lobacom/claude-provider-switcher   # ставит команду `claude-providers`
@@ -449,8 +494,11 @@ claude-providers                                        # интерактивн
 
 - **Клавиши:** `↑`/`↓` — выбор, `Enter` — переключить (терминал или терминал + VS Code — задаётся в *Настройках*), `→` — действия с провайдером, `Esc` — назад / выход.
 - **Для скриптов:** `claude-providers list`, `claude-providers current`, `claude-providers use <имя|#n> [--vscode]`; для Codex: `claude-providers codex list | current | use <имя|#n> | default`.
-- **Codex:** в меню есть секция Codex с теми же действиями (переключить, с резервом, редактировать, API-ключ, проверить, дублировать, порядок, удалить) и *Добавить провайдера Codex…*.
-- **Откуда берутся данные:** пользовательский `settings.json` VS Code (ищется сам для VS Code, Insiders, VSCodium, Cursor, Windsurf; другой путь — `--settings <путь>` или `CLAUDE_PROVIDERS_VSCODE_SETTINGS`). Правки точечные — комментарии и форматирование файла сохраняются, запущенный VS Code подхватывает их сразу.
+- **Импорт из расширения:** выберите *Импорт профилей из JSON…* в главном меню, укажите или перетащите `claude-providers.json` / `codex-providers.json`, просмотрите список и подтвердите импорт. Поддерживаются существующие форматы экспорта с ключами и без них, включая список моделей Codex, заголовки и параметры запроса. Старые профили сохраняются; совпадающим именам добавляется суффикс, локальные id создаются заново. Импорт не активирует провайдеров и не создаёт конфиги клиентов. Если ключи не экспортировались, задайте их позже в меню профиля. Для скриптов: `claude-providers import <файл.json>` (оба типа определяются автоматически), `claude-providers claude import <файл>` или `claude-providers codex import <файл>`.
+- **Обновления расширения:** CLI необязателен. Обновление VSIX сохраняет профили редактора и SecretStorage, не скачивает Node.js, не устанавливает и не запускает CLI. Расширение использует runtime, встроенный в VS Code.
+- **Доступные клиенты:** разделы появляются независимо — по команде `claude` / `codex`, файлу конфигурации или сохранённым профилям. В *Настройках → Раздел Claude Code / Раздел Codex* доступны Авто, Показывать и Скрыть. Если клиентов ещё нет, включите нужный раздел, чтобы настроить заранее. Установка и переключение одного клиента не создают файлы другого.
+- **Хранение профилей:** без настроек редактора используется `~/.claude-provider-switcher/profiles.json`, настройки самого меню — соседний `cli.json`. Флаг `--standalone` принудительно включает этот режим даже при установленном VS Code. `--config <путь>` или `CLAUDE_PROVIDERS_CONFIG` задаёт другой файл автономных профилей. Созданное автономное хранилище остаётся выбранным при последующих запусках.
+- **Интеграция с VS Code:** пока автономного файла нет, приложение ищет существующий пользовательский `settings.json` VS Code, Insiders, VSCodium, Cursor или Windsurf, предпочитая файл с профилями Claude или Codex. `--settings <путь>` / `CLAUDE_PROVIDERS_VSCODE_SETTINGS` явно выбирает профили редактора. У режимов отдельные списки профилей, автоматического объединения нет. Комментарии и форматирование сохраняются. В автономном режиме действия редактора скрыты, его настройки не создаются. Codex в обоих режимах использует один `config.toml` для CLI и приложений.
 - **API-ключи:** VS Code хранит ключи в зашифрованном SecretStorage, недоступном другим программам. Включите **`shareKeysWithTerminal`** — расширение продублирует их в `~/.claude-provider-switcher/keys.json` (права только владельцу) и будет подхватывать ключи, введённые в терминале. Без этого приложение спросит ключ при первом переключении на провайдера (или возьмёт его из уже применённого env).
 
 ### Настройки
@@ -636,7 +684,9 @@ claude-providers                                        # интерактивн
 
 ### 终端应用（`claude-providers`）
 
-以上功能**无需 VS Code** 也能使用：`claude-providers` 是一个用方向键操作（无编号）的全屏终端菜单，使用同一套配置。它可以切换 **`claude` CLI**（`~/.claude/settings.json`）、**VS Code 扩展**（`claudeCode.environmentVariables`）或两者，并支持添加 / 编辑 / 复制 / 排序 / 删除服务商、设置 API 密钥、从端点列表选择模型、测试连接、检查可用性以及修改扩展设置。
+`claude-providers` 是独立的全屏终端应用，通过方向键操作。**VS Code 可选，Claude Code 和 Codex 也无需同时安装。** 应用修改各自的配置文件，并支持添加、编辑、复制、排序、删除服务商，管理密钥和模型，以及测试连接。可选的编辑器集成也能切换 VS Code 的 Claude Code 扩展。
+
+从 [Releases](https://github.com/lobacom/claude-provider-switcher/releases) 下载独立 CLI ZIP（从 1.1.0 开始提供）或使用本仓库源码。Windows 运行 `install.cmd` 或 `./install.ps1`；Linux/macOS 运行 `sh install.sh`。若没有可用的 **Node.js 18+**，安装器会从 nodejs.org 自动下载私有 **Node 24 LTS** 并验证 SHA-256，无需系统安装、npm 依赖或管理员权限。Windows 自动添加用户 PATH；Linux/macOS 启动器位于 `~/.local/bin/claude-providers`。重新运行安装器可更新并保留配置。`-PrivateNode` / `--private-node` 强制私有运行时；`-NoNodeDownload` / `--no-node-download` 禁止下载。也可通过 npm 安装：
 
 ```bash
 npm install -g github:lobacom/claude-provider-switcher   # 安装 `claude-providers` 命令
@@ -647,8 +697,11 @@ claude-providers                                        # 交互式菜单
 
 - **按键：** `↑`/`↓` 移动，`Enter` 切换（终端，或终端 + VS Code —— 在*设置*中选择），`→` 打开服务商操作，`Esc` 返回 / 退出。
 - **脚本：** `claude-providers list`、`claude-providers current`、`claude-providers use <名称|#n> [--vscode]`。
-- **Codex：** 菜单中有 Codex 分区，操作相同（切换、带回退切换、编辑、API 密钥、测试、复制、排序、删除），以及 *添加 Codex 服务商…*；脚本：`claude-providers codex list | current | use <名称|#n> | default`。
-- **数据来源：** VS Code 用户 `settings.json`（自动查找 VS Code、Insiders、VSCodium、Cursor、Windsurf；可用 `--settings <路径>` 或 `CLAUDE_PROVIDERS_VSCODE_SETTINGS` 指定）。修改是精确的 —— 文件中的注释和格式会保留，运行中的 VS Code 会立即读取。
+- **导入：** 主菜单选择 *从 JSON 导入配置…*，输入或拖入扩展导出的 `claude-providers.json` / `codex-providers.json`，预览并确认。支持可选密钥、Codex 模型列表、请求头和查询参数。保留现有配置，为重复名称生成唯一名称和新 id；导入不激活服务商或创建客户端配置。命令：`claude-providers import <file.json>`，或 `claude-providers claude import <file>` / `claude-providers codex import <file>`。
+- **扩展更新：** CLI 为可选功能。更新 VSIX 保留编辑器配置和 SecretStorage，不下载 Node、不安装或运行 CLI；扩展使用 VS Code 自带的运行时。
+- **客户端：** 根据 `claude` / `codex` 命令、配置文件或已保存配置独立显示区域。在设置中可选择自动、显示或隐藏，尚未安装客户端时也可提前配置。安装或切换另一客户端不会创建缺失客户端的配置文件。Codex 命令：`claude-providers codex list | current | use <名称|#n> | default`。
+- **独立存储：** 没有编辑器设置时使用 `~/.claude-provider-switcher/profiles.json`，菜单设置位于相邻的 `cli.json`。`--standalone` 强制独立模式；`--config <路径>` / `CLAUDE_PROVIDERS_CONFIG` 指定独立配置文件。已有独立配置会保持选中。
+- **编辑器集成：** 尚无独立配置时自动查找已有的 VS Code、Insiders、VSCodium、Cursor、Windsurf 用户 `settings.json`，优先使用包含 Claude 或 Codex 配置的文件。`--settings <路径>` / `CLAUDE_PROVIDERS_VSCODE_SETTINGS` 显式选择编辑器配置。两种模式的列表不自动合并。注释和格式保留，独立模式隐藏编辑器操作且不创建编辑器设置。Codex 在两种模式下均使用同一个 `config.toml`。
 - **API 密钥：** VS Code 将密钥保存在加密的 SecretStorage 中，其他程序无法读取。开启 **`shareKeysWithTerminal`** 后，扩展会把密钥同步到 `~/.claude-provider-switcher/keys.json`（仅所有者可读），并读取在终端中输入的密钥。未开启时，首次切换到某服务商时应用会询问密钥（或复用已应用环境变量中的密钥）。
 
 ### 设置项
